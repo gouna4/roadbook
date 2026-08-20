@@ -196,3 +196,70 @@ el('clear').addEventListener('click',()=>{
   setStatus('');
 });
 
+
+/* ================= route in je zak =================
+   De lijn en de afslagen los opslaan, zodat je onderweg de app kunt afsluiten
+   — of je telefoon opnieuw kan opstarten — en tóch verder kunt rijden. Een
+   route berekenen heeft internet nodig; hem rijden niet meer.
+
+   De afslagen worden opgeslagen als "hoeveel kilometer vanaf het begin" en
+   niet als vormpunt-nummer. Daardoor blijven ze kloppen, ook als de lijn
+   uitgedund moet worden om in de opslag te passen. */
+function ritOpslaan(){
+  const v=state.variants?.[state.shown];
+  if(!v?.shape?.length || typeof afslagen!=='function') return;
+  const cum=cumulative(v.shape);
+  const rit={ at:Date.now(),
+    naam:((el('start').value||'Vertrek')+' → '+(el('dest').value||'Bestemming')).slice(0,70),
+    km:+cum[cum.length-1].toFixed(1), sec:v.sec||0,
+    shape:v.shape.map(c=>[+c[0].toFixed(5),+c[1].toFixed(5)]),
+    man:afslagen(v,cum).map(m=>({km:+m.km.toFixed(3),tekst:m.tekst})) };
+
+  if(!store.set('rb.rit',rit)){
+    rit.shape=simplify(v.shape,0.02);
+    rit.uitgedund=true;
+    if(!store.set('rb.rit',rit)) return;
+  }
+  ritBlokBij();
+}
+
+function ritBlokBij(){
+  const r=store.get('rb.rit');
+  const blok=el('ritBlock');
+  if(!blok) return;
+  if(!r?.shape?.length){ blok.hidden=true; return; }
+  blok.hidden=false;
+  const dag=new Date(r.at).toLocaleDateString('nl-NL',{day:'numeric',month:'short'});
+  el('ritInfo').innerHTML=`<b>${r.naam}</b><br>`
+    +`${Math.round(r.km)} km · ${r.man.length} afslagen · bewaard ${dag}<br>`
+    +`Deze rit staat in je telefoon. Rijden kan zonder bereik — alleen nieuwe `
+    +`kaartstukjes heb je internet voor nodig.`;
+}
+
+function ritHerstellen(){
+  const r=store.get('rb.rit');
+  if(!r?.shape?.length){ setStatus('Er staat geen rit in je telefoon.',true); return false; }
+  runSeq++;
+  state.fast={shape:[],km:0,sec:0};
+  state.mids=[]; state.pois=[]; state.stays=[]; state.points=[];
+  state.along=null; state.extraRows=[];
+  clearAlong(); clearMarkers();
+  state.variants={ rit:{ shape:r.shape, man:r.man, km:r.km, sec:r.sec,
+    prof:curveProfile(r.shape), color:'#E0B354', label:'Uit je telefoon' } };
+  map.getSource('fast').setData(EMPTY);
+  applyVariant('rit');
+  map.fitBounds(r.shape.reduce((bb,c)=>bb.extend(c),
+    new maplibregl.LngLatBounds(r.shape[0],r.shape[0])),{padding:60,duration:800});
+  setStatus(`"${r.naam}" staat op de kaart: ${Math.round(r.km)} km. `
+    +`Druk op Rijmodus — hier heb je geen internet voor nodig.`);
+  return true;
+}
+
+el('ritGo').addEventListener('click',()=>{
+  if(ritHerstellen() && typeof startDrive==='function') startDrive();
+});
+el('ritDrop').addEventListener('click',()=>{
+  store.set('rb.rit',null);
+  el('ritBlock').hidden=true;
+  setStatus('De bewaarde rit is weg. De volgende route die je plant komt er weer in.');
+});

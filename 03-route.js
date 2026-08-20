@@ -48,9 +48,16 @@ async function planRoute(points, mode='tour', lv=level){
     err.code=code;
     throw err;
   }
-  return { shape:j.trip.legs.flatMap(l=>decodePolyline6(l.shape)),
-           man:j.trip.legs.flatMap(l=>l.maneuvers||[]),
-           km:j.trip.summary.length, sec:j.trip.summary.time };
+  /* De server nummert de vormpunten per deelstuk opnieuw, maar wij plakken de
+     delen aan elkaar. Zonder deze verschuiving wijzen alle afslagen na de
+     eerste tussenstop naar het begin van de rit. */
+  const shape=[], man=[];
+  for(const l of j.trip.legs){
+    const off=shape.length;
+    for(const m of (l.maneuvers||[])) man.push({...m, begin_shape_index:(m.begin_shape_index||0)+off});
+    for(const c of decodePolyline6(l.shape)) shape.push(c);
+  }
+  return { shape, man, km:j.trip.summary.length, sec:j.trip.summary.time };
 }
 
 async function handoverPoint(start,dest,km){

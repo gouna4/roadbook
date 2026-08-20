@@ -178,13 +178,26 @@ el('offFind').addEventListener('click',async()=>{
   finally{ btn.classList.remove('busy'); btn.disabled=false; }
 });
 el('offShow').addEventListener('click',()=>{ offVisible=!offVisible; drawOffroad(); });
-el('offRadius').addEventListener('change',saveSettings);
-el('offWhere').addEventListener('change',saveSettings);
+/* saveSettings() staat in 10-uitvoer.js, dus bij het inladen bestaat de naam
+   hier nog niet. Daarom in een pijlfunctie: dan wordt hij pas opgezocht als
+   je er echt op klikt, en dat is altijd na het inladen. */
+el('offRadius').addEventListener('change',()=>saveSettings());
+el('offWhere').addEventListener('change',()=>saveSettings());
 
 /* ================= rijmodus met stem =================
-   Grote letters, gesproken afslagen, scherm blijft aan. Alles in de browser,
-   niets kost geld. Bedoeld voor in de telefoonhouder. */
-const drive={ on:false, watch:null, lock:null, stem:true, gezegd:new Set(), cum:null, man:null, shape:null };
+   De kaart vult het scherm en draait met je mee, zoals in een navigatie:
+   instructie boven, cijfers onder, je eigen pijl in het midden. Grote
+   letters, gesproken afslagen, scherm blijft aan.
+
+   Dit werkt ook zonder bereik: gps komt van de satellieten en de route en de
+   afslagen zitten al in het geheugen. Alleen nieuwe kaartstukjes en een
+   nieuwe berekening hebben internet nodig. */
+const drive={ on:false, watch:null, lock:null, stem:true, gezegd:new Set(),
+              shape:null, cum:null, man:null, sec:0,
+              volgen:true, noord:false, koers:0, pos:null, idx:0, mij:null,
+              spoor:[], spoorRit:false, terugGezegd:0, gedaanIdx:-1 };
+
+const AF_KM=0.25;   /* meer dan 250 meter naast de lijn heet "van de route af" */
 
 function zeg(tekst){
   if(!drive.stem||!('speechSynthesis' in window)) return;
@@ -195,28 +208,220 @@ function zeg(tekst){
   }catch{}
 }
 
-function dichtstbij(shape,lat,lon){
-  let best=0,bd=Infinity;
-  for(let i=0;i<shape.length;i++){
-    const d=haversine(shape[i],[lon,lat]);
-    if(d<bd){ bd=d; best=i; }
+const afst=km=> km<1 ? Math.round(km*100)*10+' m' : km.toFixed(1)+' km';
+
+/* Afslagen op één noemer: hoeveel kilometer vanaf het begin, en wat je moet
+   doen. Zo werkt het zowel met een verse route van de server als met een
+   route die uit je eigen opslag komt. */
+function afslagen(v,cum){
+  const m=v.man||[];
+  if(!m.length) return [];
+  if(m[0].km!=null) return m.filter(x=>x.tekst);
+  return m.map(x=>({ km:cum[Math.min(cum.length-1,Math.max(0,x.begin_shape_index||0))],
+                     tekst:(x.instruction||'').trim() }))
+          .filter(x=>x.tekst);
+}
+
+/* Waar op de route ben je? Eerst kijken we vlak bij waar je net was — dat is
+   zuinig voor de accu bij een route van duizenden punten. Levert dat niets
+   op, dan zoeken we de hele route af, want dan ben je echt kwijt. */
+function dichtstbij(shape,lat,lon,rond){
+  const zoek=(van,tot)=>{
+    let bi=van,bd=Infinity;
+    for(let i=van;i<tot;i++){ const d=haversine(shape[i],[lon,lat]); if(d<bd){bd=d;bi=i;} }
+    return {i:bi,off:bd};
+  };
+  if(rond!=null){
+    const r=zoek(Math.max(0,rond-250),Math.min(shape.length,rond+450));
+    if(r.off<0.4) return r;
   }
-  return {i:best,off:bd};
+  return zoek(0,shape.length);
+}
+
+/* Welke kant op, in gewone taal — met handschoenen aan lees je geen graden. */
+function kant(g){
+  g=(g%360+360)%360;
+  if(g<20||g>=340) return 'rechtdoor';
+  if(g<70) return 'rechts voor je';
+  if(g<110) return 'rechts';
+  if(g<160) return 'rechts achter je';
+  if(g<200) return 'achter je';
+  if(g<250) return 'links achter je';
+  if(g<290) return 'links';
+  return 'links voor je';
+}
+
+function mijMarker(){
+  if(drive.mij) return drive.mij;
+  const d=document.createElement('div');
+  d.className='mk mij';
+  d.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 2 L20 21 L12 16.5 L4 21 Z"'
+    +' fill="#FF5A1F" stroke="#0B0E11" stroke-width="1.4"/></svg>';
+  drive.mij=new maplibregl.Marker({element:d,rotationAlignment:'map',pitchAlignment:'map'});
+  return drive.mij;
+}
+
+function naviCam(){
+  if(!drive.volgen||!drive.pos) return;
+  map.easeTo({ center:drive.pos, bearing:drive.noord?0:drive.koers,
+    pitch:drive.noord?0:52, duration:900, easing:t=>t });
+}
+
+/* Het stuk dat je al gehad hebt grijs maken, zodat je in één oogopslag ziet
+   welke kant je op moet. Alleen bijwerken als je echt opgeschoten bent: elke
+   seconde een lijn van duizenden punten hertekenen kost accu voor niets. */
+function tekenGedaan(i){
+  if(drive.gedaanIdx>=0 && i-drive.gedaanIdx<8) return;
+  drive.gedaanIdx=i;
+  map.getSource('gedaan')?.setData({type:'Feature',properties:{},
+    geometry:{type:'LineString',coordinates:drive.shape.slice(0,Math.max(2,i+1))}});
+}
+
+/* Broodkruimels: elke ~40 meter een punt van waar je gereden hebt. Zo kun je
+   altijd terug over de weg die je kwam, ook als de route je niet meer helpt.
+   Wordt tussentijds opgeslagen, want een telefoon die opnieuw opstart mag je
+   spoor niet wegvagen. */
+function spoorBij(lon,lat){
+  const p=[+lon.toFixed(5),+lat.toFixed(5)];
+  const vorig=drive.spoor[drive.spoor.length-1];
+  if(vorig && haversine(vorig,p)<0.04) return;
+  drive.spoor.push(p);
+  if(drive.spoor.length>8000) drive.spoor.splice(0,2000);
+  map.getSource('spoor')?.setData({type:'Feature',properties:{},
+    geometry:{type:'LineString',coordinates:drive.spoor.length>1?drive.spoor:[]}});
+  if(drive.spoor.length%15===0) store.set('rb.spoor',drive.spoor);
+}
+
+/* Waar pak je de route weer op? Het dichtstbijzijnde punt is niet altijd het
+   handigste: mis je een afslag, dan ligt het stuk waar je vandaan komt vaak
+   dichterbij dan het stuk waar je heen wilde. Daarom zoeken we ook vooruit,
+   en kiezen we dat zolang het niet veel verder is. */
+function herintrede(lat,lon){
+  const dicht=dichtstbij(drive.shape,lat,lon,drive.idx);
+  let bi=-1,bd=Infinity;
+  for(let i=drive.idx;i<drive.shape.length;i++){
+    const d=haversine(drive.shape[i],[lon,lat]);
+    if(d<bd){ bd=d; bi=i; }
+  }
+  if(bi>drive.idx && bd<dicht.off*1.7+0.4) return {i:bi,af:bd,vooruit:true};
+  return {i:dicht.i,af:dicht.off,vooruit:false};
+}
+
+function vanDeRouteAf(lat,lon){
+  const her=herintrede(lat,lon);
+  const doel=drive.shape[her.i];
+  const rel=bearing([lon,lat],doel)-drive.koers;
+  const verder=Math.max(0,drive.cum[her.i]-drive.cum[drive.idx]);
+
+  el('dNext').textContent='Terug naar de route';
+  el('dDist').textContent=afst(her.af);
+  el('dThen').textContent = her.vooruit && verder>0.3
+    ? `De route pakt je ${afst(verder)} verderop weer op — ${kant(rel)}`
+    : `Het dichtstbijzijnde punt ligt ${kant(rel)}`;
+
+  const a=el('dArrow'); a.hidden=false;
+  a.firstElementChild.style.transform=`rotate(${Math.round((rel%360+360)%360)}deg)`;
+  map.getSource('terug')?.setData({type:'Feature',properties:{},
+    geometry:{type:'LineString',coordinates:[[lon,lat],doel]}});
+
+  const nu=Date.now();
+  if(nu-drive.terugGezegd>45000){
+    drive.terugGezegd=nu;
+    zeg(`Je bent van de route af. Terug naar de route: ${afst(her.af)}, ${kant(rel)}.`);
+  }
+}
+
+function driveTick(pos){
+  if(!drive.on) return;
+  const {latitude:la,longitude:lo,speed,heading}=pos.coords;
+
+  /* Koers: van de telefoon als hij die weet, anders zelf uitrekenen uit je
+     vorige plek. Stilstaand weet niemand welke kant je op kijkt, dan houden
+     we de laatste koers vast. */
+  if(heading!=null && !isNaN(heading) && (speed==null||speed>1.5)) drive.koers=heading;
+  else if(drive.pos && haversine(drive.pos,[lo,la])>0.012) drive.koers=bearing(drive.pos,[lo,la]);
+  drive.pos=[lo,la];
+
+  mijMarker().setLngLat(drive.pos).setRotation(drive.koers).addTo(map);
+  naviCam();
+  spoorBij(lo,la);
+  el('dSpeed').textContent=(speed!=null&&speed>=0?Math.round(speed*3.6):'—')+' km/u';
+
+  const hier=dichtstbij(drive.shape,la,lo,drive.idx);
+  if(hier.off>AF_KM){ vanDeRouteAf(la,lo); return; }
+
+  drive.idx=hier.i;
+  el('dArrow').hidden=true;
+  map.getSource('terug')?.setData(EMPTY);
+  tekenGedaan(hier.i);
+
+  const gereden=drive.cum[hier.i];
+  const totaal=drive.cum[drive.cum.length-1];
+  const over=Math.max(0,totaal-gereden);
+  el('dLeft').textContent=over.toFixed(0)+' km';
+  const restSec=drive.sec?drive.sec*(over/Math.max(0.1,totaal)):0;
+  el('dEta').textContent=restSec?new Date(Date.now()+restSec*1000).toTimeString().slice(0,5):'—';
+
+  const volg=drive.man.find(m=>m.km>gereden+0.02);
+  if(!volg){
+    el('dNext').textContent=over<0.2?'Je bent er':'Rechtdoor';
+    el('dDist').textContent=afst(over);
+    el('dThen').textContent='';
+    if(over<0.2 && !drive.gezegd.has('eind')){ drive.gezegd.add('eind'); zeg('Je bent er. Goede rit gehad.'); }
+    return;
+  }
+  const naar=volg.km-gereden;
+  el('dNext').textContent=volg.tekst.replace(/\.$/,'');
+  el('dDist').textContent=afst(naar);
+  const later=drive.man[drive.man.indexOf(volg)+1];
+  el('dThen').textContent=later?('Daarna: '+later.tekst):'';
+
+  const id='m'+volg.km.toFixed(3);
+  if(naar<0.4 && !drive.gezegd.has(id+'v')){
+    drive.gezegd.add(id+'v');
+    zeg(`Over ${Math.round(naar*1000/50)*50} meter, ${volg.tekst}`);
+  }
+  if(naar<0.06 && !drive.gezegd.has(id+'n')){
+    drive.gezegd.add(id+'n');
+    zeg('Nu '+volg.tekst);
+  }
+}
+
+/* Welke lijn volgen we? Een geplande route, een route uit de opslag, of je
+   eigen spoor terug — allemaal via dezelfde weg naar binnen. */
+function rijRouteUit(v){
+  drive.shape=v.shape;
+  drive.cum=cumulative(v.shape);
+  drive.sec=v.sec||0;
+  drive.man=afslagen(v,drive.cum);
+  drive.idx=0; drive.gedaanIdx=-1; drive.gezegd.clear();
 }
 
 async function startDrive(){
   const v=state.variants?.[state.shown];
   if(!v?.shape?.length){ setStatus('Plan eerst een route.',true); return; }
   if(!navigator.geolocation){ setStatus('Je browser geeft je locatie niet door.',true); return; }
-  drive.shape=v.shape; drive.cum=cumulative(v.shape); drive.man=v.man||[];
-  drive.gezegd.clear(); drive.on=true;
+  rijRouteUit(v);
+  drive.on=true; drive.pos=null; drive.volgen=true; drive.spoorRit=false;
+  drive.spoor=[]; drive.terugGezegd=0;
+
+  document.body.classList.add('rijden');
   el('drive').hidden=false;
+  el('dRecenter').hidden=true;
+  el('dArrow').hidden=true;
   el('dNext').textContent='Wachten op gps…';
   el('dDist').textContent='—';
+  el('dThen').textContent='';
+  el('dTrack').classList.remove('on');
+  el('dTrack').textContent='↩ Terug over mijn spoor';
+  map.resize();
+  map.easeTo({zoom:15,pitch:drive.noord?0:52,duration:600});
+
   try{ drive.lock=await navigator.wakeLock?.request('screen'); }catch{}
   zeg('Rijmodus aan. Goede rit.');
   drive.watch=navigator.geolocation.watchPosition(driveTick,
-    ()=>{ el('dNext').textContent='Geen gps-signaal'; },
+    ()=>{ el('dNext').textContent='Geen gps-signaal';
+          el('dThen').textContent='Even wachten — onder een dak vindt hij de satellieten niet'; },
     {enableHighAccuracy:true,maximumAge:2000,timeout:15000});
 }
 
@@ -227,53 +432,14 @@ function stopDrive(){
   try{ drive.lock?.release(); }catch{}
   drive.lock=null;
   try{ speechSynthesis.cancel(); }catch{}
+  try{ drive.mij?.remove(); }catch{}
+  map.getSource('terug')?.setData(EMPTY);
+  map.getSource('gedaan')?.setData(EMPTY);
+  document.body.classList.remove('rijden');
   el('drive').hidden=true;
-}
-
-function driveTick(pos){
-  if(!drive.on) return;
-  const {latitude:la,longitude:lo,speed}=pos.coords;
-  const hier=dichtstbij(drive.shape,la,lo);
-  const gereden=drive.cum[hier.i];
-  const totaal=drive.cum[drive.cum.length-1];
-  const over=Math.max(0,totaal-gereden);
-
-  el('dSpeed').textContent=(speed!=null&&speed>=0?Math.round(speed*3.6):'—')+' km/u';
-  el('dLeft').textContent=over.toFixed(0)+' km';
-  const v=state.variants[state.shown];
-  const restSec=v.sec?v.sec*(over/Math.max(1,v.km)):0;
-  const eta=new Date(Date.now()+restSec*1000);
-  el('dEta').textContent=restSec?eta.toTimeString().slice(0,5):'—';
-
-  if(hier.off>0.25){
-    el('dNext').textContent='Van de route af';
-    el('dDist').textContent=hier.off<1?Math.round(hier.off*1000)+' m':hier.off.toFixed(1)+' km';
-    el('dThen').textContent='Rijd terug naar je route';
-    return;
-  }
-
-  const volgende=drive.man.find(m=>m.begin_shape_index>hier.i+1);
-  if(!volgende){
-    el('dNext').textContent=over<0.2?'Je bent er':'Rechtdoor';
-    el('dDist').textContent=over.toFixed(1)+' km';
-    el('dThen').textContent='';
-    return;
-  }
-  const naar=Math.max(0,drive.cum[volgende.begin_shape_index]-gereden);
-  el('dNext').textContent=(volgende.instruction||'Rechtdoor').replace(/\.$/,'');
-  el('dDist').textContent=naar<1?Math.round(naar/0.01)*10+' m':naar.toFixed(1)+' km';
-  const later=drive.man[drive.man.indexOf(volgende)+1];
-  el('dThen').textContent=later?('Daarna: '+(later.instruction||'')):'';
-
-  const id=volgende.begin_shape_index;
-  if(naar<0.4 && !drive.gezegd.has(id+'v')){
-    drive.gezegd.add(id+'v');
-    zeg(`Over ${Math.round(naar*1000/50)*50} meter, ${volgende.instruction||''}`);
-  }
-  if(naar<0.06 && !drive.gezegd.has(id+'n')){
-    drive.gezegd.add(id+'n');
-    zeg('Nu ' + (volgende.instruction||''));
-  }
+  map.resize();
+  map.easeTo({pitch:0,bearing:0,duration:500});
+  if(drive.spoor.length>1) store.set('rb.spoor',drive.spoor);
 }
 
 el('driveBtn').addEventListener('click',startDrive);
@@ -283,5 +449,59 @@ el('dMute').addEventListener('click',()=>{
   el('dMute').textContent=drive.stem?'🔊 Stem aan':'🔇 Stem uit';
   if(!drive.stem) try{ speechSynthesis.cancel(); }catch{}
 });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&drive.on) stopDrive(); });
 
+el('dNorth').addEventListener('click',()=>{
+  drive.noord=!drive.noord;
+  el('dNorth').classList.toggle('on',drive.noord);
+  el('dNorth').textContent=drive.noord?'🧭 Noorden boven':'🧭 Meedraaien';
+  drive.volgen=true; el('dRecenter').hidden=true;
+  if(drive.pos) map.easeTo({center:drive.pos,bearing:drive.noord?0:drive.koers,
+    pitch:drive.noord?0:52,duration:600});
+});
+
+el('dRecenter').addEventListener('click',()=>{
+  drive.volgen=true; el('dRecenter').hidden=true; naviCam();
+});
+
+/* Zelf de kaart verschuiven zet het meevolgen uit — anders vecht je met de
+   app. Met de knop pak je het weer op. */
+['dragstart','rotatestart','pitchstart','zoomstart'].forEach(ev=>map.on(ev,e=>{
+  if(drive.on && drive.volgen && e.originalEvent){
+    drive.volgen=false; el('dRecenter').hidden=false;
+  }
+}));
+
+/* Verdwaald? Dan wordt je eigen spoor de route: precies terug over de weg die
+   je kwam. Werkt zonder bereik, want het spoor komt van je eigen gps. */
+el('dTrack').addEventListener('click',()=>{
+  if(drive.spoorRit){
+    const v=state.variants?.[state.shown];
+    if(!v?.shape?.length) return;
+    rijRouteUit(v);
+    drive.spoorRit=false;
+    el('dTrack').classList.remove('on');
+    el('dTrack').textContent='↩ Terug over mijn spoor';
+    zeg('Weer op de geplande route.');
+    return;
+  }
+  const s=drive.spoor.length>2?drive.spoor:store.get('rb.spoor',[]);
+  if(s.length<3){
+    el('dThen').textContent='Er is nog geen spoor om over terug te rijden';
+    zeg('Er is nog geen spoor om over terug te rijden.');
+    return;
+  }
+  rijRouteUit({shape:[...s].reverse(), sec:0, man:[]});
+  drive.spoorRit=true;
+  el('dTrack').classList.add('on');
+  el('dTrack').textContent='↩ Terug naar de route';
+  zeg('Je rijdt nu terug over je eigen spoor.');
+});
+
+/* Het verzoek om het scherm aan te houden vervalt als de telefoon op slot
+   gaat. Bij terugkomen opnieuw vragen, anders valt het scherm alsnog uit. */
+document.addEventListener('visibilitychange',async()=>{
+  if(!drive.on || document.visibilityState!=='visible') return;
+  try{ drive.lock=await navigator.wakeLock?.request('screen'); }catch{}
+});
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&drive.on) stopDrive(); });

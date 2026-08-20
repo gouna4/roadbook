@@ -176,6 +176,8 @@ function applyVariant(k){
   renderRoadbook(state.points,state.pois,state.stays,cum);
   renderAlts(); renderAltsMap();
   if(typeof renderTurns==='function') renderTurns();
+  /* Meteen in de opslag, zodat je deze rit ook zonder bereik kunt rijden. */
+  if(typeof ritOpslaan==='function') ritOpslaan();
   if(typeof sheetSamenvatting==='function') sheetSamenvatting();
   if(typeof showWeather==='function') showWeather();
   if(typeof showElevation==='function') showElevation();

@@ -62,7 +62,10 @@ el('depTime').addEventListener('change',()=>{
   const v=state.variants?.[state.shown];
   if(v) el('sumEta').textContent=aankomst(state.fast.sec+v.sec,v.imported);
 });
-el('checkDist').addEventListener('change',saveSettings);
+/* saveSettings() staat in 10-uitvoer.js, dus bij het inladen bestaat de naam
+   hier nog niet. Daarom in een pijlfunctie: dan wordt hij pas opgezocht als
+   je er echt op klikt, en dat is altijd na het inladen. */
+el('checkDist').addEventListener('change',()=>saveSettings());
 function loopVeld(){
   const aan=el('loopOn').checked;
   el('loopKm').disabled=!aan;

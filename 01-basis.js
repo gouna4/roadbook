@@ -143,6 +143,23 @@ map.on('load',()=>{
     paint:{'line-color':'#000','line-width':20,'line-opacity':0.01},
     layout:{'line-cap':'round','line-join':'round'}});
 
+  /* Lagen voor de rijmodus: je eigen spoor, het stuk dat je al gehad hebt,
+     en de stippellijn terug naar de route als je een afslag mist. */
+  map.addSource('spoor',{type:'geojson',data:EMPTY});
+  map.addLayer({id:'spoor-line',type:'line',source:'spoor',
+    paint:{'line-color':'#3FC4F0','line-width':3,'line-opacity':.85},
+    layout:{'line-cap':'round','line-join':'round'}});
+
+  map.addSource('gedaan',{type:'geojson',data:EMPTY});
+  map.addLayer({id:'gedaan-line',type:'line',source:'gedaan',
+    paint:{'line-color':'#5A646C','line-width':5,'line-opacity':.95},
+    layout:{'line-cap':'round','line-join':'round'}});
+
+  map.addSource('terug',{type:'geojson',data:EMPTY});
+  map.addLayer({id:'terug-line',type:'line',source:'terug',
+    paint:{'line-color':'#FF5A1F','line-width':4,'line-dasharray':[1.2,1]},
+    layout:{'line-cap':'butt','line-join':'round'}});
+
   setBase(store.get('rb.base','kleur'));
   enableDragShaping();
 });
