@@ -112,9 +112,12 @@
 
   /* routekeuze */
   .chips{display:flex;flex-wrap:wrap;gap:6px}
-  .chips button{border:1px solid var(--hair);border-radius:20px;padding:7px 13px;
+  .chips button{border:1px solid var(--hair);border-radius:20px;padding:7px 13px 7px 10px;
     font-family:var(--display);text-transform:uppercase;letter-spacing:.07em;
-    font-size:11.5px;font-weight:600;color:var(--muted)}
+    font-size:11.5px;font-weight:600;color:var(--muted);
+    display:inline-flex;align-items:center;gap:6px}
+  .chips button svg{width:15px;height:15px;flex:0 0 auto;fill:none;
+    stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
   .chips button:hover{border-color:var(--paper);color:var(--paper)}
   .chips button.on{background:var(--brass);border-color:var(--brass);color:var(--ink)}
   .chips button.busy{opacity:.5;cursor:wait}
@@ -232,7 +235,7 @@
 <aside class="panel">
   <div class="masthead">
     <h1>Road<span>book</span></h1>
-    <p>Bochtige routes over OpenStreetMap. Geen account, geen kosten.</p>
+    <p>Bochtige routes over OpenStreetMap. <span style="color:var(--brass)">versie 8</span></p>
   </div>
 
   <div class="block">
@@ -314,13 +317,13 @@
     <p class="hint" style="margin-top:9px">Klik een route aan, in het paneel of op de kaart.</p>
   </div>
 
-  <div class="block" id="alongBlock" hidden>
+  <div class="block" id="alongBlock">
     <div class="eyebrow">Onderweg</div>
     <div class="chips" id="alongChips">
-      <button data-k="fuel">Tanken</button>
-      <button data-k="food">Eten</button>
-      <button data-k="cafe">Koffie</button>
-      <button data-k="moto">Motorzaak</button>
+      <button data-k="fuel"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 15V4a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 10 4v11M2.5 15h9M5 7h4M12 5.5l2 2V12a1.2 1.2 0 0 0 2.4 0V6.5"/></svg>Tanken</button>
+      <button data-k="food"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4.5 2.5v4a1.8 1.8 0 0 0 3.6 0v-4M6.3 6.5V15M12.5 2.5c-1.4 0-2.2 1.6-2.2 3.4s.8 2.9 2.2 2.9V15"/></svg>Eten</button>
+      <button data-k="cafe"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3.5 5h8v4.5a3.5 3.5 0 0 1-3.5 3.5H7a3.5 3.5 0 0 1-3.5-3.5V5zM11.5 6h1.6a1.9 1.9 0 0 1 0 3.8h-1.6M2.5 15.5h10"/></svg>Koffie</button>
+      <button data-k="moto"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M13.5 2.5a3.3 3.3 0 0 0-4.4 4.4l-5 4.6a1.6 1.6 0 0 0 2.2 2.2l4.6-5a3.3 3.3 0 0 0 4.4-4.4l-2 2-1.7-.5-.5-1.7z"/></svg>Motorzaak</button>
     </div>
     <p class="inline" style="margin-top:12px">
       Tank goed voor <input type="number" id="tankKm" min="0" max="900" step="25" value="0"> km
@@ -1099,18 +1102,21 @@ const ALONG={
 
 async function findAlong(kind,shape,corridor=2.5){
   const c=ALONG[kind];
+  /* Geen ["name"] eisen: veel tankstations staan alleen met hun merk in OSM. */
   const q=`[out:json][timeout:25][bbox:${bboxOf(shape,0.02)}];(
-    nwr${c.tag}["name"];
+    nwr${c.tag};
   );out center 600;`;
   const j=await overpass(q);
   const line=coarse(shape), lcum=cumulative(line), out=[];
   for(const e of (j.elements||[])){
     const lat=e.lat??e.center?.lat, lon=e.lon??e.center?.lon;
-    if(lat==null||!e.tags?.name) continue;
+    if(lat==null||!e.tags) continue;
     const a=placeAlong(line,lcum,{lat,lon});
     if(a.off>corridor) continue;
-    out.push({ name:e.tags.name, lat, lon, kind:c.naam, atKm:a.km, off:a.off,
-      brand:e.tags.brand||'', open:e.tags.opening_hours||'' });
+    out.push({ name:e.tags.name||e.tags.brand||e.tags.operator||c.naam,
+      lat, lon, kind:c.naam, atKm:a.km, off:a.off,
+      brand:(e.tags.brand&&e.tags.brand!==e.tags.name)?e.tags.brand:'',
+      open:e.tags.opening_hours||'' });
   }
   return out.sort((a,b)=>a.atKm-b.atKm);
 }
@@ -1213,7 +1219,6 @@ function applyVariant(k){
   el('sumCurve').textContent=String(v.prof.score);
   el('sumStops').textContent=String(state.mids.length);
   el('summary').hidden=false; el('legend').hidden=false; el('exports').hidden=false;
-  el('alongBlock').hidden=false;
 
   /* bochtigste stukken en tankstops als extra regels in het roadbook */
   const base=state.fast.km, extra=[];
@@ -1475,7 +1480,9 @@ document.querySelectorAll('#alongChips button').forEach(btn=>{
       if(state.cum) renderRoadbook(state.points,state.pois,state.stays,state.cum);
       return;
     }
-    if(!state.tourShape?.length) return;
+    if(!state.tourShape?.length){
+      setStatus('Plan eerst een route, dan zoek ik dit langs je rit.'); return;
+    }
     document.querySelectorAll('#alongChips button').forEach(b=>b.classList.remove('on'));
     clearAlong(); btn.classList.add('busy');
     try{
@@ -1630,7 +1637,7 @@ el('clear').addEventListener('click',()=>{
   map.getSource('route').setData(EMPTY); map.getSource('fast').setData(EMPTY);
   el('summary').hidden=true; el('exports').hidden=true; el('legend').hidden=true;
   el('altBlock').hidden=true; el('tourBlock').hidden=true; el('routeList').innerHTML='';
-  el('alongBlock').hidden=true; el('alongList').innerHTML='';
+  el('alongList').innerHTML='';
   clearAlong(); state.along=null; state.extraRows=[]; state.variants={}; state.shown=null;
   document.querySelectorAll('#alongChips button').forEach(b=>b.classList.remove('on'));
   el('roadbook').innerHTML='<p class="empty">Vul vertrek en bestemming in en plan je route. Tik op de kaart om ergens een tussenstop neer te zetten, of sleep de route zelf een andere kant op.</p>';
