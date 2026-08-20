@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roadbook — motortour planner</title>
+<meta name="theme-color" content="#14181C">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14181C; --panel:#1C2228; --panel-2:#232B32; --hair:#333D45;
+    --paper:#E7E4DC; --muted:#8D9AA4; --brass:#C9973F; --signal:#FF5A1F;
+    --moss:#6B8F71; --sky:#3FC4F0;
+    --display:'Barlow Condensed',system-ui,sans-serif;
+    --body:'Inter',system-ui,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--ink);color:var(--paper);font-family:var(--body);font-size:14px;
+    display:grid;grid-template-columns:400px 1fr;height:100dvh;overflow:hidden;
+  }
+  button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+  input,select{font:inherit}
+  :focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+  .panel{background:var(--panel);border-right:1px solid var(--hair);overflow-y:auto;overscroll-behavior:contain}
+  .masthead{padding:18px 20px 14px;border-bottom:1px solid var(--hair)}
+  .masthead h1{font-family:var(--display);font-weight:700;font-size:26px;line-height:.95;
+    letter-spacing:.02em;text-transform:uppercase}
+  .masthead h1 span{color:var(--brass)}
+  .masthead p{color:var(--muted);font-size:12px;margin-top:5px;line-height:1.4}
+
+  .block{padding:18px 20px;border-bottom:1px solid var(--hair)}
+  .eyebrow{font-family:var(--display);text-transform:uppercase;letter-spacing:.14em;
+    font-size:11px;font-weight:600;color:var(--brass);margin-bottom:10px}
+  .hint{color:var(--muted);font-size:11.5px;line-height:1.45}
+
+  .field{margin-bottom:9px;position:relative}
+  .field label{display:block;font-family:var(--display);text-transform:uppercase;
+    letter-spacing:.09em;font-size:11px;color:var(--muted);margin-bottom:3px}
+  .field input{width:100%;background:var(--ink);border:1px solid var(--hair);border-radius:3px;
+    color:var(--paper);padding:9px 10px;font-size:14px}
+  .field input::placeholder{color:#5C6873}
+  .field input:focus{border-color:var(--brass)}
+
+  .ac{position:absolute;left:0;right:0;top:100%;z-index:6;background:var(--panel-2);
+    border:1px solid var(--brass);border-top:0;border-radius:0 0 3px 3px;
+    max-height:236px;overflow-y:auto;box-shadow:0 12px 24px rgba(0,0,0,.45)}
+  .ac .opt{padding:8px 10px;cursor:pointer;border-top:1px solid var(--hair)}
+  .ac .opt:first-child{border-top:0}
+  .ac .opt.sel{background:var(--brass);color:var(--ink)}
+  .ac .opt .n{font-family:var(--display);font-size:15px;line-height:1.15}
+  .ac .opt .c{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .ac .opt.sel .c{color:#4B3611}
+  .ac .opt .k{font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;
+    font-size:10px;color:var(--brass)}
+  .ac .opt.sel .k{color:#3A2A0C}
+  .ac .note{padding:8px 10px;font-size:12px;color:var(--muted)}
+
+  .via-row{display:flex;gap:6px;align-items:flex-end;margin-bottom:9px}
+  .via-row .field{flex:1;margin:0}
+  .icon-btn{width:34px;height:36px;border:1px solid var(--hair);border-radius:3px;
+    color:var(--muted);font-size:18px;line-height:1;flex:0 0 auto}
+  .icon-btn:hover{border-color:var(--signal);color:var(--signal)}
+  .text-btn{font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;
+    font-size:11.5px;font-weight:600;color:var(--brass);padding:4px 0}
+  .text-btn:hover{color:var(--paper)}
+
+  /* wegtype als symbolen */
+  .levels{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+  .levels button{border:1px solid var(--hair);border-radius:3px;padding:10px 4px 8px;
+    display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--muted)}
+  .levels button svg{width:100%;height:18px;display:block}
+  .levels button span{font-family:var(--display);text-transform:uppercase;
+    letter-spacing:.06em;font-size:10.5px;font-weight:600;line-height:1}
+  .levels button:hover{border-color:var(--muted);color:var(--paper)}
+  .levels button.on{background:var(--brass);border-color:var(--brass);color:var(--ink)}
+
+  .slider{margin-bottom:16px}
+  .slider .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .slider .name{font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;font-size:12px}
+  .slider .val{font-family:var(--mono);font-size:12px;color:var(--brass)}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;
+    background:var(--hair);border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;
+    border-radius:50%;background:var(--brass);border:2px solid var(--panel);cursor:grab}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;
+    background:var(--brass);border:2px solid var(--panel);cursor:grab}
+
+  .checks{display:flex;flex-direction:column;gap:9px}
+  .check{display:flex;gap:9px;align-items:center;cursor:pointer;font-size:13px}
+  .check input{accent-color:var(--brass);width:15px;height:15px}
+
+  .inline{display:flex;align-items:center;gap:8px;font-size:13px;margin:2px 0 10px}
+  .inline input[type=number]{width:62px;background:var(--ink);border:1px solid var(--hair);
+    border-radius:3px;color:var(--paper);padding:7px 8px;font-family:var(--mono);
+    font-size:13px;text-align:right}
+  .inline input[type=number]:focus{border-color:var(--brass)}
+
+  .go{width:100%;background:var(--signal);color:#150C06;border-radius:3px;padding:13px;
+    font-family:var(--display);font-weight:700;text-transform:uppercase;
+    letter-spacing:.1em;font-size:15px}
+  .go:hover{filter:brightness(1.08)}
+  .go:disabled{background:var(--hair);color:var(--muted);cursor:wait}
+  .status{margin-top:10px;font-size:12.5px;line-height:1.45;color:var(--muted);min-height:1em}
+  .status.err{color:#E8705A}
+
+  /* routekeuze */
+  .alts{display:flex;flex-direction:column;gap:6px}
+  .alts button{display:flex;align-items:center;gap:10px;border:1px solid var(--hair);
+    border-radius:3px;padding:9px 10px;text-align:left}
+  .alts button svg{width:36px;height:14px;flex:0 0 auto;color:var(--muted)}
+  .alts button .nm{font-family:var(--display);text-transform:uppercase;letter-spacing:.07em;
+    font-size:12px;font-weight:600;flex:1}
+  .alts button .fig{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+  .alts button.on{border-color:var(--brass);background:rgba(201,151,63,.14)}
+  .alts button.on svg{color:var(--brass)}
+  .alts button.busy{opacity:.5;cursor:wait}
+
+  .summary{display:flex;gap:15px;flex-wrap:wrap;padding:16px 20px;border-bottom:1px solid var(--hair)}
+  .summary div span{display:block;font-family:var(--display);text-transform:uppercase;
+    letter-spacing:.1em;font-size:10.5px;color:var(--muted)}
+  .summary div strong{font-family:var(--mono);font-weight:500;font-size:19px;color:var(--paper)}
+
+  .legend{display:flex;align-items:center;gap:8px;padding:0 20px 14px;margin-top:-6px}
+  .legend .bar{flex:1;height:4px;border-radius:2px;
+    background:linear-gradient(90deg,#7E8B95,#C9973F 45%,#FF5A1F 78%,#E02D00)}
+  .legend .dash{width:24px;height:0;border-top:3px dashed var(--sky);flex:0 0 auto;margin-left:4px}
+  .legend span.t{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;
+    font-size:10px;color:var(--muted)}
+
+  .roadbook{padding:16px 20px 30px;position:relative}
+  .roadbook::before{content:"";position:absolute;left:52px;top:26px;bottom:36px;width:1px;
+    background:linear-gradient(var(--brass),rgba(201,151,63,.15))}
+  .stop{display:grid;grid-template-columns:34px 18px 1fr;gap:8px;margin-bottom:15px;align-items:start}
+  .stop .km{font-family:var(--mono);font-size:11px;color:var(--brass);text-align:right;
+    padding-top:2px;white-space:nowrap}
+  .stop .pip{width:11px;height:11px;margin:4px 0 0 3px;border:2px solid var(--brass);
+    background:var(--panel);border-radius:50%}
+  .stop.poi .pip{border-radius:1px;transform:rotate(45deg);border-color:var(--moss);width:9px;height:9px}
+  .stop.terminus .pip{background:var(--brass)}
+  .stop .title{font-family:var(--display);font-size:16px;line-height:1.15}
+  .stop .kind{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .stop .add{margin-top:4px}
+  .shot{margin-top:7px;border:1px solid var(--hair);border-radius:3px;overflow:hidden;
+    background:var(--panel-2)}
+  .shot img{display:block;width:100%;height:104px;object-fit:cover;background:var(--panel-2)}
+  .shot .cr{font-size:10px;color:#66727C;padding:3px 7px;line-height:1.3}
+  .shot .cr a{color:#7E8B95}
+  .fade{animation:rise .35s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.fade{animation:none}}
+  .empty{color:var(--muted);font-size:13px;line-height:1.5;padding:6px 0}
+
+  .rows{display:flex;flex-direction:column}
+  .rows .r{display:flex;gap:10px;align-items:baseline;justify-content:space-between;
+    padding:9px 0;border-top:1px solid var(--hair)}
+  .rows .r:first-child{border-top:0}
+  .rows .r .nm{font-family:var(--display);font-size:15px;line-height:1.15}
+  .rows .r .ds{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+  .rows .r .acts{display:flex;gap:10px;flex:0 0 auto}
+
+  .exports{display:flex;gap:8px;padding:0 20px 22px;flex-wrap:wrap}
+  .exports button{flex:1;min-width:88px;border:1px solid var(--brass);color:var(--brass);
+    border-radius:3px;padding:10px 6px;font-family:var(--display);text-transform:uppercase;
+    letter-spacing:.09em;font-size:12px;font-weight:600}
+  .exports button:hover{background:var(--brass);color:var(--ink)}
+
+  .foot{padding:0 20px 26px;color:#66727C;font-size:11px;line-height:1.5}
+  .foot a{color:#7E8B95}
+
+  .mapwrap{position:relative;overflow:hidden}
+  #map{width:100%;height:100%}
+  .layers{position:absolute;left:12px;bottom:30px;z-index:2;display:flex;
+    background:rgba(20,24,28,.92);border:1px solid var(--hair);border-radius:3px;overflow:hidden}
+  .layers button{padding:8px 13px;font-family:var(--display);text-transform:uppercase;
+    letter-spacing:.09em;font-size:11.5px;font-weight:600;color:var(--muted);
+    border-right:1px solid var(--hair)}
+  .layers button:last-child{border-right:0}
+  .layers button:hover{color:var(--paper)}
+  .layers button.on{background:var(--brass);color:var(--ink)}
+  .tip{position:absolute;right:12px;bottom:30px;z-index:2;max-width:210px;
+    background:rgba(20,24,28,.92);border:1px solid var(--hair);border-radius:3px;
+    padding:8px 10px;font-size:11.5px;line-height:1.4;color:var(--muted)}
+  .tip b{color:var(--paper);font-weight:500}
+  .tip button{position:absolute;top:2px;right:5px;color:var(--muted);font-size:15px;line-height:1}
+
+  .maplibregl-popup-content{background:var(--panel);color:var(--paper);border:1px solid var(--hair);
+    border-radius:3px;font-family:var(--body);font-size:13px;padding:10px 12px}
+  .maplibregl-popup-content strong{font-family:var(--display);font-size:15px;font-weight:600}
+  .maplibregl-popup-tip{border-top-color:var(--panel)!important;border-bottom-color:var(--panel)!important}
+  .mk{width:22px;height:22px;border-radius:50%;background:var(--brass);color:var(--ink);
+    font-family:var(--display);font-weight:700;font-size:12px;display:grid;place-items:center;
+    border:2px solid var(--ink);cursor:pointer}
+  .mk.poi{width:13px;height:13px;background:var(--moss);border-radius:2px;
+    transform:rotate(45deg);border-width:1.5px}
+  .mk.stay{width:13px;height:13px;background:#7FA0C4;border-radius:2px;
+    transform:rotate(45deg);border-width:1.5px}
+  .mk.ghost{width:16px;height:16px;border-radius:50%;background:var(--signal);
+    border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+
+  @media (max-width:820px){
+    body{grid-template-columns:1fr;grid-template-rows:44dvh 1fr}
+    .mapwrap{order:-1}
+    .panel{border-right:0;border-top:1px solid var(--hair)}
+    .layers{bottom:14px;left:10px}
+    .tip{display:none}
+  }
+</style>
+</head>
+<body>
+
+<aside class="panel">
+  <div class="masthead">
+    <h1>Road<span>book</span></h1>
+    <p>Bochtige routes over OpenStreetMap. Geen account, geen kosten.</p>
+  </div>
+
+  <div class="block">
+    <div class="eyebrow">Route</div>
+    <div class="field">
+      <label for="start">Vertrek</label>
+      <input id="start" placeholder="Belfeld" value="Belfeld">
+    </div>
+    <div id="vias"></div>
+    <button class="text-btn" id="addVia">+ Tussenstop toevoegen</button>
+    <div class="field" style="margin-top:9px">
+      <label for="dest">Bestemming</label>
+      <input id="dest" placeholder="Winterberg" value="Winterberg">
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="eyebrow">Wat voor wegen</div>
+    <div class="levels" id="levels">
+      <button data-v="1" title="Maximaal kronkelen, ook door dorpjes">
+        <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 8C4 1 6 1 8 8s4 7 6 0 4-7 6 0 4 7 6 0 4-7 6 0 4 7 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Kronkel</span>
+      </button>
+      <button data-v="2" title="Kleine landweggetjes met veel bochten">
+        <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 8C5 1 9 1 12 8s7 7 10 0 7-7 10 0c1.3 2.8 3 3.4 6 1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Bochtig</span>
+      </button>
+      <button data-v="3" class="on" title="Doorgaande landwegen met vloeiende bochten">
+        <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 11c6 0 8-6 14-6s8 6 14 6c4 0 6-2 8-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Vlot</span>
+      </button>
+      <button data-v="4" title="Zo snel mogelijk, zonder snelweg">
+        <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 8h36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Recht</span>
+      </button>
+    </div>
+    <p class="hint" id="levelHint" style="margin-bottom:16px">
+      Doorgaande landwegen met vloeiende bochten. Dorpen worden zoveel mogelijk gemeden.
+    </p>
+
+    <div class="checks" style="margin-bottom:16px">
+      <label class="check"><input type="checkbox" id="allowHighway"> Snelweg toestaan</label>
+      <label class="check"><input type="checkbox" id="avoidTowns" checked> Dorpskernen en woonwijken mijden</label>
+      <label class="check"><input type="checkbox" id="noToll"> Tol vermijden</label>
+      <label class="check"><input type="checkbox" id="noFerry"> Veerboten vermijden</label>
+    </div>
+
+    <div class="slider">
+      <div class="top"><span class="name">Onverhard</span><span class="val" id="dirtVal">20</span></div>
+      <input type="range" id="dirt" min="0" max="100" value="20">
+      <p class="hint" style="margin-top:5px">Hoger = meer zandwegen en tracks. Alleen openbare wegen; check altijd de borden ter plaatse.</p>
+    </div>
+
+    <div class="eyebrow">Aanloop</div>
+    <p class="inline">
+      Eerste <input type="number" id="sprintKm" min="0" max="500" step="10" value="0"> km wél over de snelweg
+    </p>
+    <p class="hint" style="margin-bottom:16px">
+      Vul bijv. 60 in om het saaie stuk snel achter je te laten. Dat deel staat blauw gestippeld op de kaart.
+    </p>
+
+    <div class="eyebrow">Onderweg zoeken</div>
+    <div class="checks">
+      <label class="check"><input type="checkbox" id="findScenic"> Bos- en watergebieden opzoeken en erdoor rijden</label>
+      <label class="check"><input type="checkbox" id="findPois" checked> Bezienswaardigheden langs de route</label>
+      <label class="check"><input type="checkbox" id="showPhotos" checked> Foto's van die plekken laten zien</label>
+      <label class="check"><input type="checkbox" id="findStays"> Overnachting bij de bestemming</label>
+    </div>
+  </div>
+
+  <div class="block">
+    <button class="go" id="go">Route plannen</button>
+    <p class="status" id="status"></p>
+  </div>
+
+  <div class="block" id="altBlock" hidden>
+    <div class="eyebrow">Vergelijken</div>
+    <div class="alts" id="alts"></div>
+    <p class="hint" style="margin-top:9px">De buurniveaus worden op de achtergrond doorgerekend, zodat je ziet wat je inruilt.</p>
+  </div>
+
+  <div class="summary" id="summary" hidden>
+    <div><span>Afstand</span><strong id="sumKm">—</strong></div>
+    <div><span>Rijtijd</span><strong id="sumTime">—</strong></div>
+    <div><span>Bochtig</span><strong id="sumCurve">—</strong></div>
+    <div><span>Stops</span><strong id="sumStops">—</strong></div>
+  </div>
+  <div class="legend" id="legend" hidden>
+    <span class="t">recht</span><span class="bar"></span><span class="t">bochtig</span>
+    <span class="dash"></span><span class="t">snelweg</span>
+  </div>
+
+  <div class="roadbook" id="roadbook">
+    <p class="empty">Vul vertrek en bestemming in en plan je route. Tik op de kaart om ergens een tussenstop neer te zetten, of sleep de route zelf een andere kant op.</p>
+  </div>
+
+  <div class="exports" id="exports" hidden>
+    <button id="gpx">GPX opslaan</button>
+    <button id="save">Bewaren</button>
+    <button id="clear">Wissen</button>
+  </div>
+
+  <div class="block" id="savedBlock" hidden>
+    <div class="eyebrow">Bewaarde routes</div>
+    <div class="rows" id="savedList"></div>
+  </div>
+
+  <div class="block" id="tourBlock" hidden>
+    <div class="eyebrow">Bekende routes in de buurt</div>
+    <button class="text-btn" id="findTours">Zoek toeristische routes langs deze rit</button>
+    <div class="rows" id="routeList"></div>
+    <p class="hint" style="margin-top:10px">
+      Officiële panorama- en vakantieroutes uit OpenStreetMap. "Aansluiten" zoekt het punt van die route dat het dichtst bij jou ligt.
+    </p>
+  </div>
+
+  <p class="foot">
+    Kaart: <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> ·
+    Topo: <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA) ·
+    Satelliet: Esri World Imagery ·
+    Routes: <a href="https://valhalla.openstreetmap.de" target="_blank" rel="noopener">Valhalla / FOSSGIS</a> ·
+    Plaatsen: <a href="https://overpass-api.de" target="_blank" rel="noopener">Overpass</a> ·
+    Zoeken: <a href="https://photon.komoot.io" target="_blank" rel="noopener">Photon</a> ·
+    Data © OpenStreetMap-bijdragers. Dit zijn gratis community-servers — houd het bij normaal persoonlijk gebruik.
+  </p>
+</aside>
+
+<div class="mapwrap">
+  <div id="map"></div>
+  <div class="layers" role="group" aria-label="Kaartlaag kiezen">
+    <button data-base="kleur" class="on">Kleur</button>
+    <button data-base="topo">Topo</button>
+    <button data-base="sat">Satelliet</button>
+  </div>
+  <div class="tip" id="tip">
+    <button id="tipClose" aria-label="Sluiten">×</button>
+    <b>Sleep de route</b> met de muis om hem ergens anders langs te laten lopen.
+  </div>
+</div>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+/* ================= servers ================= */
+const VALHALLA='https://valhalla1.openstreetmap.de/route';
+const NOMINATIM='https://nominatim.openstreetmap.org/search';
+const PHOTON='https://photon.komoot.io/api/';
+const OVERPASS_MIRRORS=[
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter'
+];
+
+/* ================= opslag =================
+   Werkt op je eigen site. In een afgeschermd voorbeeldvenster mag dit niet,
+   daarom faalt alles hier stil in plaats van de app te breken. */
+const store={
+  get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch{ return d; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch{ return false; } },
+  ok(){ try{ localStorage.setItem('rb.t','1'); localStorage.removeItem('rb.t'); return true; }catch{ return false; } }
+};
+
+const el=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const state={ vias:[], viaPts:[], markers:[], pois:[], stays:[], shape:[], tourShape:[],
+              fast:{shape:[],km:0,sec:0}, variants:{}, points:[], mids:[] };
+
+/* ================= wegtypen ================= */
+const LEVELS={
+  1:{ name:'Kronkel', hw:0,   living:0.6, man:5,
+      path:'M2 8C4 1 6 1 8 8s4 7 6 0 4-7 6 0 4 7 6 0 4-7 6 0 4 7 6 0',
+      hint:'Maximaal kronkelen. Ook smalle weggetjes en door dorpjes heen.' },
+  2:{ name:'Bochtig', hw:0.1, living:0.2, man:12,
+      path:'M2 8C5 1 9 1 12 8s7 7 10 0 7-7 10 0c1.3 2.8 3 3.4 6 1',
+      hint:'Kleine landweggetjes met veel bochten, dorpen alleen als het moet.' },
+  3:{ name:'Vlot',    hw:0.3, living:0,   man:30,
+      path:'M2 11c6 0 8-6 14-6s8 6 14 6c4 0 6-2 8-3',
+      hint:'Doorgaande landwegen met vloeiende bochten. Dorpen worden zoveel mogelijk gemeden.' },
+  4:{ name:'Recht',   hw:0.6, living:0,   man:8,
+      path:'M2 8h36',
+      hint:'Zo snel mogelijk over gewone wegen.' }
+};
+let level=3;
+const LV_COLOR={1:'#B879E0',2:'#37BFA0',3:'#E0B354',4:'#6FA8DC'};
+
+/* ================= kaart ================= */
+const EMPTY={type:'Feature',geometry:{type:'LineString',coordinates:[]}};
+const BASES={
+  sat:{ tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        maxzoom:19, attribution:'Beelden © Esri, Maxar, Earthstar Geographics' },
+  topo:{ tiles:['https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
+                'https://b.tile.opentopomap.org/{z}/{x}/{y}.png',
+                'https://c.tile.opentopomap.org/{z}/{x}/{y}.png'],
+        maxzoom:17, attribution:'© OpenTopoMap (CC-BY-SA)' }
+};
+const map=new maplibregl.Map({
+  container:'map',
+  style:'https://tiles.openfreemap.org/styles/liberty',
+  center:[6.2,51.3], zoom:7, attributionControl:{compact:true}
+});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+map.addControl(new maplibregl.GeolocateControl({trackUserLocation:false}),'top-right');
+map.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
+
+let baseGround=[], baseLabels=[], origVis={};
+function setBase(kind){
+  const raster = kind!=='kleur';
+  /* Alle vlakken en lijnen van de basiskaart uit als er een foto onder ligt.
+     Anders schijnen groene bossen en blauw water door de luchtfoto heen. */
+  baseGround.forEach(id=>{ if(map.getLayer(id))
+    map.setLayoutProperty(id,'visibility', raster?'none':origVis[id]); });
+  baseLabels.forEach(id=>{ if(map.getLayer(id))
+    map.setLayoutProperty(id,'visibility', kind==='topo'?'none':origVis[id]); });
+  for(const k of Object.keys(BASES)) if(map.getLayer('base-'+k))
+    map.setLayoutProperty('base-'+k,'visibility', k===kind?'visible':'none');
+  document.querySelectorAll('.layers button').forEach(b=>b.classList.toggle('on',b.dataset.base===kind));
+  store.set('rb.base',kind);
+}
+
+map.on('load',()=>{
+  (map.getStyle().layers||[]).forEach(l=>{
+    origVis[l.id]=l.layout?.visibility||'visible';
+    (l.type==='symbol'?baseLabels:baseGround).push(l.id);
+  });
+  const firstLabel=baseLabels[0];
+  for(const [k,cfg] of Object.entries(BASES)){
+    map.addSource('base-'+k,{type:'raster',tiles:cfg.tiles,tileSize:256,
+      maxzoom:cfg.maxzoom,attribution:cfg.attribution});
+    map.addLayer({id:'base-'+k,type:'raster',source:'base-'+k,layout:{visibility:'none'}},firstLabel);
+  }
+  document.querySelectorAll('.layers button').forEach(b=>
+    b.addEventListener('click',()=>setBase(b.dataset.base)));
+
+  map.addSource('fast',{type:'geojson',data:EMPTY});
+  map.addLayer({id:'fast-case',type:'line',source:'fast',
+    paint:{'line-color':'#06202F','line-width':9,'line-opacity':.7},
+    layout:{'line-cap':'round','line-join':'round'}});
+  map.addLayer({id:'fast-line',type:'line',source:'fast',
+    paint:{'line-color':'#3FC4F0','line-width':5,'line-dasharray':[2,1.3]},
+    layout:{'line-cap':'butt','line-join':'round'}});
+
+  map.addSource('alts',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'alts-line',type:'line',source:'alts',
+    paint:{'line-width':3,'line-opacity':.9,
+      'line-color':['match',['get','lv'],1,'#B879E0',2,'#37BFA0',3,'#E0B354',4,'#6FA8DC','#888']},
+    layout:{'line-cap':'round','line-join':'round'}});
+
+  map.addSource('route',{type:'geojson',data:EMPTY});
+  map.addLayer({id:'route-case',type:'line',source:'route',
+    paint:{'line-color':'#07090B','line-width':9,'line-opacity':.7},
+    layout:{'line-cap':'round','line-join':'round'}});
+  map.addLayer({id:'route-line',type:'line',source:'route',
+    paint:{'line-width':4.5,
+      'line-color':['interpolate',['linear'],['coalesce',['get','c'],0],
+        0,'#8FA0AC', 0.25,'#C9973F', 0.6,'#FF5A1F', 1,'#E02D00']},
+    layout:{'line-cap':'round','line-join':'round'}});
+  /* Onzichtbare brede lijn: hierdoor is de route makkelijk te pakken met de muis. */
+  map.addLayer({id:'route-hit',type:'line',source:'route',
+    paint:{'line-color':'#000','line-width':20,'line-opacity':0.01},
+    layout:{'line-cap':'round','line-join':'round'}});
+
+  setBase(store.get('rb.base','kleur'));
+  enableDragShaping();
+});
+
+/* ================= rekenhulp ================= */
+function setStatus(msg,isErr){ const s=el('status'); s.textContent=msg||''; s.classList.toggle('err',!!isErr); }
+function haversine(a,b){
+  const R=6371, dLat=(b[1]-a[1])*Math.PI/180, dLon=(b[0]-a[0])*Math.PI/180;
+  const la1=a[1]*Math.PI/180, la2=b[1]*Math.PI/180;
+  const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function decodePolyline6(str){
+  let idx=0,lat=0,lon=0; const out=[];
+  while(idx<str.length){
+    let shift=0,result=0,b;
+    do{ b=str.charCodeAt(idx++)-63; result|=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
+    lat+=(result&1)?~(result>>1):(result>>1);
+    shift=0;result=0;
+    do{ b=str.charCodeAt(idx++)-63; result|=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
+    lon+=(result&1)?~(result>>1):(result>>1);
+    out.push([lon/1e6,lat/1e6]);
+  }
+  return out;
+}
+function cumulative(shape){
+  const c=[0]; for(let i=1;i<shape.length;i++) c.push(c[i-1]+haversine(shape[i-1],shape[i]));
+  return c;
+}
+function placeAlong(shape,cum,p){
+  let best=0,bd=Infinity;
+  for(let i=0;i<shape.length;i++){
+    const d=haversine(shape[i],[p.lon,p.lat]);
+    if(d<bd){bd=d;best=i;}
+  }
+  return { km:cum[best], off:bd, i:best };
+}
+function progressAlong(a,b,p){
+  const dx=b.lon-a.lon, dy=b.lat-a.lat, L=dx*dx+dy*dy;
+  if(!L) return {t:0,off:haversine([a.lon,a.lat],[p.lon,p.lat])};
+  const t=((p.lon-a.lon)*dx+(p.lat-a.lat)*dy)/L;
+  return { t, off:haversine([a.lon+t*dx,a.lat+t*dy],[p.lon,p.lat]) };
+}
+function bboxOf(coords,pad){
+  let s=90,w=180,n=-90,e=-180;
+  for(const c of coords){ if(c[1]<s)s=c[1]; if(c[1]>n)n=c[1]; if(c[0]<w)w=c[0]; if(c[0]>e)e=c[0]; }
+  return `${(s-pad).toFixed(4)},${(w-pad).toFixed(4)},${(n+pad).toFixed(4)},${(e+pad).toFixed(4)}`;
+}
+function coarse(shape,every=6){
+  const out=shape.filter((_,i)=>i%every===0);
+  if(out[out.length-1]!==shape[shape.length-1]) out.push(shape[shape.length-1]);
+  return out;
+}
+function fmtTime(sec){
+  const h=Math.floor(sec/3600), m=Math.round(sec%3600/60);
+  return h?`${h}u ${m}m`:`${m}m`;
+}
+function bearing(a,b){
+  const y=Math.sin((b[0]-a[0])*Math.PI/180)*Math.cos(b[1]*Math.PI/180);
+  const x=Math.cos(a[1]*Math.PI/180)*Math.sin(b[1]*Math.PI/180)
+        -Math.sin(a[1]*Math.PI/180)*Math.cos(b[1]*Math.PI/180)*Math.cos((b[0]-a[0])*Math.PI/180);
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+/* Hoeveel graden draait de weg per kilometer? Geen server nodig. */
+function curveProfile(shape,seg=14){
+  const features=[]; let deg=0,km=0;
+  for(let i=0;i<shape.length-2;i+=seg){
+    const part=shape.slice(i,Math.min(i+seg+1,shape.length));
+    if(part.length<3) continue;
+    let a=0,d=0;
+    for(let k=1;k<part.length;k++){
+      d+=haversine(part[k-1],part[k]);
+      if(k>1){ let t=Math.abs(bearing(part[k-1],part[k])-bearing(part[k-2],part[k-1]));
+        if(t>180) t=360-t; a+=t; }
+    }
+    deg+=a; km+=d;
+    features.push({type:'Feature',properties:{c:+Math.min(1,(d>0.05?a/d:0)/170).toFixed(3)},
+      geometry:{type:'LineString',coordinates:part}});
+  }
+  return { fc:{type:'FeatureCollection',features},
+           score: km>0.5?Math.min(100,Math.round((deg/km)/1.7)):0 };
+}
+
+/* ================= Overpass ================= */
+async function overpass(q,timeoutMs=16000){
+  for(const url of OVERPASS_MIRRORS){
+    try{
+      const ctl=new AbortController();
+      const t=setTimeout(()=>ctl.abort(),timeoutMs);
+      const r=await fetch(url,{method:'POST',signal:ctl.signal,
+        body:'data='+encodeURIComponent(q),
+        headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+      clearTimeout(t);
+      if(!r.ok) continue;
+      return await r.json();
+    }catch(e){}
+  }
+  throw new Error('De plaatsenserver is even niet bereikbaar.');
+}
+
+/* ================= meetypen ================= */
+const PICKED=new Map();
+const KIND={ hotel:'Hotel',guest_house:'Pension',hostel:'Hostel',chalet:'Vakantiehuis',
+  apartment:'Appartement',camp_site:'Camping',motel:'Motel',attraction:'Bezienswaardigheid',
+  viewpoint:'Uitzichtpunt',museum:'Museum',castle:'Kasteel',ruins:'Ruïne',peak:'Top',
+  water:'Water',wood:'Bos',restaurant:'Restaurant',cafe:'Café',fuel:'Tankstation',
+  city:'Stad',town:'Plaats',village:'Dorp',hamlet:'Buurtschap' };
+
+function acItem(f){
+  const p=f.properties||{}, g=f.geometry?.coordinates;
+  if(!g) return null;
+  const name=p.name||[p.street,p.housenumber].filter(Boolean).join(' ')||p.city||p.county||'Naamloos';
+  const ctx=[...new Set([p.city,p.district,p.county,p.state,p.country].filter(Boolean))]
+    .filter(v=>v!==name).slice(0,3).join(' · ');
+  return { name, ctx, kind:KIND[p.osm_value]||'', lat:g[1], lon:g[0],
+           label: ctx?`${name}, ${ctx}`:name };
+}
+
+function attachAC(input){
+  const box=document.createElement('div'); box.className='ac'; box.hidden=true;
+  input.parentNode.appendChild(box);
+  let items=[],sel=-1,timer=null,seq=0;
+  const close=()=>{ box.hidden=true; box.innerHTML=''; items=[]; sel=-1; };
+  const draw=()=>{
+    box.innerHTML='';
+    if(!items.length) box.innerHTML='<div class="note">Niets gevonden. Probeer plaats + land erbij.</div>';
+    items.forEach((it,i)=>{
+      const d=document.createElement('div');
+      d.className='opt'+(i===sel?' sel':'');
+      d.innerHTML=`<div class="n">${it.name}</div><div class="c">${it.kind?`<span class="k">${it.kind}</span> · `:''}${it.ctx||'—'}</div>`;
+      d.addEventListener('mousedown',e=>{ e.preventDefault(); choose(i); });
+      box.appendChild(d);
+    });
+    box.hidden=false;
+  };
+  const choose=i=>{
+    const it=items[i]; if(!it) return;
+    PICKED.set(it.label,{name:it.name,lat:it.lat,lon:it.lon});
+    input.value=it.label; close();
+    input.dispatchEvent(new Event('change'));
+  };
+  input.setAttribute('autocomplete','off');
+  input.addEventListener('input',()=>{
+    clearTimeout(timer);
+    const q=input.value.trim();
+    if(q.length<3){ close(); return; }
+    timer=setTimeout(async()=>{
+      const my=++seq;
+      try{
+        const c=map.getCenter();
+        const r=await fetch(`${PHOTON}?limit=6&lang=de&lat=${c.lat.toFixed(3)}&lon=${c.lng.toFixed(3)}&q=${encodeURIComponent(q)}`);
+        if(!r.ok||my!==seq) return;
+        const j=await r.json();
+        if(my!==seq) return;
+        items=(j.features||[]).map(acItem).filter(Boolean); sel=-1; draw();
+      }catch{}
+    },280);
+  });
+  input.addEventListener('keydown',e=>{
+    if(box.hidden||!items.length) return;
+    if(e.key==='ArrowDown'){ e.preventDefault(); sel=(sel+1)%items.length; draw(); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); sel=(sel-1+items.length)%items.length; draw(); }
+    else if(e.key==='Enter'&&sel>=0){ e.preventDefault(); choose(sel); }
+    else if(e.key==='Escape'){ close(); }
+  });
+  input.addEventListener('blur',()=>setTimeout(close,150));
+}
+
+let lastNominatim=0;
+async function resolve(text){
+  const t=(text||'').trim();
+  if(!t) return null;
+  const hit=PICKED.get(t);
+  if(hit) return {...hit};
+  const m=t.match(/^(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)$/);
+  if(m) return { name:`${(+m[1]).toFixed(4)}, ${(+m[2]).toFixed(4)}`, lat:+m[1], lon:+m[2] };
+  const wait=1100-(Date.now()-lastNominatim);
+  if(wait>0) await sleep(wait);
+  lastNominatim=Date.now();
+  const r=await fetch(`${NOMINATIM}?format=jsonv2&limit=1&q=${encodeURIComponent(t)}`,
+    {headers:{'Accept':'application/json'}});
+  if(!r.ok) throw new Error('De plaatsenzoeker antwoordde niet. Probeer het over een minuut opnieuw.');
+  const j=await r.json();
+  if(!j.length) throw new Error(`"${t}" niet gevonden. Probeer plaats + land, of vul coördinaten in.`);
+  return { name:(j[0].display_name||t).split(',')[0], lat:+j[0].lat, lon:+j[0].lon };
+}
+
+/* ================= tussenstops ================= */
+function renderVias(){
+  const box=el('vias'); box.innerHTML='';
+  state.vias.forEach((v,i)=>{
+    const row=document.createElement('div'); row.className='via-row';
+    row.innerHTML=`<div class="field">
+        <label>Tussenstop ${i+1}</label>
+        <input value="${String(v).replace(/"/g,'&quot;')}" placeholder="Plaats of coördinaten">
+      </div>
+      <button class="icon-btn" title="Verwijderen" aria-label="Tussenstop ${i+1} verwijderen">×</button>`;
+    const inp=row.querySelector('input');
+    ['input','change'].forEach(ev=>inp.addEventListener(ev,e=>{ state.vias[i]=e.target.value; saveSettings(); }));
+    attachAC(inp);
+    row.querySelector('button').addEventListener('click',()=>{ state.vias.splice(i,1); renderVias(); saveSettings(); });
+    box.appendChild(row);
+  });
+}
+function addVia(text=''){ state.vias.push(text); renderVias(); }
+
+/* ================= wegtype-knoppen ================= */
+document.querySelectorAll('#levels button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    level=+b.dataset.v;
+    document.querySelectorAll('#levels button').forEach(x=>x.classList.toggle('on',x===b));
+    el('levelHint').textContent=LEVELS[level].hint;
+    saveSettings();
+  });
+});
+
+/* ================= routeberekening ================= */
+async function planRoute(points, mode='tour', lv=level){
+  const dirt=+el('dirt').value/100;
+  const L=LEVELS[lv]||LEVELS[3];
+  const towns=el('avoidTowns').checked;
+  const hw=el('allowHighway').checked?Math.min(1,L.hw+0.4):L.hw;
+  const opts = mode==='fast'
+    ? { use_highways:1, use_tolls:el('noToll').checked?0:1, use_ferry:0.5,
+        use_tracks:0, use_trails:0, exclude_unpaved:1, top_speed:130 }
+    : { use_highways:hw,
+        use_living_streets: towns?0:L.living,
+        maneuver_penalty: L.man+(towns?25:0),
+        service_penalty: towns?120:15,
+        service_factor: towns?1.5:1,
+        use_tolls: el('noToll').checked?0:1,
+        use_ferry: el('noFerry').checked?0:0.5,
+        use_tracks:dirt, use_trails:dirt,
+        exclude_unpaved: dirt<0.05?1:0,
+        top_speed:130 };
+  const body={ locations:points.map(p=>({lat:p.lat,lon:p.lon,type:'break'})),
+    costing:'motorcycle', costing_options:{motorcycle:opts},
+    directions_options:{units:'kilometers'}, language:'nl-NL' };
+  const r=await fetch(`${VALHALLA}?json=${encodeURIComponent(JSON.stringify(body))}`);
+  if(!r.ok) throw new Error('De routeserver kon deze route niet maken. Haal een tussenstop weg of zet Onverhard lager.');
+  const j=await r.json();
+  if(!j.trip) throw new Error('Geen route gevonden tussen deze punten.');
+  return { shape:j.trip.legs.flatMap(l=>decodePolyline6(l.shape)),
+           km:j.trip.summary.length, sec:j.trip.summary.time };
+}
+
+async function handoverPoint(start,dest,km){
+  const fast=await planRoute([start,dest],'fast');
+  const cum=cumulative(fast.shape), total=cum[cum.length-1];
+  if(total<=km+5) return null;
+  let i=cum.findIndex(d=>d>=km); if(i<0) i=fast.shape.length-1;
+  const c=fast.shape[i];
+  return { point:{name:'Einde snelweg',_kind:`Afslag na ${Math.round(cum[i])} km`,lat:c[1],lon:c[0]},
+           shape:fast.shape.slice(0,i+1), km:cum[i], sec:fast.sec*(cum[i]/total) };
+}
+
+/* ================= bos en water =================
+   Niet meer het middelpunt van een bos als tussenstop opdringen — dan moet de
+   router er naartoe en weer terug. We zoeken gebieden die al dicht bij de
+   route liggen, en accepteren er alleen een als de route daardoor nauwelijks
+   langer wordt en nergens omkeert. */
+function hasSpur(shape){
+  const step=Math.max(1,Math.ceil(shape.length/600));
+  const s=coarse(shape,step);
+  for(let i=0;i<s.length;i++)
+    for(let j=i+12;j<Math.min(s.length,i+70);j++)
+      if(haversine(s[i],s[j])<0.04) return true;
+  return false;
+}
+
+async function scenicCandidates(shape,max=6){
+  const q=`[out:json][timeout:25][bbox:${bboxOf(shape,0.06)}];(
+    way["landuse"="forest"]["name"];
+    way["natural"="wood"]["name"];
+    way["natural"="water"]["name"];
+  );out center 400;`;
+  const j=await overpass(q);
+  const line=coarse(shape), lcum=cumulative(line), total=lcum[lcum.length-1];
+  const seen=new Set(), cands=[];
+  for(const e of (j.elements||[])){
+    const lat=e.lat??e.center?.lat, lon=e.lon??e.center?.lon;
+    if(lat==null||!e.tags?.name||seen.has(e.tags.name)) continue;
+    seen.add(e.tags.name);
+    const a=placeAlong(line,lcum,{lat,lon});
+    if(a.off<0.5||a.off>8) continue;
+    if(a.km<total*0.08||a.km>total*0.92) continue;
+    cands.push({ name:e.tags.name, _scenic:true,
+      _kind:(e.tags.natural==='water'?'Water':'Bos')+' onderweg',
+      lat, lon, off:a.off, atKm:a.km });
+  }
+  cands.sort((a,b)=>a.off-b.off);
+  const out=[];
+  for(const c of cands){
+    if(out.length>=max) break;
+    if(out.some(o=>Math.abs(o.atKm-c.atKm)<25)) continue;
+    out.push(c);
+  }
+  return out;
+}
+
+/* ================= plaatsen ================= */
+const POI_KINDS=[['tourism','viewpoint','Uitzichtpunt'],['natural','peak','Top'],
+  ['historic','castle','Kasteel'],['historic','ruins','Ruïne'],
+  ['natural','waterfall','Waterval'],['tourism','attraction','Bezienswaardigheid']];
+
+async function findPois(shape,corridor=3){
+  const q=`[out:json][timeout:25][bbox:${bboxOf(shape,0.02)}];(
+    node["tourism"="viewpoint"]["name"];
+    node["natural"="peak"]["name"];
+    node["natural"="waterfall"]["name"];
+    nwr["historic"="castle"]["name"];
+    nwr["historic"="ruins"]["name"];
+    nwr["tourism"="attraction"]["name"];
+  );out center 500;`;
+  const j=await overpass(q);
+  const line=coarse(shape), lcum=cumulative(line), out=[];
+  for(const e of (j.elements||[])){
+    const lat=e.lat??e.center?.lat, lon=e.lon??e.center?.lon;
+    if(lat==null) continue;
+    if(placeAlong(line,lcum,{lat,lon}).off>corridor) continue;
+    const k=POI_KINDS.find(([a,b])=>e.tags?.[a]===b);
+    out.push({ name:e.tags.name, lat, lon, kind:k?k[2]:'Plek', ele:e.tags.ele,
+      image:e.tags.image, wikidata:e.tags.wikidata });
+  }
+  return out;
+}
+
+async function findStays(dest,radius=6000){
+  const q=`[out:json][timeout:25];(
+    nwr(around:${radius},${dest.lat},${dest.lon})["tourism"~"^(hotel|guest_house|hostel|camp_site)$"]["name"];
+  );out center 60;`;
+  const j=await overpass(q);
+  const label={hotel:'Hotel',guest_house:'Pension',hostel:'Hostel',camp_site:'Camping'};
+  return (j.elements||[]).map(e=>{
+    const lat=e.lat??e.center?.lat, lon=e.lon??e.center?.lon;
+    if(lat==null) return null;
+    return { name:e.tags.name, lat, lon, kind:label[e.tags.tourism]||'Overnachting' };
+  }).filter(Boolean).slice(0,8);
+}
+
+/* ================= bekende toeristische routes ================= */
+async function findTourRoutes(shape){
+  const q=`[out:json][timeout:25][bbox:${bboxOf(shape,0.15)}];
+    relation["type"="route"]["route"="road"]["name"];
+    out tags center 120;`;
+  const j=await overpass(q);
+  const line=coarse(shape), lcum=cumulative(line), seen=new Set(), out=[];
+  for(const e of (j.elements||[])){
+    const lat=e.center?.lat, lon=e.center?.lon;
+    if(lat==null||!e.tags?.name||seen.has(e.tags.name)) continue;
+    seen.add(e.tags.name);
+    const off=placeAlong(line,lcum,{lat,lon}).off;
+    if(off>45) continue;
+    out.push({ id:e.id, name:e.tags.name, off });
+  }
+  return out.sort((a,b)=>a.off-b.off).slice(0,12);
+}
+
+async function connectToRoute(id,name,btn){
+  const old=btn.textContent; btn.textContent='Zoeken…'; btn.disabled=true;
+  try{
+    const j=await overpass(`[out:json][timeout:25];rel(${id});out geom;`);
+    const coords=[];
+    for(const m of (j.elements?.[0]?.members||[]))
+      if(m.geometry) for(const g of m.geometry) coords.push([g.lon,g.lat]);
+    if(!coords.length) throw new Error(`${name} heeft geen bruikbare lijn in OpenStreetMap.`);
+    const me=state.points?.[0]||{lat:51,lon:6};
+    let best=coords[0],bd=Infinity;
+    for(const c of coords){ const d=haversine(c,[me.lon,me.lat]); if(d<bd){bd=d;best=c;} }
+    addVia(`${best[1].toFixed(5)}, ${best[0].toFixed(5)}`);
+    setStatus(`Aansluitpunt op ${name} toegevoegd, ${bd.toFixed(0)} km van je vertrekpunt. Plan de route opnieuw.`);
+  }catch(err){ setStatus(err.message,true); }
+  finally{ btn.textContent=old; btn.disabled=false; }
+}
+
+function renderRoutes(list){
+  const box=el('routeList'); box.innerHTML='';
+  if(!list.length){
+    box.innerHTML='<p class="empty">Geen bekende toeristische routes langs deze rit.</p>'; return;
+  }
+  list.forEach(rt=>{
+    const d=document.createElement('div'); d.className='r';
+    d.innerHTML=`<div><div class="nm">${rt.name}</div>
+      <div class="ds">${rt.off<1?'op je route':rt.off.toFixed(0)+' km van je route'}</div></div>`;
+    const b=document.createElement('button'); b.className='text-btn'; b.textContent='Aansluiten';
+    b.addEventListener('click',()=>connectToRoute(rt.id,rt.name,b));
+    d.appendChild(b); box.appendChild(d);
+  });
+}
+el('findTours').addEventListener('click',async()=>{
+  if(!state.tourShape?.length) return;
+  const btn=el('findTours'), old=btn.textContent;
+  btn.textContent='Zoeken…'; btn.disabled=true;
+  try{ renderRoutes(await findTourRoutes(state.tourShape)); }
+  catch(err){ setStatus(err.message,true); }
+  finally{ btn.textContent=old; btn.disabled=false; }
+});
+
+
+/* ================= foto's van Wikimedia Commons =================
+   Gratis en zonder sleutel. Eerst kijken of OSM zelf al een foto noemt,
+   anders zoeken we vrije foto's binnen 500 m van die plek. Ze worden pas
+   opgehaald als je eraan toe scrollt, zodat je bundel niet leegloopt. */
+const photoCache=new Map();
+
+function commonsThumb(file,w=520){
+  const name=String(file)
+    .replace(/^https?:\/\/commons\.wikimedia\.org\/wiki\/File:/i,'')
+    .replace(/^File:/i,'');
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(name)}?width=${w}`;
+}
+
+async function photoFor(p){
+  const key=p.name+'|'+p.lat.toFixed(4);
+  if(photoCache.has(key)) return photoCache.get(key);
+  let res=null;
+  try{
+    if(p.image && /commons\.wikimedia\.org\/wiki\/File:/i.test(p.image)){
+      const bare=String(p.image).replace(/^.*\/wiki\/File:/i,'');
+      res={ url:commonsThumb(p.image), credit:'Wikimedia Commons',
+            page:'https://commons.wikimedia.org/wiki/File:'+bare };
+    } else if(p.image && /^https?:/i.test(p.image)){
+      res={ url:p.image, credit:'', page:p.image };
+    } else if(p.image){
+      res={ url:commonsThumb(p.image), credit:'Wikimedia Commons',
+            page:'https://commons.wikimedia.org/wiki/File:'+encodeURIComponent(String(p.image).replace(/^File:/i,'')) };
+    } else {
+      const u=`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*`
+        +`&generator=geosearch&ggscoord=${p.lat.toFixed(6)}%7C${p.lon.toFixed(6)}`
+        +`&ggsradius=500&ggslimit=4&ggsnamespace=6`
+        +`&prop=imageinfo&iiprop=url%7Cextmetadata&iiurlwidth=520`;
+      const ctl=new AbortController();
+      const t=setTimeout(()=>ctl.abort(),9000);
+      const r=await fetch(u,{signal:ctl.signal});
+      clearTimeout(t);
+      if(r.ok){
+        const j=await r.json();
+        const hit=Object.values(j.query?.pages||{}).find(x=>x.imageinfo?.[0]?.thumburl);
+        if(hit){
+          const ii=hit.imageinfo[0];
+          const who=(ii.extmetadata?.Artist?.value||'').replace(/<[^>]*>/g,'').trim().slice(0,40);
+          res={ url:ii.thumburl, credit:(who?who+' · ':'')+'Wikimedia Commons',
+                page:ii.descriptionurl||'' };
+        }
+      }
+    }
+  }catch{}
+  photoCache.set(key,res);
+  return res;
+}
+
+const shotWatcher=new IntersectionObserver(async entries=>{
+  for(const en of entries){
+    if(!en.isIntersecting) continue;
+    const box=en.target;
+    shotWatcher.unobserve(box);
+    const p=box._poi;
+    if(!p) continue;
+    const res=await photoFor(p);
+    if(!res||!box.isConnected){ box.remove(); continue; }
+    const img=document.createElement('img');
+    img.alt=p.name; img.loading='lazy'; img.src=res.url;
+    img.addEventListener('error',()=>box.remove());
+    box.appendChild(img);
+    if(res.credit){
+      const c=document.createElement('div'); c.className='cr';
+      c.innerHTML=res.page
+        ? `<a href="${res.page}" target="_blank" rel="noopener">${res.credit}</a>`
+        : res.credit;
+      box.appendChild(c);
+    }
+  }
+},{ root:document.querySelector('.panel'), rootMargin:'150px' });
+
+/* ================= weergave ================= */
+function clearMarkers(){ state.markers.forEach(m=>m.remove()); state.markers=[]; }
+function marker(p,cls,label,html){
+  const d=document.createElement('div'); d.className='mk '+cls; if(label) d.textContent=label;
+  const m=new maplibregl.Marker({element:d}).setLngLat([p.lon,p.lat]);
+  if(html) m.setPopup(new maplibregl.Popup({offset:14,closeButton:false}).setHTML(html));
+  m.addTo(map); state.markers.push(m); return m;
+}
+
+function renderRoadbook(points,pois,stays,cum){
+  const rb=el('roadbook'); rb.innerHTML=''; const rows=[];
+  points.forEach((p,i)=>{
+    rows.push({ km:placeAlong(state.shape,cum,p).km, terminus:true, title:p.name,
+      kind:p._kind||(i===0?'Vertrek':(i===points.length-1?'Bestemming':'Tussenstop')) });
+  });
+  pois.forEach(p=>{
+    const a=placeAlong(state.shape,cum,p);
+    rows.push({ km:a.km, poi:true, title:p.name, add:p,
+      kind:`${p.kind}${p.ele?` · ${Math.round(p.ele)} m`:''} · ${a.off<1?Math.round(a.off*1000)+' m':a.off.toFixed(1)+' km'} van de route` });
+  });
+  stays.forEach(s=>rows.push({ km:cum[cum.length-1], title:s.name, kind:s.kind+' bij de bestemming' }));
+  rows.sort((a,b)=>a.km-b.km||(b.terminus?1:0)-(a.terminus?1:0));
+  rows.forEach((r,i)=>{
+    const d=document.createElement('div');
+    d.className='stop fade'+(r.terminus?' terminus':'')+(r.poi?' poi':'');
+    d.style.animationDelay=(Math.min(i,14)*22)+'ms';
+    d.innerHTML=`<div class="km">${r.km.toFixed(0)} km</div><div class="pip"></div>
+      <div class="body"><div class="title">${r.title}</div><div class="kind">${r.kind}</div></div>`;
+    if(r.add && el('showPhotos').checked){
+      const box=document.createElement('div');
+      box.className='shot'; box._poi=r.add;
+      d.querySelector('.body').appendChild(box);
+      shotWatcher.observe(box);
+    }
+    if(r.add){
+      const b=document.createElement('button');
+      b.className='text-btn add'; b.textContent='+ Als tussenstop';
+      b.addEventListener('click',()=>{
+        addVia(`${r.add.lat.toFixed(5)}, ${r.add.lon.toFixed(5)}`);
+        setStatus(`${r.add.name} toegevoegd. Plan de route opnieuw.`);
+      });
+      d.querySelector('.body').appendChild(b);
+    }
+    rb.appendChild(d);
+  });
+}
+
+/* ================= routes vergelijken ================= */
+function renderAlts(){
+  const box=el('alts'); box.innerHTML='';
+  [1,2,3,4].forEach(lv=>{
+    const v=state.variants[lv];
+    if(!v && lv!==state.pending) return;
+    const b=document.createElement('button');
+    b.className=(lv===state.shown?'on':'')+(v?'':' busy');
+    b.innerHTML=`<svg viewBox="0 0 40 16" aria-hidden="true" style="color:${LV_COLOR[lv]}"><path d="${LEVELS[lv].path}"
+        fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <span class="nm">${LEVELS[lv].name}</span>
+      <span class="fig">${v?`${(state.fast.km+v.km).toFixed(0)} km · ${fmtTime(state.fast.sec+v.sec)} · ${v.prof.score}`:'rekenen…'}</span>`;
+    if(v) b.addEventListener('click',()=>applyVariant(lv));
+    box.appendChild(b);
+  });
+  el('altBlock').hidden = Object.keys(state.variants).length<2 && !state.pending;
+}
+
+/* De niet-gekozen routes als dunne gekleurde lijnen op de kaart. */
+function renderAltsMap(){
+  const feats=[];
+  for(const lv of Object.keys(state.variants)){
+    if(+lv===state.shown) continue;
+    feats.push({type:'Feature',properties:{lv:+lv},
+      geometry:{type:'LineString',coordinates:state.variants[lv].shape}});
+  }
+  const src=map.getSource('alts');
+  if(src) src.setData({type:'FeatureCollection',features:feats});
+}
+
+function applyVariant(lv){
+  const v=state.variants[lv]; if(!v) return;
+  state.shown=lv;
+  state.tourShape=v.shape;
+  state.shape=state.fast.shape.length?state.fast.shape.concat(v.shape):v.shape;
+  const cum=cumulative(state.shape); state.cum=cum;
+  map.getSource('route').setData(v.prof.fc);
+  el('sumKm').textContent=(state.fast.km+v.km).toFixed(0)+' km';
+  el('sumTime').textContent=fmtTime(state.fast.sec+v.sec);
+  el('sumCurve').textContent=String(v.prof.score);
+  el('sumStops').textContent=String(state.mids.length);
+  el('summary').hidden=false; el('legend').hidden=false; el('exports').hidden=false;
+  renderRoadbook(state.points,state.pois,state.stays,cum);
+  renderAlts(); renderAltsMap();
+}
+
+/* ================= hoofdactie ================= */
+let runSeq=0;
+async function plan(){
+  const btn=el('go'); btn.disabled=true; btn.textContent='Bezig…';
+  const notes=[]; const run=++runSeq;
+  const alive=()=>run===runSeq;
+  try{
+    if(!el('start').value.trim()||!el('dest').value.trim())
+      throw new Error('Vul in elk geval een vertrekpunt en een bestemming in.');
+    setStatus('Plaatsen opzoeken…');
+    const start=await resolve(el('start').value);
+    const viaPts=[];
+    for(const v of state.vias.filter(x=>String(x).trim())) viaPts.push(await resolve(v));
+    const dest=await resolve(el('dest').value);
+    state.startPt=start; state.destPt=dest; state.viaPts=viaPts;
+
+    /* snelweg-aanloop */
+    state.fast={shape:[],km:0,sec:0}; let handover=null;
+    const sprint=+el('sprintKm').value||0;
+    if(sprint>0){
+      setStatus(`Snelweg-aanloop van ${sprint} km uitzetten…`);
+      const h=await handoverPoint(start,dest,sprint);
+      if(h){ handover=h.point; state.fast={shape:h.shape,km:h.km,sec:h.sec}; }
+      else notes.push('De rit is korter dan je aanloop, dus het wordt toeren vanaf de deur.');
+    }
+    const tourStart=handover||start;
+    const order=list=>list.map(p=>({...p,_t:progressAlong(tourStart,dest,p).t}))
+                          .sort((a,b)=>a._t-b._t);
+
+    /* 1 — gewone route, meteen in beeld */
+    setStatus('Route berekenen…');
+    let mids=order(viaPts);
+    let main=await planRoute([tourStart,...mids,dest],'tour',level);
+    if(!alive()) return;
+
+    const show=()=>{
+      state.mids=mids;
+      state.points=[start,...(handover?[handover]:[]),...mids,dest];
+      state.variants={}; state.variants[level]={...main,prof:curveProfile(main.shape)};
+      state.pois=[]; state.stays=[];
+      map.getSource('fast').setData(state.fast.shape.length
+        ?{type:'Feature',geometry:{type:'LineString',coordinates:state.fast.shape}}:EMPTY);
+      clearMarkers();
+      state.points.forEach((p,i)=>marker(p,'',String(i+1),
+        `<strong>${p.name}</strong>${p._kind?`<br>${p._kind}`:''}`));
+      applyVariant(level);
+    };
+    show();
+    const all0=state.fast.shape.concat(main.shape);
+    map.fitBounds(all0.reduce((bb,c)=>bb.extend(c),new maplibregl.LngLatBounds(all0[0],all0[0])),
+      {padding:60,duration:800});
+    el('tourBlock').hidden=false;
+    btn.disabled=false; btn.textContent='Route plannen';
+    saveLast();
+
+    /* 2 — bos en water, maar alleen als het past */
+    if(el('findScenic').checked){
+      setStatus('Bos en water langs de route zoeken…');
+      let added=0;
+      try{
+        const cands=await scenicCandidates(main.shape);
+        for(const c of cands){
+          if(!alive()) return;
+          if(added>=2) break;
+          const test=order([...mids,c]);
+          await sleep(1100);
+          const r=await planRoute([tourStart,...test,dest],'tour',level);
+          if(!alive()) return;
+          /* omweg van meer dan 18% of een stuk waar je omkeert: niet accepteren */
+          if(r.km<=main.km*1.18 && !hasSpur(r.shape)){
+            mids=test; main=r; added++; show();
+          }
+        }
+        if(!added) notes.push('Geen bos of water gevonden dat zonder omkeren in je route past.');
+      }catch{ notes.push('Bos en water lukten niet.'); }
+    }
+
+    /* 3 — alternatieven, in kleur op de kaart */
+    const tourPoints=[tourStart,...mids,dest];
+    const others=[1,2,3,4].filter(l=>l!==level)
+      .sort((a,b)=>Math.abs(a-level)-Math.abs(b-level)).slice(0,2);
+    setStatus('Alternatieve routes doorrekenen…');
+    for(const lv of others){
+      if(!alive()) return;
+      state.pending=lv; renderAlts();
+      try{
+        await sleep(1100);
+        const v=await planRoute(tourPoints,'tour',lv);
+        if(!alive()) return;
+        state.variants[lv]={...v,prof:curveProfile(v.shape)};
+      }catch{}
+      state.pending=null; renderAlts(); renderAltsMap();
+    }
+
+    /* 4 — bezienswaardigheden en overnachtingen */
+    const jobs=[];
+    if(el('findPois').checked) jobs.push(findPois(state.tourShape).then(list=>{
+      if(!alive()) return;
+      const seen=new Set();
+      let p=list.filter(x=>{const k=x.name+Math.round(x.lat*300);return seen.has(k)?false:(seen.add(k),true);});
+      p=p.map(x=>({...x,_o:placeAlong(state.shape,state.cum,x).off})).sort((a,b)=>a._o-b._o).slice(0,24);
+      p.forEach(x=>marker(x,'poi','',`<strong>${x.name}</strong><br>${x.kind}${x.ele?` · ${Math.round(x.ele)} m`:''}`));
+      state.pois=p;
+    }).catch(()=>notes.push('Bezienswaardigheden lukten niet.')));
+
+    if(el('findStays').checked) jobs.push(findStays(dest).then(list=>{
+      if(!alive()) return;
+      list.forEach(s=>marker(s,'stay','',`<strong>${s.name}</strong><br>${s.kind}`));
+      state.stays=list;
+    }).catch(()=>notes.push('Overnachtingen lukten niet.')));
+
+    if(jobs.length){
+      setStatus('Bezienswaardigheden laden nog…');
+      await Promise.allSettled(jobs);
+      if(!alive()) return;
+      renderRoadbook(state.points,state.pois,state.stays,state.cum);
+    }
+    setStatus(notes.length?notes.join(' '):'');
+  }catch(err){
+    setStatus(err.message||'Er ging iets mis. Probeer het opnieuw.',true);
+    btn.disabled=false; btn.textContent='Route plannen';
+  }
+}
+el('go').addEventListener('click',plan);
+
+/* ================= route slepen ================= */
+let skipClick=0;
+function enableDragShaping(){
+  const canvas=map.getCanvas();
+  map.on('mouseenter','route-hit',()=>{ canvas.style.cursor='grab'; });
+  map.on('mouseleave','route-hit',()=>{ canvas.style.cursor=''; });
+  map.on('mouseenter','alts-line',()=>{ canvas.style.cursor='pointer'; });
+  map.on('mouseleave','alts-line',()=>{ canvas.style.cursor=''; });
+  map.on('click','alts-line',e=>{
+    const lv=e.features?.[0]?.properties?.lv;
+    if(lv) { skipClick=Date.now(); applyVariant(+lv); }
+  });
+  map.on('mousedown','route-hit',e=>{
+    if(e.originalEvent.button!==0) return;
+    e.preventDefault();
+    map.dragPan.disable(); canvas.style.cursor='grabbing';
+    const g=document.createElement('div'); g.className='mk ghost';
+    const ghost=new maplibregl.Marker({element:g}).setLngLat(e.lngLat).addTo(map);
+    const move=ev=>ghost.setLngLat(ev.lngLat);
+    const up=ev=>{
+      map.off('mousemove',move); map.off('mouseup',up);
+      map.dragPan.enable(); canvas.style.cursor=''; ghost.remove();
+      skipClick=Date.now();
+      addVia(`${ev.lngLat.lat.toFixed(5)}, ${ev.lngLat.lng.toFixed(5)}`);
+      plan();
+    };
+    map.on('mousemove',move); map.on('mouseup',up);
+  });
+}
+map.on('click',e=>{
+  if(Date.now()-skipClick<400) return;
+  if(!el('dest').value.trim()) return;
+  /* Tikken op een alternatief kiest die route; verder is elke tik een tussenstop,
+     ook precies op de route zelf — zo kun je op de telefoon ook vormgeven. */
+  if(map.getLayer('alts-line') &&
+     map.queryRenderedFeatures(e.point,{layers:['alts-line']}).length) return;
+  addVia(`${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}`);
+  setStatus('Tussenstop toegevoegd. Plan de route opnieuw.');
+});
+
+/* ================= GPX ================= */
+el('gpx').addEventListener('click',()=>{
+  if(!state.shape.length) return;
+  const esc=s=>String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]));
+  const name=`${state.points[0].name} – ${state.points[state.points.length-1].name}`;
+  const step=Math.max(1,Math.ceil(state.shape.length/2000));
+  const trk=state.shape.filter((_,i)=>i%step===0||i===state.shape.length-1)
+    .map(c=>`<trkpt lat="${c[1].toFixed(6)}" lon="${c[0].toFixed(6)}"/>`).join('');
+  const rte=state.points.map(p=>
+    `<rtept lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}"><name>${esc(p.name)}</name></rtept>`).join('');
+  const wpt=[...state.pois,...state.stays].map(p=>
+    `<wpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}"><name>${esc(p.name)}</name><desc>${esc(p.kind)}</desc></wpt>`).join('');
+  const gpx=`<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Roadbook" xmlns="http://www.topografix.com/GPX/1/1">
+<metadata><name>${esc(name)}</name></metadata>
+${wpt}
+<rte><name>${esc(name)}</name>${rte}</rte>
+<trk><name>${esc(name)}</name><trkseg>${trk}</trkseg></trk>
+</gpx>`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([gpx],{type:'application/gpx+xml'}));
+  a.download=name.replace(/[^\w\s–-]/g,'').replace(/\s+/g,'_')+'.gpx';
+  a.click(); URL.revokeObjectURL(a.href);
+});
+
+/* ================= bewaren ================= */
+function settings(){
+  return { level, dirt:el('dirt').value, sprint:el('sprintKm').value,
+    allowHighway:el('allowHighway').checked, avoidTowns:el('avoidTowns').checked,
+    noToll:el('noToll').checked, noFerry:el('noFerry').checked,
+    findScenic:el('findScenic').checked, findPois:el('findPois').checked,
+    findStays:el('findStays').checked, showPhotos:el('showPhotos').checked };
+}
+function applySettings(s){
+  if(!s) return;
+  level=s.level||3;
+  document.querySelectorAll('#levels button').forEach(b=>b.classList.toggle('on',+b.dataset.v===level));
+  el('levelHint').textContent=LEVELS[level].hint;
+  if(s.dirt!=null){ el('dirt').value=s.dirt; el('dirtVal').textContent=s.dirt; }
+  if(s.sprint!=null) el('sprintKm').value=s.sprint;
+  ['allowHighway','avoidTowns','noToll','noFerry','findScenic','findPois','findStays','showPhotos']
+    .forEach(k=>{ if(s[k]!=null) el(k).checked=!!s[k]; });
+}
+function saveSettings(){ store.set('rb.set',{...settings(),start:el('start').value,dest:el('dest').value,vias:state.vias}); }
+function saveLast(){
+  store.set('rb.last',{ start:el('start').value, dest:el('dest').value, vias:[...state.vias],
+    pts:{start:state.startPt,dest:state.destPt,vias:state.viaPts}, set:settings() });
+  saveSettings();
+}
+
+function renderSaved(){
+  const list=store.get('rb.routes',[]);
+  const box=el('savedList'); box.innerHTML='';
+  el('savedBlock').hidden=!list.length;
+  list.forEach(s=>{
+    const d=document.createElement('div'); d.className='r';
+    const when=new Date(s.at).toLocaleDateString('nl-NL',{day:'numeric',month:'short'});
+    d.innerHTML=`<div><div class="nm">${s.name}</div>
+      <div class="ds">${s.km?s.km+' km · ':''}${LEVELS[s.set?.level||3].name} · ${when}</div></div>`;
+    const acts=document.createElement('div'); acts.className='acts';
+    const open=document.createElement('button'); open.className='text-btn'; open.textContent='Openen';
+    open.addEventListener('click',()=>loadSaved(s));
+    const del=document.createElement('button'); del.className='text-btn';
+    del.style.color='#8D9AA4'; del.textContent='×'; del.title='Verwijderen';
+    del.addEventListener('click',()=>{
+      store.set('rb.routes',store.get('rb.routes',[]).filter(x=>x.id!==s.id)); renderSaved();
+    });
+    acts.append(open,del); d.appendChild(acts); box.appendChild(d);
+  });
+}
+
+function loadSaved(s){
+  if(s.pts?.start) PICKED.set(s.start,s.pts.start);
+  if(s.pts?.dest) PICKED.set(s.dest,s.pts.dest);
+  (s.vias||[]).forEach((v,i)=>{ if(s.pts?.vias?.[i]) PICKED.set(v,s.pts.vias[i]); });
+  el('start').value=s.start||''; el('dest').value=s.dest||'';
+  state.vias=[...(s.vias||[])]; renderVias();
+  applySettings(s.set);
+  plan();
+}
+
+el('save').addEventListener('click',()=>{
+  if(!state.startPt||!state.destPt) return;
+  if(!store.ok()){
+    setStatus('Bewaren werkt alleen op je eigen site, niet in dit voorbeeldvenster.',true);
+    return;
+  }
+  const v=state.variants[state.shown];
+  const item={ id:Date.now(), at:Date.now(),
+    name:`${state.startPt.name} → ${state.destPt.name}`,
+    km: v?Math.round(state.fast.km+v.km):null,
+    start:el('start').value, dest:el('dest').value, vias:[...state.vias],
+    pts:{start:state.startPt,dest:state.destPt,vias:state.viaPts}, set:settings() };
+  const list=store.get('rb.routes',[]).filter(x=>x.name!==item.name);
+  list.unshift(item);
+  store.set('rb.routes',list.slice(0,15));
+  renderSaved();
+  setStatus(`"${item.name}" bewaard.`);
+});
+
+el('clear').addEventListener('click',()=>{
+  clearMarkers(); runSeq++;
+  state.shape=[]; state.tourShape=[]; state.pois=[]; state.stays=[];
+  state.vias=[]; state.variants={}; state.mids=[]; state.fast={shape:[],km:0,sec:0};
+  renderVias();
+  map.getSource('route').setData(EMPTY); map.getSource('fast').setData(EMPTY);
+  el('summary').hidden=true; el('exports').hidden=true; el('legend').hidden=true;
+  el('altBlock').hidden=true; el('tourBlock').hidden=true; el('routeList').innerHTML='';
+  el('roadbook').innerHTML='<p class="empty">Vul vertrek en bestemming in en plan je route. Tik op de kaart om ergens een tussenstop neer te zetten, of sleep de route zelf een andere kant op.</p>';
+  setStatus('');
+});
+
+/* ================= opstarten ================= */
+el('addVia').addEventListener('click',()=>addVia());
+attachAC(el('start')); attachAC(el('dest'));
+el('dirt').addEventListener('input',e=>{ el('dirtVal').textContent=e.target.value; saveSettings(); });
+['sprintKm','allowHighway','avoidTowns','noToll','noFerry','findScenic','findPois','findStays','showPhotos']
+  .forEach(id=>el(id).addEventListener('change',saveSettings));
+['start','dest'].forEach(id=>el(id).addEventListener('change',saveSettings));
+
+el('tipClose').addEventListener('click',()=>{ el('tip').hidden=true; store.set('rb.tip','off'); });
+if(store.get('rb.tip')==='off') el('tip').hidden=true;
+
+const remembered=store.get('rb.set');
+if(remembered){
+  applySettings(remembered);
+  if(remembered.start) el('start').value=remembered.start;
+  if(remembered.dest) el('dest').value=remembered.dest;
+  state.vias=Array.isArray(remembered.vias)?remembered.vias:[];
+  const last=store.get('rb.last');
+  if(last?.pts){
+    if(last.start) PICKED.set(last.start,last.pts.start);
+    if(last.dest) PICKED.set(last.dest,last.pts.dest);
+    (last.vias||[]).forEach((v,i)=>{ if(last.pts.vias?.[i]) PICKED.set(v,last.pts.vias[i]); });
+  }
+}
+renderVias();
+renderSaved();
+if(!store.ok())
+  setStatus('Let op: dit venster mag geen gegevens bewaren. Op je eigen site werkt Bewaren wel.');
+</script>
+</body>
+</html>
