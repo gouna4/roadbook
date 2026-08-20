@@ -30,306 +30,364 @@
       <button id="sheetDrive" hidden>▶ Rijden</button>
     </div>
   </div>
-  <div class="masthead">
+
+  <header class="top">
     <h1>Road<span>book</span></h1>
-    <p>Bochtige routes over OpenStreetMap. <span style="color:var(--brass)">versie 32</span></p>
-  </div>
+    <button class="themebtn" id="themeBtn" title="Licht, donker of automatisch">☀</button>
+  </header>
 
-  <div class="block">
-    <div class="eyebrow">Soort rit</div>
-    <div class="chips" id="tripMode" style="margin-bottom:14px">
-      <button data-m="one" class="on">Enkele reis</button>
-      <button data-m="back">Heen en terug</button>
-      <button data-m="loop">Rondje</button>
-    </div>
-    <p class="hint" id="modeHint" style="margin:-8px 0 14px">Van A naar B.</p>
+  <nav class="steps" id="steps" aria-label="Stappen">
+    <button data-step="1" class="on"><b>1</b><span>Waar</span></button>
+    <button data-step="2"><b>2</b><span>Wegen</span></button>
+    <button data-step="3"><b>3</b><span>De rit</span></button>
+    <button data-step="4" class="meer" title="Bibliotheek, offline kaart, logboek">⚙</button>
+  </nav>
 
-    <div class="eyebrow">Route</div>
-    <div class="field">
-      <label for="start" id="startLabel">Vertrek</label>
-      <input id="start" placeholder="Belfeld" value="Belfeld">
-      <button class="text-btn" id="hereBtn" style="margin-top:2px">📍 Vanaf mijn locatie</button>
-    </div>
-    <div id="vias"></div>
-    <button class="text-btn" id="addVia">+ Tussenstop toevoegen</button>
-    <label class="check" id="manualRow" hidden style="margin-top:8px">
-      <input type="checkbox" id="manualOrder"> Zelf de volgorde bepalen
-    </label>
-    <div class="field" style="margin-top:9px">
-      <label for="dest" id="destLabel">Bestemming</label>
-      <input id="dest" placeholder="Winterberg" value="Winterberg">
-    </div>
-    <p class="hint" id="terugHint" style="margin:4px 0 10px">
-      Weer thuis eindigen? Kies bovenaan <b style="color:var(--paper);font-weight:500">Heen en terug</b> of <b style="color:var(--paper);font-weight:500">Rondje</b>.
-    </p>
-    <button class="text-btn" id="gpxOpen">GPX-bestand openen</button>
-    <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden>
-    <p class="hint" style="margin-top:5px">Route van MyRoute-app, Kurviger, Komoot of een vriend? Download hem daar als GPX en open hem hier.</p>
-  </div>
+  <div class="stepwrap">
 
-  <div class="block" id="libBlock" data-fold data-shut>
-    <div class="eyebrow">Mijn routebibliotheek</div>
-    <div class="chips" style="margin-bottom:10px">
-      <button id="libAdd">GPX-bestanden toevoegen</button>
-      <button id="libShow">Alles op de kaart</button>
-    </div>
-    <input type="file" id="libFiles" accept=".gpx,application/gpx+xml" multiple hidden>
-    <div class="rows" id="libList"></div>
-    <p class="hint" id="libHint" style="margin-top:10px">
-      Sleep er gerust twintig tegelijk in. Ze worden gesorteerd op afstand vanaf je vertrekpunt,
-      zodat je ziet welke rit het dichtst bij je in de buurt ligt.
-    </p>
-  </div>
+  <!-- ============ 1. waar ga je heen ============ -->
+  <section class="step on" data-step="1">
+    <div class="block">
+      <div class="chips" id="tripMode">
+        <button data-m="one" class="on">Enkele reis</button>
+        <button data-m="back">Heen en terug</button>
+        <button data-m="loop">Rondje</button>
+      </div>
+      <p class="hint" id="modeHint">Van A naar B.</p>
 
-  <div class="block" data-fold data-shut>
-    <div class="eyebrow">Wat voor wegen</div>
-    <div class="levels" id="levels">
-      <button data-v="1" title="Maximaal kronkelen, ook door dorpjes">
-        <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 8C4 1 6 1 8 8s4 7 6 0 4-7 6 0 4 7 6 0 4-7 6 0 4 7 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span>Kronkel</span>
-      </button>
-      <button data-v="2" title="Kleine landweggetjes met veel bochten">
-        <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 8C5 1 9 1 12 8s7 7 10 0 7-7 10 0c1.3 2.8 3 3.4 6 1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span>Bochtig</span>
-      </button>
-      <button data-v="3" class="on" title="Doorgaande landwegen met vloeiende bochten">
-        <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 11c6 0 8-6 14-6s8 6 14 6c4 0 6-2 8-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span>Vlot</span>
-      </button>
-      <button data-v="4" title="Zo snel mogelijk, zonder snelweg">
-        <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 8h36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span>Recht</span>
-      </button>
-    </div>
-    <p class="hint" id="levelHint" style="margin-bottom:16px">
-      Doorgaande landwegen met vloeiende bochten. Dorpen worden zoveel mogelijk gemeden.
-    </p>
-
-    <div class="eyebrow" style="margin-top:4px">Vermijden</div>
-    <div class="checks" style="margin-bottom:16px">
-      <label class="check"><input type="checkbox" id="noHighway" checked> Snelwegen</label>
-      <label class="check"><input type="checkbox" id="avoidTowns" checked> Dorpskernen en woonwijken</label>
-      <label class="check"><input type="checkbox" id="noRepeat" checked> Dezelfde weg twee keer rijden</label>
-      <label class="check"><input type="checkbox" id="noToll"> Tolwegen</label>
-      <label class="check"><input type="checkbox" id="noFerry"> Veerboten</label>
-      <label class="check"><input type="checkbox" id="noDirt"> Onverharde wegen</label>
-      <label class="check"><input type="checkbox" id="noRidden"> Wegen die ik al reed</label>
+      <div id="loopRow" hidden>
+        <label class="check">
+          <input type="checkbox" id="loopOn"> Rondje op een vaste afstand
+        </label>
+        <p class="inline">
+          Ongeveer <input type="number" id="loopKm" min="80" max="900" step="25" value="300" disabled> km
+        </p>
+        <p class="hint" id="loopHint">
+          Zonder vinkje maakt hij gewoon een mooie lus naar dat gebied en terug, zo lang als het uitkomt.
+        </p>
+      </div>
     </div>
 
-    <div class="slider">
-      <div class="top"><span class="name">Onverhard</span><span class="val" id="dirtVal">20</span></div>
-      <input type="range" id="dirt" min="0" max="100" value="20">
-      <p class="hint" style="margin-top:5px">Hoger = meer zandwegen en tracks. Alleen openbare wegen; check altijd de borden ter plaatse.</p>
-    </div>
-
-    <div class="eyebrow">Aanloop</div>
-    <p class="inline">
-      Eerste <input type="number" id="sprintKm" min="0" max="500" step="10" value="0"> km wél over de snelweg
-    </p>
-    <p class="hint" style="margin-bottom:12px">
-      Vul bijv. 60 in om het saaie stuk snel achter je te laten. Dat deel staat blauw gestippeld op de kaart.
-    </p>
-    <label class="check" style="margin-bottom:10px">
-      <input type="checkbox" id="checkDist" checked> Waarschuwen als de afstand niet klopt
-    </label>
-
-    <div id="loopRow" hidden>
-      <label class="check" style="margin-bottom:8px">
-        <input type="checkbox" id="loopOn"> Rondje op een vaste afstand
+    <div class="block">
+      <div class="field">
+        <label for="start" id="startLabel">Vertrek</label>
+        <input id="start" placeholder="Belfeld" value="Belfeld">
+        <button class="text-btn" id="hereBtn">📍 Vanaf mijn locatie</button>
+      </div>
+      <div id="vias"></div>
+      <button class="text-btn" id="addVia">+ Tussenstop toevoegen</button>
+      <label class="check" id="manualRow" hidden>
+        <input type="checkbox" id="manualOrder"> Zelf de volgorde bepalen
       </label>
-      <p class="inline" style="margin:0 0 6px">
-        Ongeveer <input type="number" id="loopKm" min="80" max="900" step="25" value="300" disabled> km
-      </p>
-      <p class="hint" id="loopHint" style="margin:0 0 16px">
-        Zonder vinkje maakt hij gewoon een mooie lus naar dat gebied en terug, zo lang als het uitkomt.
+      <div class="field">
+        <label for="dest" id="destLabel">Bestemming</label>
+        <input id="dest" placeholder="Winterberg" value="Winterberg">
+      </div>
+      <p class="hint" id="terugHint">
+        Weer thuis eindigen? Kies bovenaan <b>Heen en terug</b> of <b>Rondje</b>.
       </p>
     </div>
 
-    <div class="eyebrow">Onderweg zoeken</div>
-    <div class="checks">
-      <label class="check"><input type="checkbox" id="findScenic"> Bos en water erbij zoeken <span style="color:#66727C">(kan omrijden geven)</span></label>
-      <label class="check"><input type="checkbox" id="findPois" checked> Bezienswaardigheden langs de route</label>
-      <label class="check"><input type="checkbox" id="showPhotos" checked> Foto's van die plekken laten zien</label>
-      <label class="check"><input type="checkbox" id="findStays"> Overnachting bij de bestemming</label>
+    <div class="block">
+      <div class="eyebrow">Of laat de kaart het doen</div>
+      <p class="hint">
+        Trek met je vinger een vorm over de kaart met de knop <b>✎ Tekenen</b>.
+        Eindig waar je begon en het wordt een rondje.
+      </p>
+      <button class="text-btn" id="gpxOpen">GPX-bestand openen</button>
+      <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden>
+      <p class="hint">Route van MyRoute-app, Kurviger, Komoot of een vriend? Download hem daar als GPX en open hem hier.</p>
     </div>
-  </div>
+  </section>
 
-  <div class="block actions">
-    <p class="inline" style="margin:0 0 8px">
-      Vertrek om <input type="time" id="depTime" value="09:00" style="width:88px">
+  <!-- ============ 2. wat voor wegen ============ -->
+  <section class="step" data-step="2">
+    <div class="block">
+      <div class="eyebrow">Wat voor wegen</div>
+      <div class="levels" id="levels">
+        <button data-v="1" title="Maximaal kronkelen, ook door dorpjes">
+          <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 8C4 1 6 1 8 8s4 7 6 0 4-7 6 0 4 7 6 0 4-7 6 0 4 7 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Kronkel</span>
+        </button>
+        <button data-v="2" title="Kleine landweggetjes met veel bochten">
+          <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 8C5 1 9 1 12 8s7 7 10 0 7-7 10 0c1.3 2.8 3 3.4 6 1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Bochtig</span>
+        </button>
+        <button data-v="3" class="on" title="Doorgaande landwegen met vloeiende bochten">
+          <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 11c6 0 8-6 14-6s8 6 14 6c4 0 6-2 8-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Vlot</span>
+        </button>
+        <button data-v="4" title="Zo snel mogelijk, zonder snelweg">
+          <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 8h36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Recht</span>
+        </button>
+      </div>
+      <p class="hint" id="levelHint">
+        Doorgaande landwegen met vloeiende bochten. Dorpen worden zoveel mogelijk gemeden.
+      </p>
+    </div>
+
+    <div class="block">
+      <div class="eyebrow">Vermijden</div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="noHighway" checked> Snelwegen</label>
+        <label class="check"><input type="checkbox" id="avoidTowns" checked> Dorpskernen en woonwijken</label>
+        <label class="check"><input type="checkbox" id="noRepeat" checked> Dezelfde weg twee keer rijden</label>
+        <label class="check"><input type="checkbox" id="noToll"> Tolwegen</label>
+        <label class="check"><input type="checkbox" id="noFerry"> Veerboten</label>
+        <label class="check"><input type="checkbox" id="noDirt"> Onverharde wegen</label>
+        <label class="check"><input type="checkbox" id="noRidden"> Wegen die ik al reed</label>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="slider">
+        <div class="top"><span class="name">Onverhard</span><span class="val" id="dirtVal">20</span></div>
+        <input type="range" id="dirt" min="0" max="100" value="20">
+        <p class="hint">Hoger = meer zandwegen en tracks. Alleen openbare wegen; check altijd de borden ter plaatse.</p>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="eyebrow">Aanloop over de snelweg</div>
+      <p class="inline">
+        Eerste <input type="number" id="sprintKm" min="0" max="500" step="10" value="0"> km wél over de snelweg
+      </p>
+      <p class="hint">
+        Vul bijv. 60 in om het saaie stuk snel achter je te laten. Dat deel staat blauw gestippeld op de kaart.
+      </p>
+      <label class="check">
+        <input type="checkbox" id="checkDist" checked> Waarschuwen als de afstand niet klopt
+      </label>
+    </div>
+  </section>
+
+  <!-- ============ 3. de rit ============ -->
+  <section class="step" data-step="3">
+    <div class="block">
+      <p class="inline">
+        Vertrek om <input type="time" id="depTime" value="09:00" style="width:96px">
+      </p>
+      <p class="inline">
+        Tank goed voor <input type="number" id="tankKm" min="0" max="900" step="25" value="0"> km
+      </p>
+      <p class="hint">Vul je actieradius in, dan zet hij tankstops in je roadbook.</p>
+    </div>
+
+    <div class="block">
+      <div class="eyebrow">Wat wil je onderweg zien</div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="findScenic"> Bos en water erbij zoeken <span class="zacht">(kan omrijden geven)</span></label>
+        <label class="check"><input type="checkbox" id="findPois" checked> Bezienswaardigheden langs de route</label>
+        <label class="check"><input type="checkbox" id="showPhotos" checked> Foto's van die plekken laten zien</label>
+        <label class="check"><input type="checkbox" id="findStays"> Overnachting bij de bestemming</label>
+      </div>
+    </div>
+
+    <div class="summary" id="summary" hidden>
+      <div><span>Afstand</span><strong id="sumKm">—</strong></div>
+      <div><span>Rijtijd</span><strong id="sumTime">—</strong></div>
+      <div><span>Aankomst</span><strong id="sumEta">—</strong></div>
+      <div><span>Bochtig</span><strong id="sumCurve">—</strong></div>
+      <div><span>Stops</span><strong id="sumStops">—</strong></div>
+    </div>
+    <div class="wx" id="wx" hidden></div>
+    <div id="elevBox" hidden class="elevbox">
+      <div class="elevtop">
+        <span class="elevlabel">Hoogte</span>
+        <span id="elevInfo"></span>
+      </div>
+      <svg id="elevSvg" viewBox="0 0 360 72" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="legend" id="legend" hidden>
+      <span class="t">recht</span><span class="bar"></span><span class="t">bochtig</span>
+      <span class="dash"></span><span class="t">snelweg</span>
+    </div>
+
+    <div class="block" id="altBlock" hidden>
+      <div class="eyebrow">Andere routes</div>
+      <div class="alts" id="alts"></div>
+      <p class="hint">Klik een route aan, in het paneel of op de kaart.</p>
+    </div>
+
+    <div class="roadbook" id="roadbook">
+      <p class="empty">Vul vertrek en bestemming in en druk op Route plannen. Tik op de kaart om ergens een tussenstop neer te zetten, of sleep de route zelf een andere kant op.</p>
+    </div>
+
+    <div class="block" id="alongBlock" data-fold data-shut>
+      <div class="eyebrow">Onderweg tanken en eten</div>
+      <div class="chips" id="alongChips">
+        <button data-k="fuel"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 15V4a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 10 4v11M2.5 15h9M5 7h4M12 5.5l2 2V12a1.2 1.2 0 0 0 2.4 0V6.5"/></svg>Tanken</button>
+        <button data-k="food"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4.5 2.5v4a1.8 1.8 0 0 0 3.6 0v-4M6.3 6.5V15M12.5 2.5c-1.4 0-2.2 1.6-2.2 3.4s.8 2.9 2.2 2.9V15"/></svg>Eten</button>
+        <button data-k="cafe"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3.5 5h8v4.5a3.5 3.5 0 0 1-3.5 3.5H7a3.5 3.5 0 0 1-3.5-3.5V5zM11.5 6h1.6a1.9 1.9 0 0 1 0 3.8h-1.6M2.5 15.5h10"/></svg>Koffie</button>
+        <button data-k="moto"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M13.5 2.5a3.3 3.3 0 0 0-4.4 4.4l-5 4.6a1.6 1.6 0 0 0 2.2 2.2l4.6-5a3.3 3.3 0 0 0 4.4-4.4l-2 2-1.7-.5-.5-1.7z"/></svg>Motorzaak</button>
+      </div>
+      <div class="rows" id="alongList"></div>
+    </div>
+
+    <div class="block" id="turnBlock" hidden data-fold data-shut>
+      <div class="eyebrow">Afslagen</div>
+      <div class="rows" id="turnList"></div>
+    </div>
+
+    <div class="block" id="exportBlock">
+      <div class="eyebrow">Meenemen</div>
+      <div class="exports" id="exports" hidden>
+        <button id="gpx">GPX opslaan</button>
+        <button id="printBtn">Afdrukken</button>
+        <button id="share">Delen</button>
+        <button id="save">Bewaren</button>
+      </div>
+      <p class="inline" id="gpxRow">
+        GPX met max <input type="number" id="gpxPts" min="3" max="80" step="1" value="30"> vormpunten
+      </p>
+      <div class="toolrow">
+        <button id="btnUndo" title="Laatste wijziging terugdraaien">↶ Ongedaan</button>
+        <button id="btnReverse" title="Begin en eind omdraaien">⇄ Omkeren</button>
+        <button id="btnFit" title="Hele route in beeld">⤢ Hele route</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4. meer ============ -->
+  <section class="step" data-step="4">
+    <div class="block" id="ritBlock" hidden>
+      <div class="eyebrow">Route in je zak</div>
+      <div class="hint" id="ritInfo"></div>
+      <div class="chips">
+        <button id="ritGo">▶ Deze rit rijden</button>
+        <button id="ritDrop">Weggooien</button>
+      </div>
+    </div>
+
+    <div class="block" id="savedBlock" hidden data-fold data-shut>
+      <div class="eyebrow">Bewaarde routes</div>
+      <div class="rows" id="savedList"></div>
+    </div>
+
+    <div class="block" id="libBlock" data-fold data-shut>
+      <div class="eyebrow">Mijn routebibliotheek</div>
+      <div class="chips">
+        <button id="libAdd">GPX-bestanden toevoegen</button>
+        <button id="libShow">Alles op de kaart</button>
+      </div>
+      <input type="file" id="libFiles" accept=".gpx,application/gpx+xml" multiple hidden>
+      <div class="rows" id="libList"></div>
+      <p class="hint" id="libHint">
+        Sleep er gerust twintig tegelijk in. Ze worden gesorteerd op afstand vanaf je vertrekpunt,
+        zodat je ziet welke rit het dichtst bij je in de buurt ligt.
+      </p>
+    </div>
+
+    <div class="block" id="kaartBlock" data-fold data-shut>
+      <div class="eyebrow">Kaart offline</div>
+      <p class="hint">
+        Haal een gebied binnen, dan zie je de kaart ook zonder bereik. Een route
+        berekenen heeft internet nodig; kijken en rijden niet meer.
+      </p>
+      <p class="inline">
+        Strook van
+        <select id="okBreed">
+          <option value="2">2 km</option>
+          <option value="5" selected>5 km</option>
+          <option value="10">10 km</option>
+        </select>
+        weerszijden van de route
+      </p>
+      <div class="chips">
+        <button id="okRoute">Rond mijn route</button>
+        <button id="okVak">Wat ik nu zie</button>
+      </div>
+      <p class="hint" id="okEst"></p>
+      <div class="chips">
+        <button id="okGo" hidden>Binnenhalen</button>
+        <button id="okStop" hidden>Stoppen</button>
+      </div>
+      <div id="okBar" hidden>
+        <div class="okbar"><div id="okBarIn"></div></div>
+        <p class="hint" id="okBarTxt"></p>
+      </div>
+      <div class="rows" id="okList"></div>
+      <p class="hint" id="okLeeg">Er staat nog geen gebied in je telefoon.</p>
+      <p class="hint" id="okRuimte"></p>
+    </div>
+
+    <div class="block" id="logBlock" data-fold data-shut>
+      <div class="eyebrow">Rittenlogboek</div>
+      <div class="chips">
+        <button id="logAdd">Deze rit is gereden</button>
+      </div>
+      <div id="logTotals" class="hint"></div>
+      <div class="rows" id="logList"></div>
+    </div>
+
+    <div class="block" id="offBlock" data-fold data-shut>
+      <div class="eyebrow">Offroad</div>
+      <div class="chips">
+        <button id="offFind">Zoek onverharde wegen</button>
+        <button id="offShow">Op de kaart</button>
+      </div>
+      <p class="inline">
+        Binnen <input type="number" id="offRadius" min="2" max="60" step="1" value="15"> km van
+        <select id="offWhere">
+          <option value="dest">mijn bestemming</option>
+          <option value="start">mijn vertrekpunt</option>
+          <option value="route">mijn hele route</option>
+        </select>
+      </p>
+      <div class="rows" id="offList"></div>
+      <p class="hint">
+        Alleen wegen waar gemotoriseerd verkeer niet verboden is volgens OpenStreetMap.
+        In Nederland en Duitsland is rijden op bospaden meestal verboden — <b>let altijd op de borden ter plaatse</b>.
+      </p>
+    </div>
+
+    <div class="block" id="tourBlock" hidden data-fold data-shut>
+      <div class="eyebrow">Bekende routes in de buurt</div>
+      <button class="text-btn" id="findTours">Zoek toeristische routes langs deze rit</button>
+      <div class="rows" id="routeList"></div>
+      <p class="hint">
+        Officiële panorama- en vakantieroutes uit OpenStreetMap. "Aansluiten" zoekt het punt van die route dat het dichtst bij jou ligt.
+      </p>
+    </div>
+
+    <div class="block">
+      <div class="eyebrow">Uiterlijk</div>
+      <div class="chips" id="themeRow">
+        <button data-thema="auto" class="on">Volgt de zon</button>
+        <button data-thema="licht">Altijd licht</button>
+        <button data-thema="donker">Altijd donker</button>
+      </div>
+      <p class="hint" id="themeHint">
+        Licht bij daglicht, donker na zonsondergang. De app rekent zelf uit wanneer
+        de zon op- en ondergaat waar jij op de kaart kijkt — daar is geen internet voor nodig.
+      </p>
+    </div>
+
+    <p class="foot">
+      Roadbook <span id="verNr">versie 33</span> ·
+      Kaart: <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> ·
+      Topo: <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA) ·
+      Satelliet: Esri World Imagery ·
+      Routes: <a href="https://valhalla.openstreetmap.de" target="_blank" rel="noopener">Valhalla / FOSSGIS</a> ·
+      Plaatsen: <a href="https://overpass-api.de" target="_blank" rel="noopener">Overpass</a> ·
+      Zoeken: <a href="https://photon.komoot.io" target="_blank" rel="noopener">Photon</a> ·
+      Data © OpenStreetMap-bijdragers. Dit zijn gratis community-servers — houd het bij normaal persoonlijk gebruik.
     </p>
-    <div class="gorow">
-      <button class="go" id="go">Route plannen</button>
-      <button class="go alt" id="goDrive" hidden>▶ Starten</button>
-    </div>
-    <div class="toolrow">
-      <button id="btnUndo" title="Laatste wijziging terugdraaien">↶ Ongedaan</button>
-      <button id="btnReverse" title="Begin en eind omdraaien">⇄ Omkeren</button>
-      <button id="btnFit" title="Hele route in beeld">⤢ Hele route</button>
-      <button id="clear" title="Route en tekening weghalen">✕ Wissen</button>
-    </div>
+  </section>
+
+  </div><!-- /stepwrap -->
+
+  <div class="bar" id="bar">
     <p class="status" id="status"></p>
-  </div>
-
-  <div class="block" id="altBlock" hidden>
-    <div class="eyebrow">Andere routes</div>
-    <div class="alts" id="alts"></div>
-    <p class="hint" style="margin-top:9px">Klik een route aan, in het paneel of op de kaart.</p>
-  </div>
-
-  <div class="block" id="alongBlock" data-fold data-shut>
-    <div class="eyebrow">Onderweg</div>
-    <div class="chips" id="alongChips">
-      <button data-k="fuel"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 15V4a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 10 4v11M2.5 15h9M5 7h4M12 5.5l2 2V12a1.2 1.2 0 0 0 2.4 0V6.5"/></svg>Tanken</button>
-      <button data-k="food"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4.5 2.5v4a1.8 1.8 0 0 0 3.6 0v-4M6.3 6.5V15M12.5 2.5c-1.4 0-2.2 1.6-2.2 3.4s.8 2.9 2.2 2.9V15"/></svg>Eten</button>
-      <button data-k="cafe"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3.5 5h8v4.5a3.5 3.5 0 0 1-3.5 3.5H7a3.5 3.5 0 0 1-3.5-3.5V5zM11.5 6h1.6a1.9 1.9 0 0 1 0 3.8h-1.6M2.5 15.5h10"/></svg>Koffie</button>
-      <button data-k="moto"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M13.5 2.5a3.3 3.3 0 0 0-4.4 4.4l-5 4.6a1.6 1.6 0 0 0 2.2 2.2l4.6-5a3.3 3.3 0 0 0 4.4-4.4l-2 2-1.7-.5-.5-1.7z"/></svg>Motorzaak</button>
-    </div>
-    <p class="inline" style="margin-top:12px">
-      Tank goed voor <input type="number" id="tankKm" min="0" max="900" step="25" value="0"> km
-    </p>
-    <p class="hint" style="margin:-6px 0 0">Vul je actieradius in, dan zet hij tankstops in je roadbook.</p>
-    <div class="rows" id="alongList"></div>
-  </div>
-
-  <div class="summary" id="summary" hidden>
-    <div><span>Afstand</span><strong id="sumKm">—</strong></div>
-    <div><span>Rijtijd</span><strong id="sumTime">—</strong></div>
-    <div><span>Aankomst</span><strong id="sumEta">—</strong></div>
-    <div><span>Bochtig</span><strong id="sumCurve">—</strong></div>
-    <div><span>Stops</span><strong id="sumStops">—</strong></div>
-  </div>
-  <div class="wx" id="wx" hidden></div>
-  <div id="elevBox" hidden style="padding:0 20px 14px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
-      <span style="font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;
-        font-size:10px;color:var(--muted)">Hoogte</span>
-      <span id="elevInfo" style="font-family:var(--mono);font-size:11px;color:var(--brass)"></span>
-    </div>
-    <svg id="elevSvg" viewBox="0 0 360 72" preserveAspectRatio="none"
-         style="width:100%;height:72px;display:block"></svg>
-  </div>
-  <div class="legend" id="legend" hidden>
-    <span class="t">recht</span><span class="bar"></span><span class="t">bochtig</span>
-    <span class="dash"></span><span class="t">snelweg</span>
-  </div>
-
-  <div class="roadbook" id="roadbook">
-    <p class="empty">Vul vertrek en bestemming in en plan je route. Tik op de kaart om ergens een tussenstop neer te zetten, of sleep de route zelf een andere kant op.</p>
-  </div>
-
-  <p class="inline" id="gpxRow" style="padding:0 20px;margin:0 0 10px">
-    GPX met max <input type="number" id="gpxPts" min="3" max="80" step="1" value="30"> vormpunten
-  </p>
-  <div class="exports" id="exports" hidden>
-    <button id="gpx">GPX opslaan</button>
-    <button id="printBtn">Afdrukken</button>
-    <button id="share">Delen</button>
-    <button id="save">Bewaren</button>
-  </div>
-
-  <div class="block" id="ritBlock" hidden>
-    <div class="eyebrow">Route in je zak</div>
-    <div class="hint" id="ritInfo"></div>
-    <div class="chips" style="margin-top:10px">
-      <button id="ritGo">▶ Deze rit rijden</button>
-      <button id="ritDrop">Weggooien</button>
+    <div class="barrow">
+      <button class="bicon" id="stepBack" title="Stap terug">←</button>
+      <button class="go" id="stepNext">Verder →</button>
+      <button class="go" id="go" hidden>Route plannen</button>
+      <button class="go alt" id="goDrive" hidden>▶ Starten</button>
+      <button class="bicon" id="clear" title="Route en tekening weghalen">✕</button>
     </div>
   </div>
-
-  <div class="block" id="savedBlock" hidden data-fold data-shut>
-    <div class="eyebrow">Bewaarde routes</div>
-    <div class="rows" id="savedList"></div>
-  </div>
-
-  <div class="block" id="kaartBlock" data-fold data-shut>
-    <div class="eyebrow">Kaart offline</div>
-    <p class="hint" style="margin-bottom:10px">
-      Haal een gebied binnen, dan zie je de kaart ook zonder bereik. Een route
-      berekenen heeft internet nodig; kijken en rijden niet meer.
-    </p>
-    <p class="inline" style="margin:0 0 10px">
-      Strook van
-      <select id="okBreed" style="background:var(--ink);border:1px solid var(--hair);
-        border-radius:3px;color:var(--paper);padding:7px 8px;font-size:13px">
-        <option value="2">2 km</option>
-        <option value="5" selected>5 km</option>
-        <option value="10">10 km</option>
-      </select>
-      weerszijden van de route
-    </p>
-    <div class="chips" style="margin-bottom:10px">
-      <button id="okRoute">Rond mijn route</button>
-      <button id="okVak">Wat ik nu zie</button>
-    </div>
-    <p class="hint" id="okEst" style="margin-bottom:10px"></p>
-    <div class="chips" style="margin-bottom:10px">
-      <button id="okGo" hidden>Binnenhalen</button>
-      <button id="okStop" hidden>Stoppen</button>
-    </div>
-    <div id="okBar" hidden style="margin-bottom:10px">
-      <div class="okbar"><div id="okBarIn"></div></div>
-      <p class="hint" id="okBarTxt" style="margin-top:5px"></p>
-    </div>
-    <div class="rows" id="okList"></div>
-    <p class="hint" id="okLeeg">Er staat nog geen gebied in je telefoon.</p>
-    <p class="hint" id="okRuimte" style="margin-top:8px"></p>
-  </div>
-
-  <div class="block" id="logBlock" data-fold data-shut>
-    <div class="eyebrow">Rittenlogboek</div>
-    <div class="chips" style="margin-bottom:10px">
-      <button id="logAdd">Deze rit is gereden</button>
-    </div>
-    <div id="logTotals" class="hint" style="margin-bottom:8px"></div>
-    <div class="rows" id="logList"></div>
-  </div>
-
-  <div class="block" id="offBlock" data-fold data-shut>
-    <div class="eyebrow">Offroad</div>
-    <div class="chips" style="margin-bottom:10px">
-      <button id="offFind">Zoek onverharde wegen</button>
-      <button id="offShow">Op de kaart</button>
-    </div>
-    <p class="inline" style="margin:0 0 8px">
-      Binnen <input type="number" id="offRadius" min="2" max="60" step="1" value="15"> km van
-      <select id="offWhere" style="background:var(--ink);border:1px solid var(--hair);
-        border-radius:3px;color:var(--paper);padding:7px 8px;font-size:13px">
-        <option value="dest">mijn bestemming</option>
-        <option value="start">mijn vertrekpunt</option>
-        <option value="route">mijn hele route</option>
-      </select>
-    </p>
-    <div class="rows" id="offList"></div>
-    <p class="hint" style="margin-top:10px">
-      Alleen wegen waar gemotoriseerd verkeer niet verboden is volgens OpenStreetMap.
-      In Nederland en Duitsland is rijden op bospaden meestal verboden — <b style="color:var(--paper);font-weight:500">let altijd op de borden ter plaatse</b>.
-    </p>
-  </div>
-
-  <div class="block" id="turnBlock" hidden data-fold data-shut>
-    <div class="eyebrow">Afslagen</div>
-    <div class="rows" id="turnList"></div>
-  </div>
-
-  <div class="block" id="tourBlock" hidden data-fold data-shut>
-    <div class="eyebrow">Bekende routes in de buurt</div>
-    <button class="text-btn" id="findTours">Zoek toeristische routes langs deze rit</button>
-    <div class="rows" id="routeList"></div>
-    <p class="hint" style="margin-top:10px">
-      Officiële panorama- en vakantieroutes uit OpenStreetMap. "Aansluiten" zoekt het punt van die route dat het dichtst bij jou ligt.
-    </p>
-  </div>
-
-  <p class="foot">
-    Kaart: <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> ·
-    Topo: <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA) ·
-    Satelliet: Esri World Imagery ·
-    Routes: <a href="https://valhalla.openstreetmap.de" target="_blank" rel="noopener">Valhalla / FOSSGIS</a> ·
-    Plaatsen: <a href="https://overpass-api.de" target="_blank" rel="noopener">Overpass</a> ·
-    Zoeken: <a href="https://photon.komoot.io" target="_blank" rel="noopener">Photon</a> ·
-    Data © OpenStreetMap-bijdragers. Dit zijn gratis community-servers — houd het bij normaal persoonlijk gebruik.
-  </p>
 </aside>
 
 <div id="drive" hidden>
@@ -361,6 +419,7 @@
 
 <div class="mapwrap">
   <div id="map"></div>
+  <div id="mapDim"></div>
   <button class="toolsbtn" id="toolsBtn" aria-label="Kaartknoppen">▤</button>
   <button class="penbtn" id="drawMode" title="Trek met je vinger een vorm over de kaart">✎ Tekenen</button>
   <button class="penbtn wis" id="drawClear" hidden title="Tekening weghalen">✕</button>

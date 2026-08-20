@@ -330,6 +330,42 @@ for (const [km, punten, aantal] of [[200, 5000, 150], [400, 11000, 320], [900, 2
 }
 
 console.log('');
+console.log('--- zonTijden(): wanneer gaat de zon op en onder ---');
+/* Niet natrekken met cijfers uit mijn hoofd, maar met dingen die vaststaan:
+   de langste dag in Amsterdam is 16 uur 46, de kortste 7 uur 44, en de zon
+   staat midden tussen op en onder in — op de lengte van Amsterdam rond
+   11:40 UTC. */
+const AMS = [52.3676, 4.9041];
+const uren = t => (t.onder - t.op) / 3600000;
+const midden = t => new Date((+t.op + +t.onder) / 2);
+
+const juni = zonTijden(AMS[0], AMS[1], new Date(Date.UTC(2026, 5, 21, 12)));
+const dec  = zonTijden(AMS[0], AMS[1], new Date(Date.UTC(2026, 11, 21, 12)));
+console.log('     21 juni:      op ' + juni.op.toISOString().slice(11,16)
+  + ' onder ' + juni.onder.toISOString().slice(11,16) + ' UTC, ' + uren(juni).toFixed(2) + ' uur licht');
+console.log('     21 december:  op ' + dec.op.toISOString().slice(11,16)
+  + ' onder ' + dec.onder.toISOString().slice(11,16) + ' UTC, ' + uren(dec).toFixed(2) + ' uur licht');
+check('langste dag is 16u46 (+/- 10 min)', Math.abs(uren(juni) - 16.77) < 0.17, true);
+check('kortste dag is 7u44 (+/- 10 min)', Math.abs(uren(dec) - 7.73) < 0.17, true);
+check('zon op voor zon onder', juni.op < juni.onder, true);
+check('juni gaat eerder op dan december',
+      juni.op.getUTCHours() < dec.op.getUTCHours(), true);
+/* Zonnemiddag: 12:00 UTC minus de lengtegraad gedeeld door 15, plus maximaal
+   een kwartier voor de scheve baan van de aarde. */
+const middagJuni = midden(juni).getUTCHours() + midden(juni).getUTCMinutes()/60;
+check('zonnemiddag rond 11:40 UTC', Math.abs(middagJuni - 11.67) < 0.3, true);
+
+/* Op de evenaar is het het hele jaar ongeveer twaalf uur licht. */
+const evenaar = zonTijden(0, 0, new Date(Date.UTC(2026, 11, 21, 12)));
+check('evenaar: 12 uur licht', Math.abs(uren(evenaar) - 12.12) < 0.15, true);
+
+/* En boven de poolcirkel: midzomer geen nacht, midwinter geen dag. */
+const poolZomer = zonTijden(78, 15, new Date(Date.UTC(2026, 5, 21, 12)));
+const poolWinter = zonTijden(78, 15, new Date(Date.UTC(2026, 11, 21, 12)));
+check('poolzomer: de zon gaat niet onder', poolZomer !== null && uren(poolZomer) > 0, true);
+check('poolnacht: geen zonsopkomst', poolWinter, null);
+
+console.log('');
 console.log('=== 4. klopt de interface met de code? ===');
 (function interfaceCheck(){
   const html = fs.readFileSync('index.html', 'utf8');

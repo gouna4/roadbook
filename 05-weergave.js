@@ -163,6 +163,7 @@ function applyVariant(k){
   /* Er ligt een route: dan hoort Route starten binnen handbereik te staan,
      op dezelfde plek waar je net op Plannen drukte. */
   el('goDrive').hidden=false; el('sheetDrive').hidden=false;
+  if(typeof stapKlaarTekens==='function') stapKlaarTekens();
 
   /* bochtigste stukken en tankstops als extra regels in het roadbook */
   const base=state.fast.km, extra=[];

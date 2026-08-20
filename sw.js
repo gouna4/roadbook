@@ -2,7 +2,7 @@
    Houdt de app zelf en de kaartonderdelen vast, zodat hij ook zonder
    bereik opstart. Kaarttegels worden bewaard van de gebieden waar je
    al hebt gekeken. */
-const APP = 'roadbook-app-v32';
+const APP = 'roadbook-app-v33';
 const TILES = 'roadbook-tiles-v1';
 /* Wat de gebruiker zelf heeft binnengehaald. Deze kast wordt nooit
    opgeruimd — daar heeft hij bewust op gewacht. */

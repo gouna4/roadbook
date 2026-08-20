@@ -77,7 +77,8 @@ function zetStand(st){
   p.classList.remove('peek','half','full','dragging');
   p.classList.add(st);
   p.style.removeProperty('--sheet');
-  if(st!=='full') p.scrollTop=0;
+  /* Het paneel scrolt niet meer zelf; dat doet het middenstuk. */
+  if(st!=='full'){ const w=document.querySelector('.stepwrap'); if(w) w.scrollTop=0; }
   store.set('rb.sheet',st);
 }
 
@@ -252,3 +253,128 @@ el('hereBtn').addEventListener('click',()=>{
    {enableHighAccuracy:true,timeout:10000});
 });
 
+
+/* ================= stap voor stap =================
+   Vier schermen in plaats van één lange sliert: waar ga je heen, wat voor
+   wegen, de rit zelf, en alles wat je maar af en toe nodig hebt.
+
+   Je hoeft niet netjes door de stappen te lopen: tik gewoon op de stap die je
+   wil. Dat is belangrijk voor een rit die je vaker rijdt — dan staat alles al
+   goed en wil je meteen naar stap 3. */
+let stap=1;
+
+function stapKlaarTekens(){
+  const waar = !!el('start').value.trim() && !!el('dest').value.trim();
+  const rit = !!state.variants?.[state.shown]?.shape?.length;
+  const zet=(n,ok)=>document.querySelector(`#steps button[data-step="${n}"]`)
+    ?.classList.toggle('klaar',ok);
+  zet(1,waar);
+  zet(3,rit);
+}
+
+function zetStap(n){
+  stap=Math.max(1,Math.min(4,n));
+  document.querySelectorAll('#steps button').forEach(b=>
+    b.classList.toggle('on',+b.dataset.step===stap));
+  document.querySelectorAll('.step').forEach(s=>
+    s.classList.toggle('on',+s.dataset.step===stap));
+  const wrap=document.querySelector('.stepwrap');
+  if(wrap) wrap.scrollTop=0;
+  el('stepBack').disabled = stap===1;
+  /* Vanaf stap 3 is plannen de hoofdactie; daarvoor is "verder" dat. */
+  const eind = stap>=3;
+  el('stepNext').hidden = eind;
+  el('go').hidden = !eind;
+  store.set('rb.stap',stap);
+  stapKlaarTekens();
+}
+
+document.querySelectorAll('#steps button').forEach(b=>
+  b.addEventListener('click',()=>zetStap(+b.dataset.step)));
+el('stepNext').addEventListener('click',()=>zetStap(stap+1));
+el('stepBack').addEventListener('click',()=>zetStap(stap-1));
+['start','dest'].forEach(id=>el(id).addEventListener('input',stapKlaarTekens));
+
+/* Op Plannen drukken brengt je naar stap 3, want daar komt het antwoord. */
+el('go').addEventListener('click',()=>zetStap(3));
+
+zetStap(store.get('rb.stap',1));
+
+/* ================= licht of donker =================
+   Bij daglicht een licht paneel en de gewone kaart, na zonsondergang donker
+   met een gedempte kaart. Zonsopkomst en -ondergang rekenen we zelf uit uit de
+   datum en de plek waar je op de kaart kijkt. Geen server, dus dit werkt ook
+   zonder bereik — en het klopt in juni net zo goed als in december. */
+function zonTijden(lat,lon,datum){
+  const rad=Math.PI/180, graad=180/Math.PI;
+  const jd = datum.getTime()/86400000 + 2440587.5;          /* Juliaanse dag */
+  const n = Math.round(jd - 2451545.0 + 0.0008);
+  const ster = n - lon/360;                                  /* zonnetijd op deze lengte */
+  const M = (357.5291 + 0.98560028*ster) % 360;              /* middelbare anomalie */
+  const C = 1.9148*Math.sin(M*rad) + 0.02*Math.sin(2*M*rad) + 0.0003*Math.sin(3*M*rad);
+  const L = (M + C + 180 + 102.9372) % 360;                  /* ecliptische lengte */
+  const door = 2451545.0 + ster + 0.0053*Math.sin(M*rad) - 0.0069*Math.sin(2*L*rad);
+  const sinD = Math.sin(L*rad)*Math.sin(23.4397*rad);        /* declinatie van de zon */
+  const cosD = Math.cos(Math.asin(sinD));
+  /* -0,833 graad: de zon staat net onder de horizon als je hem ziet opkomen,
+     door de kromming van het licht in de lucht en de grootte van de schijf. */
+  const cosU = (Math.sin(-0.833*rad) - Math.sin(lat*rad)*sinD) / (Math.cos(lat*rad)*cosD);
+  if(cosU > 1) return null;                                  /* poolnacht */
+  if(cosU < -1) return { op:new Date(datum.getTime()-6e7), onder:new Date(datum.getTime()+6e7) };
+  const u = Math.acos(cosU)*graad;
+  const terug = j => new Date((j - 2440587.5)*86400000);
+  return { op:terug(door - u/360), onder:terug(door + u/360) };
+}
+
+const THEMA_UITLEG={
+  auto:'Licht bij daglicht, donker na zonsondergang. De app rekent zelf uit wanneer '
+      +'de zon op- en ondergaat waar jij op de kaart kijkt — daar is geen internet voor nodig.',
+  licht:'Altijd het lichte thema. Het beste leesbaar in fel zonlicht.',
+  donker:'Altijd het donkere thema, met een gedempte kaart. Rustig voor je ogen in het donker.'
+};
+
+function themaBijwerken(){
+  const modus=store.get('rb.thema','auto');
+  let licht;
+  if(modus==='licht') licht=true;
+  else if(modus==='donker') licht=false;
+  else{
+    /* Waar kijk je? Levert de kaart iets onbruikbaars, dan rekenen we met
+       midden-Nederland: liever een half uur naast de schemering dan een app
+       die in het donker blijft hangen. */
+    let lat=51.3, lon=6.2;
+    try{
+      const c=map.getCenter();
+      if(Number.isFinite(+c.lat) && Number.isFinite(+c.lng)){ lat=+c.lat; lon=+c.lng; }
+    }catch{}
+    const t=zonTijden(lat,lon,new Date());
+    /* Een half uur rek aan beide kanten: in de schemering is licht nog prima. */
+    licht = t ? (Date.now() > +t.op - 18e5 && Date.now() < +t.onder + 18e5) : false;
+  }
+  document.documentElement.setAttribute('data-thema', licht?'licht':'donker');
+  el('themeBtn').textContent = modus==='auto' ? (licht?'☀':'☾') : (licht?'☀':'☾');
+  el('themeBtn').title = modus==='auto' ? 'Volgt de zon — tik om vast te zetten'
+    : modus==='licht' ? 'Altijd licht — tik voor donker' : 'Altijd donker — tik voor automatisch';
+  const m=document.querySelector('meta[name="theme-color"]');
+  if(m) m.setAttribute('content', licht?'#EDEAE3':'#14181C');
+  document.querySelectorAll('#themeRow button').forEach(b=>
+    b.classList.toggle('on', b.dataset.thema===modus));
+  if(el('themeHint')) el('themeHint').textContent=THEMA_UITLEG[modus]||THEMA_UITLEG.auto;
+}
+
+el('themeBtn').addEventListener('click',()=>{
+  const nu=store.get('rb.thema','auto');
+  store.set('rb.thema', nu==='auto' ? 'licht' : nu==='licht' ? 'donker' : 'auto');
+  themaBijwerken();
+});
+document.querySelectorAll('#themeRow button').forEach(b=>
+  b.addEventListener('click',()=>{ store.set('rb.thema',b.dataset.thema); themaBijwerken(); }));
+
+themaBijwerken();
+/* Elke tien minuten kijken of het al schemert. Ook bij terugkomen in de app,
+   want dan is er misschien een half uur voorbij met het scherm uit. */
+setInterval(themaBijwerken, 6e5);
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible') themaBijwerken();
+});
+map.on('moveend',()=>{ if(store.get('rb.thema','auto')==='auto') themaBijwerken(); });
