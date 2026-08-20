@@ -37,6 +37,7 @@
   :focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 
   .panel{background:var(--panel);border-right:1px solid var(--hair);overflow-y:auto;overscroll-behavior:contain}
+  .grip{display:none}
   .masthead{padding:18px 20px 14px;border-bottom:1px solid var(--hair)}
   .masthead h1{font-family:var(--display);font-weight:700;font-size:26px;line-height:.95;
     letter-spacing:.02em;text-transform:uppercase}
@@ -234,17 +235,22 @@
 
   .mapwrap{position:relative;overflow:hidden}
   #map{width:100%;height:100%}
-  .layers{position:absolute;left:12px;bottom:30px;z-index:2;display:flex;
-    background:rgba(20,24,28,.92);border:1px solid var(--hair);border-radius:3px;overflow:hidden}
+  #mapTools{position:absolute;left:12px;bottom:26px;z-index:3;display:flex;
+    flex-direction:column;align-items:flex-start;gap:8px}
+  .toolsbtn{display:none;position:absolute;left:12px;bottom:26px;z-index:4;
+    width:44px;height:44px;border-radius:4px;background:rgba(20,24,28,.94);
+    border:1px solid var(--hair);color:var(--paper);font-size:17px}
+  .toolsbtn.on{background:var(--brass);color:var(--ink);border-color:var(--brass)}
+  .layers{display:flex;background:rgba(20,24,28,.94);
+    border:1px solid var(--hair);border-radius:3px;overflow:hidden}
   .layers button{padding:8px 13px;font-family:var(--display);text-transform:uppercase;
     letter-spacing:.09em;font-size:11.5px;font-weight:600;color:var(--muted);
     border-right:1px solid var(--hair)}
   .layers button:last-child{border-right:0}
   .layers button:hover{color:var(--paper)}
   .layers button.on{background:var(--brass);color:var(--ink)}
-  .addmode{position:absolute;left:12px;bottom:74px;z-index:2;
-    background:rgba(20,24,28,.92);border:1px solid var(--hair);border-radius:3px;
-    padding:8px 13px;font-family:var(--display);text-transform:uppercase;
+  .addmode{background:rgba(20,24,28,.94);border:1px solid var(--hair);border-radius:3px;
+    padding:9px 13px;font-family:var(--display);text-transform:uppercase;
     letter-spacing:.09em;font-size:11.5px;font-weight:600;color:var(--muted)}
   .addmode:hover{color:var(--paper)}
   .addmode.on{background:var(--signal);border-color:var(--signal);color:#150C06}
@@ -300,24 +306,95 @@
   .dbtns button:hover{color:var(--paper);border-color:var(--paper)}
   #dStop{border-color:var(--signal);color:var(--signal)}
 
-  @media (max-width:820px){
-    body{grid-template-columns:1fr;grid-template-rows:44dvh 1fr}
-    .mapwrap{order:-1}
-    .panel{border-right:0;border-top:1px solid var(--hair)}
-    .layers{bottom:14px;left:10px}
-    #overlays{bottom:52px}
-    #addMode{bottom:90px}
-    #driveBtn{bottom:128px}
+  /* ---------- telefoon staand: kaart vult het scherm, paneel is een blad ---------- */
+  @media (max-width:860px){
+    body{display:block;height:100dvh;overflow:hidden}
+    .mapwrap{position:fixed;inset:0;height:100dvh;width:100vw;order:0}
+    #map{height:100%}
     .tip{display:none}
+
+    /* zeven losse knoppen worden één menu */
+    .toolsbtn{display:block}
+    #mapTools{display:none;left:12px;bottom:78px;max-width:calc(100vw - 24px)}
+    #mapTools.open{display:flex}
+    .addmode,.layers button{font-size:12.5px;padding:11px 14px}
+
+    .panel{
+      position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;
+      height:92dvh;max-height:92dvh;z-index:30;
+      border-right:0;border-top:1px solid var(--hair);
+      border-radius:16px 16px 0 0;
+      box-shadow:0 -10px 30px rgba(0,0,0,.5);
+      transform:translateY(var(--sheet,calc(92dvh - 86px)));
+      transition:transform .26s cubic-bezier(.22,.7,.3,1);
+      overscroll-behavior:contain;
+    }
+    .panel.dragging{transition:none}
+    .panel.peek{--sheet:calc(92dvh - 86px)}
+    .panel.half{--sheet:46dvh}
+    .panel.full{--sheet:0dvh}
+
+    .grip{
+      display:block;position:sticky;top:0;z-index:9;background:var(--panel);
+      border-radius:16px 16px 0 0;padding:9px 20px 11px;
+      border-bottom:1px solid var(--hair);cursor:grab;touch-action:none;
+    }
+    .griphandle{width:42px;height:4px;border-radius:2px;background:var(--hair);margin:0 auto 9px}
+    .sheetbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    #sheetInfo{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;
+      font-size:13px;color:var(--paper);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #sheetGo{background:var(--signal);color:#150C06;border-radius:3px;padding:9px 16px;
+      font-family:var(--display);font-weight:700;text-transform:uppercase;
+      letter-spacing:.08em;font-size:12.5px;flex:0 0 auto}
+
+    .masthead{padding-top:12px}
+    .check{padding:3px 0}
+    .check input{width:19px;height:19px}
+    .levels button{padding:12px 4px}
+    .chips button{padding:10px 14px}
+    .exports button{padding:13px 6px}
   }
+
+  /* ---------- telefoon liggend: paneel als lade opzij ---------- */
+  @media (max-width:1000px) and (orientation:landscape) and (max-height:560px){
+    .panel{
+      left:0;right:auto;top:0;bottom:0;
+      width:min(370px,62vw);height:100dvh;max-height:100dvh;
+      border-radius:0 16px 16px 0;border-top:0;border-right:1px solid var(--hair);
+      box-shadow:10px 0 30px rgba(0,0,0,.5);
+      transform:translateX(var(--drawer,-100%));
+    }
+    .panel.peek{--drawer:-100%}
+    .panel.half,.panel.full{--drawer:0}
+    .grip{
+      position:absolute;top:0;right:-40px;left:auto;width:40px;height:100%;
+      border-radius:0 10px 10px 0;border-bottom:0;border-right:1px solid var(--hair);
+      padding:14px 0;display:flex;flex-direction:column;align-items:center;
+      justify-content:flex-start;gap:12px;background:var(--panel);
+    }
+    .griphandle{width:4px;height:42px;margin:0}
+    .sheetbar{flex-direction:column;gap:10px}
+    #sheetInfo{writing-mode:vertical-rl;font-size:11px;max-height:40vh}
+    #sheetGo{padding:10px 7px;writing-mode:vertical-rl;letter-spacing:.12em}
+    #mapTools{bottom:14px;left:56px}
+    .toolsbtn{bottom:14px;left:8px}
+  }
+
 </style>
 </head>
 <body>
 
-<aside class="panel">
+<aside class="panel" id="panel">
+  <div class="grip" id="grip">
+    <div class="griphandle"></div>
+    <div class="sheetbar">
+      <span id="sheetInfo">Plan je rit</span>
+      <button id="sheetGo">Plannen</button>
+    </div>
+  </div>
   <div class="masthead">
     <h1>Road<span>book</span></h1>
-    <p>Bochtige routes over OpenStreetMap. <span style="color:var(--brass)">versie 21</span></p>
+    <p>Bochtige routes over OpenStreetMap. <span style="color:var(--brass)">versie 24</span></p>
   </div>
 
   <div class="block">
@@ -346,9 +423,6 @@
     </div>
     <p class="hint" id="terugHint" style="margin:4px 0 10px">
       Weer thuis eindigen? Kies bovenaan <b style="color:var(--paper);font-weight:500">Heen en terug</b> of <b style="color:var(--paper);font-weight:500">Rondje</b>.
-    </p>
-    <p class="inline" id="loopRow" hidden>
-      Rondje van ongeveer <input type="number" id="loopKm" min="80" max="900" step="25" value="300"> km
     </p>
     <button class="text-btn" id="gpxOpen">GPX-bestand openen</button>
     <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden>
@@ -417,9 +491,21 @@
     <p class="hint" style="margin-bottom:12px">
       Vul bijv. 60 in om het saaie stuk snel achter je te laten. Dat deel staat blauw gestippeld op de kaart.
     </p>
-    <label class="check" style="margin-bottom:16px">
+    <label class="check" style="margin-bottom:10px">
       <input type="checkbox" id="checkDist" checked> Waarschuwen als de afstand niet klopt
     </label>
+
+    <div id="loopRow" hidden>
+      <label class="check" style="margin-bottom:8px">
+        <input type="checkbox" id="loopOn"> Rondje op een vaste afstand
+      </label>
+      <p class="inline" style="margin:0 0 6px">
+        Ongeveer <input type="number" id="loopKm" min="80" max="900" step="25" value="300" disabled> km
+      </p>
+      <p class="hint" id="loopHint" style="margin:0 0 16px">
+        Zonder vinkje maakt hij gewoon een mooie lus naar dat gebied en terug, zo lang als het uitkomt.
+      </p>
+    </div>
 
     <div class="eyebrow">Onderweg zoeken</div>
     <div class="checks">
@@ -581,17 +667,20 @@
 
 <div class="mapwrap">
   <div id="map"></div>
-  <div class="layers" role="group" aria-label="Kaartlaag kiezen">
-    <button data-base="kleur" class="on">Kleur</button>
-    <button data-base="topo">Topo</button>
-    <button data-base="sat">Satelliet</button>
+  <button class="toolsbtn" id="toolsBtn" aria-label="Kaartknoppen">▤</button>
+  <div id="mapTools">
+    <button class="addmode" id="driveBtn">▶ Rijmodus</button>
+    <button class="addmode" id="addMode">+ Tussenstop plaatsen</button>
+    <div class="layers" id="overlays">
+      <button id="curveToggle">Bochtige wegen</button>
+      <button id="riddenToggle">Al gereden</button>
+    </div>
+    <div class="layers" role="group" aria-label="Kaartlaag kiezen">
+      <button data-base="kleur" class="on">Kleur</button>
+      <button data-base="topo">Topo</button>
+      <button data-base="sat">Satelliet</button>
+    </div>
   </div>
-  <div class="layers" id="overlays" style="bottom:74px">
-    <button id="curveToggle">Bochtige wegen</button>
-    <button id="riddenToggle">Al gereden</button>
-  </div>
-  <button class="addmode" id="addMode" style="bottom:118px">+ Tussenstop plaatsen</button>
-  <button class="addmode" id="driveBtn" style="bottom:162px">▶ Rijmodus</button>
   <div class="tip" id="tip">
     <button id="tipClose" aria-label="Sluiten">×</button>
     <b>Sleep de route</b> met de muis om hem ergens anders langs te laten lopen.
@@ -1045,7 +1134,7 @@ function uitleg(code,ruw){
   if(code===171||code===170)
     return 'Een van je punten ligt niet bij een berijdbare weg. Sleep het bolletje dichter naar de weg toe.';
   if(code===154||code===150)
-    return 'Deze afstand is te groot voor de gratis routeserver. Knip de rit op in stukken.';
+    return 'Te lang voor één berekening. Zet een tussenstop rond het midden, of kies Enkele reis in plaats van Rondje — dat scheelt de helft.';
   if(code===442||code===441)
     return 'Er is geen route mogelijk tussen deze punten. Meestal ligt er water tussen, of staat er een instelling te streng.';
   if(code===143||code===144)
@@ -1097,6 +1186,46 @@ async function handoverPoint(start,dest,km){
   const c=fast.shape[i];
   return { point:{name:'Einde snelweg',_kind:`Afslag na ${Math.round(cum[i])} km`,lat:c[1],lon:c[0]},
            shape:fast.shape.slice(0,i+1), km:cum[i], sec:fast.sec*(cum[i]/total) };
+}
+
+
+/* ================= hele lange ritten =================
+   De gratis routeserver weigert afstanden boven een paar duizend kilometer.
+   Dan knippen we de rit zelf op: om de ~700 km een tussenpunt, dat we via
+   de plaatsenzoeker een naam geven, en elk deel apart laten berekenen. */
+async function planLangeRit(points,lv,notes){
+  const alles=[points[0]];
+  const namen=[];
+  for(let i=1;i<points.length;i++){
+    const a=alles[alles.length-1], b=points[i];
+    const d=haversine([a.lon,a.lat],[b.lon,b.lat]);
+    const stukken=Math.max(1,Math.ceil(d/700));
+    for(let k=1;k<stukken;k++){
+      const t=k/stukken;
+      const lat=a.lat+(b.lat-a.lat)*t, lon=a.lon+(b.lon-a.lon)*t;
+      let naam='';
+      try{ naam=await placeName([lon,lat]); }catch{}
+      if(naam) namen.push(naam);
+      alles.push({ name:naam||`Tussenpunt ${k}`, lat, lon, _tag:naam||'tussenpunt' });
+    }
+    alles.push(b);
+  }
+  if(alles.length===points.length) throw new Error('Deze rit is te lang voor de gratis routeserver, ook opgeknipt.');
+
+  let shape=[], man=[], km=0, sec=0;
+  for(let i=1;i<alles.length;i++){
+    setStatus(`Te lang in één keer — deel ${i} van ${alles.length-1} berekenen…`);
+    const r=await planRoute([alles[i-1],alles[i]],'tour',lv);
+    const off=shape.length;
+    shape=shape.concat(r.shape);
+    (r.man||[]).forEach(m=>man.push({...m,begin_shape_index:(m.begin_shape_index||0)+off}));
+    km+=r.km; sec+=r.sec;
+    if(i<alles.length-1) await sleep(1100);
+  }
+  notes.push(namen.length
+    ? `Te lang voor één berekening — opgeknipt via ${namen.slice(0,3).join(', ')}${namen.length>3?' en verder':''}.`
+    : 'Te lang voor één berekening — automatisch in stukken berekend.');
+  return { shape, man, km, sec };
 }
 
 /* ================= bos en water =================
@@ -1854,6 +1983,7 @@ function applyVariant(k){
   renderRoadbook(state.points,state.pois,state.stays,cum);
   renderAlts(); renderAltsMap();
   if(typeof renderTurns==='function') renderTurns();
+  if(typeof sheetSamenvatting==='function') sheetSamenvatting();
   if(typeof showWeather==='function') showWeather();
   if(typeof showElevation==='function') showElevation();
 }
@@ -1926,12 +2056,18 @@ async function plan(){
     const probeer=async(punten,lv)=>{
       try{ return await planRoute(punten,'tour',lv); }
       catch(err){
+        if(err.code===154||err.code===150) return await planLangeRit(punten,lv,notes);
         if(err.code!==442&&err.code!==441) throw err;
         const was={h:el('noHighway').checked,f:el('noFerry').checked,d:el('noDirt').checked};
         el('noHighway').checked=false; el('noFerry').checked=false; el('noDirt').checked=false;
         setStatus('Lukte niet — opnieuw met snelwegen en veerboten toegestaan…');
         try{
-          const r=await planRoute(punten,'tour',lv);
+          let r;
+          try{ r=await planRoute(punten,'tour',lv); }
+          catch(e2){
+            if(e2.code===154||e2.code===150) r=await planLangeRit(punten,lv,notes);
+            else throw e2;
+          }
           notes.push('Snelwegen en veerboten waren nodig om deze route mogelijk te maken.');
           return r;
         } finally {
@@ -1958,9 +2094,10 @@ async function plan(){
         mids=[heen,...eigen,{...dest,_isDest:true,_kind:'Keerpunt'},terug];
         terugPunt=start;
         const dub=el('noRepeat').checked?doubleShare(main.shape):0;
+        if(!vast){ if(dub<0.14||poging>=pogingen-1) break; }
         if(main.km>=doel*0.8 && main.km<=doel*1.25 && dub<0.14) break;
-        if(dub>=0.14 && poging<2){ off*=1.6; await sleep(1100); continue; }
-        if(poging===2 && letOp){
+        if(dub>=0.14 && poging<pogingen-1){ off*=1.6; await sleep(1100); continue; }
+        if(vast && poging===pogingen-1 && letOp){
           const verschil=Math.round(main.km-doel);
           if(Math.abs(verschil)>doel*0.2)
             notes.push(verschil>0
@@ -2277,6 +2414,98 @@ el('tankKm').addEventListener('change',()=>{
 });
 
 
+
+/* ================= bodemblad op de telefoon =================
+   Drie standen: dicht, half en open. Je kunt slepen of op de greep tikken.
+   In liggende stand wordt het een lade die van links inschuift. */
+const sheet={ stand:'half', y0:0, h0:0, slepen:false };
+function mobiel(){ return window.matchMedia('(max-width:860px)').matches; }
+function liggend(){ return window.matchMedia('(max-width:1000px) and (orientation:landscape) and (max-height:560px)').matches; }
+
+function zetStand(st){
+  sheet.stand=st;
+  const p=el('panel');
+  p.classList.remove('peek','half','full','dragging');
+  p.classList.add(st);
+  p.style.removeProperty('--sheet');
+  if(st!=='full') p.scrollTop=0;
+  store.set('rb.sheet',st);
+}
+
+function volgendeStand(){
+  zetStand(sheet.stand==='peek'?'half':sheet.stand==='half'?'full':'peek');
+}
+
+function initSheet(){
+  const p=el('panel'), g=el('grip');
+  if(!mobiel()){ p.classList.remove('peek','half','full'); return; }
+  zetStand(store.get('rb.sheet','half'));
+
+  g.addEventListener('pointerdown',e=>{
+    if(liggend()) return;                     /* liggend: alleen tikken */
+    sheet.slepen=true; sheet.y0=e.clientY;
+    sheet.h0=p.getBoundingClientRect().top;
+    p.classList.add('dragging');
+    g.setPointerCapture(e.pointerId);
+  });
+  g.addEventListener('pointermove',e=>{
+    if(!sheet.slepen) return;
+    const dy=e.clientY-sheet.y0;
+    const top=Math.max(0,sheet.h0+dy);
+    const hoogte=window.innerHeight*0.92;
+    p.style.setProperty('--sheet',Math.max(0,Math.min(hoogte-86,top-(window.innerHeight-hoogte)))+'px');
+  });
+  const los=e=>{
+    if(!sheet.slepen) return;
+    sheet.slepen=false; p.classList.remove('dragging');
+    const dy=e.clientY-sheet.y0;
+    if(Math.abs(dy)<12){ volgendeStand(); return; }
+    const top=p.getBoundingClientRect().top, h=window.innerHeight;
+    zetStand(top<h*0.25?'full':top<h*0.72?'half':'peek');
+  };
+  g.addEventListener('pointerup',los);
+  g.addEventListener('pointercancel',los);
+  g.addEventListener('click',e=>{ if(liggend()) volgendeStand(); });
+}
+
+/* Kaartknoppen achter één menuknop op de telefoon */
+el('toolsBtn').addEventListener('click',()=>{
+  const t=el('mapTools');
+  const open=t.classList.toggle('open');
+  el('toolsBtn').classList.toggle('on',open);
+});
+map.on('click',()=>{
+  if(mobiel()&&el('mapTools').classList.contains('open')){
+    el('mapTools').classList.remove('open'); el('toolsBtn').classList.remove('on');
+  }
+});
+
+/* Snelle plannen-knop op de greep */
+el('sheetGo').addEventListener('click',()=>{
+  if(!el('start').value.trim()||!el('dest').value.trim()){ zetStand('full'); return; }
+  zetStand('peek'); plan();
+});
+
+/* Samenvatting in de balk van het blad */
+function sheetSamenvatting(){
+  const v=state.variants?.[state.shown];
+  el('sheetInfo').textContent = v
+    ? `${(state.fast.km+v.km).toFixed(0)} km · ${v.imported?'—':fmtTime(state.fast.sec+v.sec)} · ${v.prof.score} bocht`
+    : 'Plan je rit';
+}
+
+let draaiTimer=null;
+function opnieuwMeten(){
+  clearTimeout(draaiTimer);
+  draaiTimer=setTimeout(()=>{
+    initSheet();
+    try{ map.resize(); }catch{}
+  },220);
+}
+window.addEventListener('resize',opnieuwMeten);
+window.addEventListener('orientationchange',opnieuwMeten);
+initSheet();
+
 /* ================= uitklapbare blokken ================= */
 function setupFolds(){
   document.querySelectorAll('.block[data-fold]').forEach((blk,n)=>{
@@ -2424,6 +2653,15 @@ el('depTime').addEventListener('change',()=>{
   if(v) el('sumEta').textContent=aankomst(state.fast.sec+v.sec,v.imported);
 });
 el('checkDist').addEventListener('change',saveSettings);
+function loopVeld(){
+  const aan=el('loopOn').checked;
+  el('loopKm').disabled=!aan;
+  el('loopHint').textContent = aan
+    ? 'Hij past de lus net zo lang aan tot hij ongeveer op die afstand uitkomt.'
+    : 'Zonder vinkje maakt hij gewoon een mooie lus naar dat gebied en terug, zo lang als het uitkomt.';
+}
+el('loopOn').addEventListener('change',()=>{ loopVeld(); saveSettings(); });
+loopVeld();
 
 
 /* ================= afslagen tonen ================= */
@@ -3021,7 +3259,7 @@ function settings(){
     findStays:el('findStays').checked, showPhotos:el('showPhotos').checked,
     tankKm:el('tankKm').value, tripMode, loopKm:el('loopKm').value,
     manualOrder:el('manualOrder').checked, depTime:el('depTime').value,
-    checkDist:el('checkDist').checked, offRadius:el('offRadius').value, offWhere:el('offWhere').value,
+    checkDist:el('checkDist').checked, loopOn:el('loopOn').checked, offRadius:el('offRadius').value, offWhere:el('offWhere').value,
     gpxPts:el('gpxPts').value };
 }
 function applySettings(s){
@@ -3033,6 +3271,7 @@ function applySettings(s){
   if(s.sprint!=null) el('sprintKm').value=s.sprint;
   if(s.tankKm!=null) el('tankKm').value=s.tankKm;
   if(s.loopKm!=null) el('loopKm').value=s.loopKm;
+  if(s.loopOn!=null){ el('loopOn').checked=!!s.loopOn; if(typeof loopVeld==='function') loopVeld(); }
   if(s.gpxPts!=null) el('gpxPts').value=s.gpxPts;
   if(s.offRadius!=null) el('offRadius').value=s.offRadius;
   if(s.offWhere!=null) el('offWhere').value=s.offWhere;
