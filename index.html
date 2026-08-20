@@ -27,11 +27,12 @@
     <div class="sheetbar">
       <span id="sheetInfo">Plan je rit</span>
       <button id="sheetGo">Plannen</button>
+      <button id="sheetDrive" hidden>▶ Rijden</button>
     </div>
   </div>
   <div class="masthead">
     <h1>Road<span>book</span></h1>
-    <p>Bochtige routes over OpenStreetMap. <span style="color:var(--brass)">versie 29</span></p>
+    <p>Bochtige routes over OpenStreetMap. <span style="color:var(--brass)">versie 30</span></p>
   </div>
 
   <div class="block">
@@ -158,6 +159,7 @@
       Vertrek om <input type="time" id="depTime" value="09:00" style="width:88px">
     </p>
     <button class="go" id="go">Route plannen</button>
+    <button class="go alt" id="goDrive" hidden>▶ Route starten</button>
     <div class="toolrow">
       <button id="btnUndo" title="Laatste wijziging terugdraaien">↶ Ongedaan</button>
       <button id="btnReverse" title="Begin en eind omdraaien">⇄ Omkeren</button>
@@ -358,9 +360,10 @@
 <div class="mapwrap">
   <div id="map"></div>
   <button class="toolsbtn" id="toolsBtn" aria-label="Kaartknoppen">▤</button>
+  <button class="penbtn" id="drawMode" title="Trek met je vinger een vorm over de kaart">✎ Tekenen</button>
+  <div id="drawBanner" hidden></div>
   <div id="mapTools">
     <button class="addmode" id="driveBtn">▶ Rijmodus</button>
-    <button class="addmode" id="drawMode">✎ Route tekenen</button>
     <button class="addmode" id="addMode">+ Tussenstop plaatsen</button>
     <div class="layers" id="overlays">
       <button id="curveToggle">Bochtige wegen</button>

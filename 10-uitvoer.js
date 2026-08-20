@@ -184,6 +184,7 @@ el('save').addEventListener('click',()=>{
 el('clear').addEventListener('click',()=>{
   clearMarkers(); runSeq++;
   if(typeof tekenWis==='function') tekenWis();
+  el('goDrive').hidden=true; el('sheetDrive').hidden=true;
   state.shape=[]; state.tourShape=[]; state.pois=[]; state.stays=[];
   state.vias=[]; state.variants={}; state.mids=[]; state.fast={shape:[],km:0,sec:0};
   renderVias();

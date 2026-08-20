@@ -380,8 +380,13 @@ map.on('click',e=>{
 
    Het aantal punten is de hele truc. Te veel en hij volgt elke trilling van je
    vinger, inclusief de rare bochtjes. Te weinig en hij snijdt je vorm af tot
-   een rechte lijn. Eén punt per ~12 km blijkt de goede maat. */
-const teken={ aan:false, bezig:false, punten:[] };
+   een rechte lijn. Eén punt per ~12 km blijkt de goede maat.
+
+   We luisteren rechtstreeks naar de aanwijsgebeurtenissen van de browser
+   (pointerdown/move/up) in plaats van naar die van de kaart. Eén weg voor
+   muis, vinger en pen, en met setPointerCapture blijven we je vinger volgen
+   ook als hij even van de kaart af glijdt. */
+const teken={ aan:false, bezig:false, punten:[], px:null, pid:null };
 
 function tekenLijnTonen(){
   map.getSource('teken')?.setData(teken.punten.length>1
@@ -391,61 +396,89 @@ function tekenLijnTonen(){
 
 function tekenWis(){ teken.punten=[]; teken.bezig=false; tekenLijnTonen(); }
 
+/* Onderweg staat het paneel dicht, dus setStatus() is op de telefoon
+   onzichtbaar. Wat je tijdens het tekenen moet weten hoort over de kaart. */
+function tekenZeg(tekst,fout){
+  el('drawBanner').textContent=tekst;
+  el('drawBanner').classList.toggle('err',!!fout);
+  setStatus(tekst,fout);
+}
+
+const TEKEN_GREEP=['dragPan','dragRotate','touchZoomRotate','scrollZoom',
+                   'doubleClickZoom','keyboard','touchPitch','boxZoom'];
+
 function tekenModus(aan){
   teken.aan=aan;
   el('drawMode').classList.toggle('on',aan);
-  map.getCanvas().style.cursor=aan?'crosshair':'';
+  el('drawBanner').hidden=!aan;
+  const vak=map.getCanvasContainer();
+  vak.style.cursor=aan?'crosshair':'';
+  /* Zonder dit schuift of zoomt de browser zelf mee met je vinger. */
+  vak.style.touchAction=aan?'none':'';
+  /* Alle kaartbewegingen uit: je bent aan het tekenen óf aan het kijken,
+     niet beide. Anders vecht de kaart met je vinger. */
+  for(const naam of TEKEN_GREEP){
+    try{ aan ? map[naam]?.disable() : map[naam]?.enable(); }catch{}
+  }
   if(aan){
-    /* Slepen uit, anders schuift de kaart weg onder je vinger. Zoomen met twee
-       vingers blijft gewoon werken. */
-    map.dragPan.disable(); map.dragRotate.disable();
     if(addMode){ addMode=false; el('addMode').classList.remove('on'); }
-    setStatus('Trek met je vinger een vorm over de kaart. Eindig waar je begon '
-      +'en het wordt een rondje. Op de computer: ingedrukt houden en slepen.');
+    /* Het kaartmenu dicht. Op de telefoon dekt dat een flink stuk van je
+       scherm af, en dan teken je op knoppen in plaats van op de kaart. */
+    el('mapTools').classList.remove('open');
+    el('toolsBtn').classList.remove('on');
+    tekenZeg('Trek een vorm over de kaart. Eindig waar je begon voor een rondje.');
   }else{
-    map.dragPan.enable(); map.dragRotate.enable();
-    map.getCanvas().style.cursor='';
+    el('drawBanner').classList.remove('err');
   }
 }
 
 el('drawMode').addEventListener('click',()=>tekenModus(!teken.aan));
 
-/* Eén vinger tekent. Zodra er twee op het glas liggen wil je zoomen, dus dan
-   houden we ons erbuiten. */
-const eenVinger=e=>!(e.points&&e.points.length>1);
+/* Waar op de kaart ligt dit puntje van het scherm? */
+function tekenPlek(ev){
+  const r=map.getCanvasContainer().getBoundingClientRect();
+  const ll=map.unproject([ev.clientX-r.left, ev.clientY-r.top]);
+  return [ll.lng,ll.lat];
+}
 
-function tekenBegin(e){
-  if(!teken.aan||!eenVinger(e)) return;
-  e.preventDefault?.();
-  teken.bezig=true;
-  teken.punten=[[e.lngLat.lng,e.lngLat.lat]];   /* een nieuwe vorm wist de oude */
+function tekenNeer(ev){
+  if(!teken.aan||teken.bezig) return;
+  if(ev.button>0) return;                       /* alleen de linkerknop */
+  ev.preventDefault();
+  teken.bezig=true; teken.pid=ev.pointerId;
+  try{ ev.currentTarget.setPointerCapture(ev.pointerId); }catch{}
+  teken.px=[ev.clientX,ev.clientY];
+  teken.punten=[tekenPlek(ev)];                 /* een nieuwe vorm wist de oude */
   tekenLijnTonen();
 }
-function tekenVerder(e){
-  if(!teken.aan||!teken.bezig||!eenVinger(e)) return;
-  const p=[e.lngLat.lng,e.lngLat.lat];
-  const vorig=teken.punten[teken.punten.length-1];
-  /* 150 meter is fijn genoeg; alles daaronder is beven. */
-  if(vorig&&haversine(vorig,p)<0.15) return;
-  teken.punten.push(p);
+
+function tekenBeweeg(ev){
+  if(!teken.aan||!teken.bezig||ev.pointerId!==teken.pid) return;
+  ev.preventDefault();
+  /* In beeldpunten meten en niet in meters: zo tekent het net zo fijn of je
+     ver uitgezoomd zit of dicht op de kaart. */
+  const dx=ev.clientX-teken.px[0], dy=ev.clientY-teken.px[1];
+  if(dx*dx+dy*dy<36) return;                    /* minder dan 6 punten bewogen */
+  teken.px=[ev.clientX,ev.clientY];
+  teken.punten.push(tekenPlek(ev));
   tekenLijnTonen();
 }
-function tekenEinde(){
+
+function tekenOp(ev){
   if(!teken.aan||!teken.bezig) return;
-  teken.bezig=false;
+  teken.bezig=false; teken.pid=null;
+  try{ ev.currentTarget.releasePointerCapture?.(ev.pointerId); }catch{}
   /* Na het optillen van je vinger komt er nog een klik langs. Die mag geen
      tussenstop worden. */
   skipClick=Date.now();
   tekenUitvoeren();
 }
 
-map.on('mousedown',tekenBegin);
-map.on('mousemove',tekenVerder);
-map.on('mouseup',tekenEinde);
-map.on('touchstart',tekenBegin);
-map.on('touchmove',tekenVerder);
-map.on('touchend',tekenEinde);
-map.on('touchcancel',tekenEinde);
+const tekenVak=map.getCanvasContainer();
+tekenVak.addEventListener('pointerdown',tekenNeer);
+tekenVak.addEventListener('pointermove',tekenBeweeg);
+tekenVak.addEventListener('pointerup',tekenOp);
+tekenVak.addEventListener('pointercancel',tekenOp);
 
 /* De vorm opdelen in punten op gelijke afstand. Apart gezet zodat het na te
    rekenen is met de zelftest. Nooit meer dan 17 punten: de routeserver mag
@@ -467,8 +500,14 @@ function tekenPunten(lijn,perKm=12,maxVakken=16){
 function tekenUitvoeren(){
   const p=teken.punten;
   const lengte=p.length>1?cumulative(p).slice(-1)[0]:0;
-  if(p.length<4||lengte<5){
-    setStatus('Die vorm is te klein om een rit van te maken. Trek een langere lijn.',true);
+  if(p.length<3){
+    tekenZeg('Ik zag alleen een tik, geen lijn. Houd vast en sleep over de kaart.',true);
+    tekenWis();
+    return;
+  }
+  if(lengte<5){
+    tekenZeg(`Je vorm is maar ${Math.round(lengte*1000)} meter lang. `
+      +'Zoom eerst wat uit, dan wordt dezelfde veeg een echte rit.',true);
     tekenWis();
     return;
   }
@@ -476,7 +515,6 @@ function tekenUitvoeren(){
   const rond=haversine(p[0],p[p.length-1])<Math.max(2,lengte*0.12);
   const lijn=rond?[...p,p[0]]:p;
   const totaal=cumulative(lijn).slice(-1)[0];
-
   const punten=tekenPunten(lijn);
 
   /* Je hebt de hele vorm zelf getekend, dus heen-en-terug of een rondje er

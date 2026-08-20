@@ -238,6 +238,31 @@
     letter-spacing:.09em;font-size:11.5px;font-weight:600;color:var(--muted)}
   .addmode:hover{color:var(--paper)}
   .addmode.on{background:var(--signal);border-color:var(--signal);color:#150C06}
+  /* De penknop staat altijd op de kaart, niet weggestopt in het menu: als je
+     iets wil tekenen moet je zien dat het kan. Groot genoeg voor handschoenen. */
+  .penbtn{position:absolute;right:12px;bottom:74px;z-index:4;
+    background:rgba(20,24,28,.94);border:1px solid var(--hair);border-radius:24px;
+    color:var(--paper);padding:14px 18px;font-family:var(--display);font-weight:600;
+    text-transform:uppercase;letter-spacing:.09em;font-size:13px;
+    box-shadow:0 2px 10px rgba(0,0,0,.45)}
+  .penbtn:hover{border-color:var(--brass);color:var(--brass)}
+  .penbtn.on{background:var(--signal);border-color:var(--signal);color:#150C06}
+
+  /* Wat je tijdens het tekenen moet weten hoort over de kaart: op de telefoon
+     staat het paneel dicht en is de gewone statusregel onzichtbaar. */
+  #drawBanner{position:absolute;left:50%;transform:translateX(-50%);
+    top:calc(12px + env(safe-area-inset-top));z-index:6;pointer-events:none;
+    max-width:calc(100vw - 32px);background:rgba(20,24,28,.95);
+    border:1px solid var(--brass);border-radius:20px;color:var(--paper);
+    padding:10px 16px;font-size:12.5px;line-height:1.35;text-align:center}
+  #drawBanner[hidden]{display:none}
+  #drawBanner.err{border-color:var(--signal);color:#FFD9CB}
+
+  /* Route starten staat waar je net op Plannen drukte. */
+  .go.alt{background:none;border:1px solid var(--brass);color:var(--brass);margin-top:8px}
+  .go.alt:hover{background:var(--brass);color:var(--ink);filter:none}
+  .go[hidden]{display:none}
+
   .tip{position:absolute;right:12px;bottom:30px;z-index:2;max-width:210px;
     background:rgba(20,24,28,.92);border:1px solid var(--hair);border-radius:3px;
     padding:8px 10px;font-size:11.5px;line-height:1.4;color:var(--muted)}
@@ -281,6 +306,8 @@
   body.rijden .panel,
   body.rijden #mapTools,
   body.rijden .toolsbtn,
+  body.rijden .penbtn,
+  body.rijden #drawBanner,
   body.rijden .tip,
   body.rijden .maplibregl-ctrl-top-right,
   body.rijden .maplibregl-ctrl-bottom-left{display:none}
@@ -344,6 +371,11 @@
 
     /* zeven losse knoppen worden één menu */
     .toolsbtn{display:block}
+    .penbtn{bottom:100px;padding:15px 18px}
+    #sheetDrive{background:none;border:1px solid var(--brass);color:var(--brass);
+      border-radius:3px;padding:9px 14px;font-family:var(--display);font-weight:700;
+      text-transform:uppercase;letter-spacing:.1em;font-size:12px;white-space:nowrap}
+    #sheetDrive[hidden]{display:none}
     #mapTools{display:none;left:12px;bottom:78px;max-width:calc(100vw - 24px)}
     #mapTools.open{display:flex}
     .addmode,.layers button{font-size:12.5px;padding:11px 14px}
@@ -406,6 +438,7 @@
     #sheetInfo{writing-mode:vertical-rl;font-size:11px;max-height:40vh}
     #sheetGo{padding:10px 7px;writing-mode:vertical-rl;letter-spacing:.12em}
     #mapTools{bottom:14px;left:56px}
+    .penbtn{bottom:14px}
     .toolsbtn{bottom:14px;left:8px}
   }
 

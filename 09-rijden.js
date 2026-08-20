@@ -443,6 +443,8 @@ function stopDrive(){
 }
 
 el('driveBtn').addEventListener('click',startDrive);
+el('goDrive').addEventListener('click',startDrive);
+el('sheetDrive').addEventListener('click',startDrive);
 el('dStop').addEventListener('click',stopDrive);
 el('dMute').addEventListener('click',()=>{
   drive.stem=!drive.stem;

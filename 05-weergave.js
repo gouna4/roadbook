@@ -160,6 +160,9 @@ function applyVariant(k){
   el('sumCurve').textContent=String(v.prof.score);
   el('sumStops').textContent=String(state.mids.length);
   el('summary').hidden=false; el('legend').hidden=false; el('exports').hidden=false;
+  /* Er ligt een route: dan hoort Route starten binnen handbereik te staan,
+     op dezelfde plek waar je net op Plannen drukte. */
+  el('goDrive').hidden=false; el('sheetDrive').hidden=false;
 
   /* bochtigste stukken en tankstops als extra regels in het roadbook */
   const base=state.fast.km, extra=[];
