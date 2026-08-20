@@ -2,14 +2,27 @@
    Houdt de app zelf en de kaartonderdelen vast, zodat hij ook zonder
    bereik opstart. Kaarttegels worden bewaard van de gebieden waar je
    al hebt gekeken. */
-const APP = 'roadbook-app-v24';
+const APP = 'roadbook-app-v25';
 const TILES = 'roadbook-tiles-v1';
 const MAX_TILES = 1200;
 
-/* Bestanden van de app zelf: eerst het netwerk, anders de kopie. */
+/* Alles wat nodig is om zonder bereik te kunnen opstarten. Sinds de app in
+   losse bestanden is opgeknipt moeten die er allemaal bij staan. */
+const BESTANDEN = [
+  './', './index.html', './stijl.css',
+  './01-basis.js', './02-invoer.js', './03-route.js', './04-bibliotheek.js',
+  './05-weergave.js', './06-plannen.js', './07-interface.js', './08-onderweg.js',
+  './09-rijden.js', './10-uitvoer.js', './11-opstarten.js'
+];
+
+/* Bestanden van de app zelf: eerst het netwerk, anders de kopie.
+   Elk bestand apart, want addAll() laat bij één misser de hele lijst vallen
+   en op een wankele telefoonverbinding gebeurt dat zomaar. */
 self.addEventListener('install', e => {
   self.skipWaiting();
-  e.waitUntil(caches.open(APP).then(c => c.addAll(['./', './index.html']).catch(() => {})));
+  e.waitUntil(caches.open(APP).then(c =>
+    Promise.all(BESTANDEN.map(b => c.add(b).catch(() => {})))
+  ));
 });
 
 self.addEventListener('activate', e => {
