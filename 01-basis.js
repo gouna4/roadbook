@@ -248,6 +248,22 @@ function bearing(a,b){
         -Math.sin(a[1]*Math.PI/180)*Math.cos(b[1]*Math.PI/180)*Math.cos((b[0]-a[0])*Math.PI/180);
   return (Math.atan2(y,x)*180/Math.PI+360)%360;
 }
+/* Hoe bochtig is één weg? Graden draaiing per kilometer, omgerekend naar een
+   cijfer van 0 tot 100. Wordt gebruikt voor de bochtigheidskaart én om bij het
+   plannen bochtige wegen op te zoeken. */
+function wegBochtigheid(geom){
+  let deg=0, km=0;
+  for(let i=1;i<geom.length;i++){
+    km+=haversine(geom[i-1],geom[i]);
+    if(i>1){
+      let t=Math.abs(bearing(geom[i-1],geom[i])-bearing(geom[i-2],geom[i-1]));
+      if(t>180) t=360-t;
+      deg+=t;
+    }
+  }
+  return { km, score: km>0.4 ? Math.min(100,Math.round((deg/km)/1.7)) : 0 };
+}
+
 /* Hoeveel graden draait de weg per kilometer? Geen server nodig. */
 function curveProfile(shape,seg=14){
   const features=[], spans=[]; let deg=0,km=0;

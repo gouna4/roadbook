@@ -2,7 +2,7 @@
    Houdt de app zelf en de kaartonderdelen vast, zodat hij ook zonder
    bereik opstart. Kaarttegels worden bewaard van de gebieden waar je
    al hebt gekeken. */
-const APP = 'roadbook-app-v33';
+const APP = 'roadbook-app-v34';
 const TILES = 'roadbook-tiles-v1';
 /* Wat de gebruiker zelf heeft binnengehaald. Deze kast wordt nooit
    opgeruimd — daar heeft hij bewust op gewacht. */
@@ -11,11 +11,18 @@ const MAX_TILES = 1200;
 
 /* Alles wat nodig is om zonder bereik te kunnen opstarten. Sinds de app in
    losse bestanden is opgeknipt moeten die er allemaal bij staan. */
+/* Achter elk bestand hangt het versienummer, precies zoals index.html het
+   opvraagt. Zonder dat mag de browser tot tien minuten lang de oude stijl.css
+   of een oud .js-bestand teruggeven bij een nieuwe index.html — en dan heb je
+   een halve nieuwe en een halve oude app. Dat is de naarste soort fout: alles
+   staat er, maar het werkt niet samen. */
+const V = '34';
 const BESTANDEN = [
-  './', './index.html', './stijl.css',
-  './01-basis.js', './02-invoer.js', './03-route.js', './04-bibliotheek.js',
-  './05-weergave.js', './06-plannen.js', './07-interface.js', './08-onderweg.js',
-  './09-rijden.js', './10-uitvoer.js', './11-offline.js', './12-opstarten.js',
+  './', './index.html',
+  './stijl.css?v=' + V,
+  ...['01-basis','02-invoer','03-route','04-bibliotheek','05-weergave','06-plannen',
+      '07-interface','08-onderweg','09-rijden','10-uitvoer','11-offline','12-opstarten']
+     .map(n => './' + n + '.js?v=' + V),
   './manifest.webmanifest',
   './icoon-180.png', './icoon-192.png', './icoon-512.png'
 ];

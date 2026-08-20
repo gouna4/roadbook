@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css">
+<link rel="stylesheet" href="stijl.css?v=34">
 </head>
 <body>
 
@@ -33,6 +33,7 @@
 
   <header class="top">
     <h1>Road<span>book</span></h1>
+    <span class="ver" id="verNr">versie 34</span>
     <button class="themebtn" id="themeBtn" title="Licht, donker of automatisch">☀</button>
   </header>
 
@@ -124,6 +125,16 @@
       </div>
       <p class="hint" id="levelHint">
         Doorgaande landwegen met vloeiende bochten. Dorpen worden zoveel mogelijk gemeden.
+      </p>
+      <label class="check">
+        <input type="checkbox" id="findCurvy" checked> <b>Bochten opzoeken</b>
+      </label>
+      <p class="hint">
+        De routeserver kent geen bochten. Met dit vinkje kijkt de app zelf waar je
+        route saai wordt, meet de wegen in de buurt door, en stuurt je langs de
+        bochtigste — bergpassen krijgen voorrang. Alleen als hij er écht bochtiger
+        van wordt en je niet meer dan een vijfde omrijdt. Kost een halve minuut
+        extra, ná het tonen van je route.
       </p>
     </div>
 
@@ -365,7 +376,7 @@
     </div>
 
     <p class="foot">
-      Roadbook <span id="verNr">versie 33</span> ·
+      Roadbook ·
       Kaart: <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> ·
       Topo: <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA) ·
       Satelliet: Esri World Imagery ·
@@ -443,17 +454,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js"></script>
-<script src="02-invoer.js"></script>
-<script src="03-route.js"></script>
-<script src="04-bibliotheek.js"></script>
-<script src="05-weergave.js"></script>
-<script src="06-plannen.js"></script>
-<script src="07-interface.js"></script>
-<script src="08-onderweg.js"></script>
-<script src="09-rijden.js"></script>
-<script src="10-uitvoer.js"></script>
-<script src="11-offline.js"></script>
-<script src="12-opstarten.js"></script>
+<script src="01-basis.js?v=34"></script>
+<script src="02-invoer.js?v=34"></script>
+<script src="03-route.js?v=34"></script>
+<script src="04-bibliotheek.js?v=34"></script>
+<script src="05-weergave.js?v=34"></script>
+<script src="06-plannen.js?v=34"></script>
+<script src="07-interface.js?v=34"></script>
+<script src="08-onderweg.js?v=34"></script>
+<script src="09-rijden.js?v=34"></script>
+<script src="10-uitvoer.js?v=34"></script>
+<script src="11-offline.js?v=34"></script>
+<script src="12-opstarten.js?v=34"></script>
 </body>
 </html>

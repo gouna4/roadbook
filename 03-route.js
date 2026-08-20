@@ -169,6 +169,92 @@ async function scenicCandidates(shape,max=6){
   return out;
 }
 
+/* ================= bochten opzoeken =================
+   Dit is het verschil tussen bochten *meten* en bochten *zoeken*.
+
+   De gratis routeserver kent geen bochten. Hij weet alleen: dit is een kleine
+   weg, dit is een grote weg. Dus doen we het zelf: we kijken waar onze route
+   saai is, halen dáár alle wegen op, meten ze door met `wegBochtigheid()`, en
+   bieden de bochtigste aan als tussenstop. Daarna laat de app de route opnieuw
+   berekenen en houdt hem alleen als hij écht bochtiger geworden is.
+
+   Bergpassen krijgen voorrang. Een pas is per definitie de weg waar een
+   motorrijder voor komt, en OpenStreetMap markeert die met `mountain_pass=yes`.
+   Verzonnen lijstjes met "mooie wegen" gebruiken we niet — dat wordt gemeten
+   uit de kaart zelf. */
+
+/* Waar is de route saai? Aaneengesloten vlakke stukken van minstens 8 km.
+   Korter dan dat is een rechte stuk tussen twee bochten en geen probleem. */
+function saaieStukken(prof, minKm=8){
+  const uit=[];
+  let van=null, tot=0;
+  for(const s of prof.spans){
+    if(s.c<0.22){ if(van===null) van=s.from; tot=s.to; }
+    else{ if(van!==null && tot-van>=minKm) uit.push({van,tot}); van=null; }
+  }
+  if(van!==null && tot-van>=minKm) uit.push({van,tot});
+  /* Het langste saaie stuk eerst: daar valt het meeste te winnen. */
+  return uit.sort((a,b)=>(b.tot-b.van)-(a.tot-a.van));
+}
+
+async function bochtCandidates(shape,max=3){
+  const line=coarse(shape), lcum=cumulative(line), totaal=lcum[lcum.length-1];
+  const saai=saaieStukken(curveProfile(shape)).slice(0,3);
+  if(!saai.length) return [];
+
+  const uit=[];
+  for(const stuk of saai){
+    if(uit.length>=max) break;
+    /* Midden van het saaie stuk, en daar een vak van ruim 20 bij 20 km om. */
+    const doel=(stuk.van+stuk.tot)/2;
+    let i=lcum.findIndex(d=>d>=doel);
+    if(i<0) i=line.length-1;
+    const mid=line[i];
+    const vak=`${(mid[1]-0.09).toFixed(4)},${(mid[0]-0.14).toFixed(4)},`
+             +`${(mid[1]+0.09).toFixed(4)},${(mid[0]+0.14).toFixed(4)}`;
+    let j=null;
+    try{
+      j=await overpass(`[out:json][timeout:30][bbox:${vak}];(
+        way["highway"~"^(secondary|tertiary|unclassified)$"]["access"!~"^(no|private)$"];
+        node["mountain_pass"="yes"];
+      );out geom 900;`,22000);
+    }catch{ continue; }
+
+    let best=null;
+    for(const e of (j.elements||[])){
+      let kand=null;
+      if(e.type==='node' && e.tags?.mountain_pass==='yes'){
+        const a=placeAlong(line,lcum,{lat:e.lat,lon:e.lon});
+        if(a.off>12) continue;
+        kand={ naam:e.tags.name||'Bergpas', lat:e.lat, lon:e.lon,
+               score:100, km:0, off:a.off, atKm:a.km, pas:true, waarde:400 };
+      }else{
+        const g=e.geometry;
+        if(!g||g.length<5) continue;
+        const co=g.map(p=>[p.lon,p.lat]);
+        const {km,score}=wegBochtigheid(co);
+        /* Minstens 1,5 km en echt bochtig; anders is het een slinger in een dorp. */
+        if(km<1.5||score<45) continue;
+        const m=co[Math.floor(co.length/2)];
+        const a=placeAlong(line,lcum,{lat:m[1],lon:m[0]});
+        /* Niet de weg waar je al op zit, en niet zo ver dat het een uitstapje wordt. */
+        if(a.off<0.4||a.off>10) continue;
+        kand={ naam:e.tags?.name||e.tags?.ref||'Bochtige weg', lat:m[1], lon:m[0],
+               score, km, off:a.off, atKm:a.km,
+               /* lang én bochtig weegt zwaarder dan kort en bochtig */
+               waarde:score*Math.min(3,km) };
+      }
+      if(!kand) continue;
+      /* Niet vlak bij begin of eind: daar wil je gewoon weg of aankomen. */
+      if(kand.atKm<totaal*0.06||kand.atKm>totaal*0.94) continue;
+      if(!best||kand.waarde>best.waarde) best=kand;
+    }
+    if(best && !uit.some(u=>Math.abs(u.atKm-best.atKm)<20)) uit.push(best);
+    await sleep(400);
+  }
+  return uit;
+}
+
 /* ================= plaatsen ================= */
 const POI_KINDS=[['tourism','viewpoint','Uitzichtpunt'],['natural','peak','Top'],
   ['historic','castle','Kasteel'],['historic','ruins','Ruïne'],

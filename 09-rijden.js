@@ -6,19 +6,6 @@
    Zo zie je waar de leuke wegen liggen, los van je route. */
 let curveOn=false, curveBusy=false;
 
-function wegBochtigheid(geom){
-  let deg=0, km=0;
-  for(let i=1;i<geom.length;i++){
-    km+=haversine(geom[i-1],geom[i]);
-    if(i>1){
-      let t=Math.abs(bearing(geom[i-1],geom[i])-bearing(geom[i-2],geom[i-1]));
-      if(t>180) t=360-t;
-      deg+=t;
-    }
-  }
-  return { km, score: km>0.4 ? Math.min(100,Math.round((deg/km)/1.7)) : 0 };
-}
-
 async function loadCurveLayer(){
   const b=map.getBounds();
   const breed=haversine([b.getWest(),b.getSouth()],[b.getEast(),b.getSouth()]);

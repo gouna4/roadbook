@@ -6,7 +6,7 @@
 el('addVia').addEventListener('click',()=>addVia());
 attachAC(el('start')); attachAC(el('dest'));
 el('dirt').addEventListener('input',e=>{ el('dirtVal').textContent=e.target.value; saveSettings(); });
-['sprintKm','noHighway','avoidTowns','noRepeat','noDirt','noRidden','noToll','noFerry','findScenic','findPois','findStays','showPhotos','loopKm']
+['sprintKm','noHighway','avoidTowns','noRepeat','noDirt','noRidden','noToll','noFerry','findScenic','findPois','findStays','showPhotos','loopKm','findCurvy']
   .forEach(id=>el(id).addEventListener('change',saveSettings));
 ['start','dest'].forEach(id=>{
   el(id).addEventListener('change',saveSettings);
@@ -44,7 +44,20 @@ renderLog();
 
 /* Offline werken: alleen als sw.js naast index.html staat. */
 if('serviceWorker' in navigator)
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    /* Staat er een nieuwe versie klaar? Dat moet de app zelf zeggen. Anders
+       loop je rond met een oude app en zie je de nieuwe dingen niet, zonder
+       dat er iets op fout lijkt te staan. */
+    reg.addEventListener('updatefound',()=>{
+      const komt=reg.installing;
+      if(!komt) return;
+      komt.addEventListener('statechange',()=>{
+        if(komt.state==='installed' && navigator.serviceWorker.controller)
+          setStatus('Er staat een nieuwe versie van Roadbook klaar. '
+            +'Sluit de app helemaal af en open hem opnieuw.');
+      });
+    });
+  }).catch(()=>{});
 
 const gedeeld=(location.hash.match(/^#r=(.+)$/)||[])[1];
 if(gedeeld) applyShared(gedeeld);

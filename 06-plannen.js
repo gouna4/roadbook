@@ -209,6 +209,42 @@ async function plan(){
       }catch{ notes.push('Bos en water lukten niet.'); }
     }
 
+    /* 3b — bochten zoeken: het saaie stuk inruilen voor iets kronkeligs.
+       Alleen bij een enkele reis: bij een rondje en heen-en-terug zijn de
+       keerpunten al ingepast en zou een extra punt die opzet omgooien. */
+    if(el('findCurvy').checked && tripMode==='one'){
+      setStatus('Bochtige wegen zoeken bij de saaie stukken…');
+      let beter=0;
+      try{
+        const kand=await bochtCandidates(main.shape);
+        if(!alive()) return;
+        for(const c of kand){
+          if(!alive()) return;
+          if(beter>=2) break;
+          const punt={ name:c.naam, lat:c.lat, lon:c.lon,
+            _kind:c.pas?'Bergpas':`bochtigheid ${c.score} over ${c.km.toFixed(1)} km`,
+            _tag:c.pas?'Pas':'Bochtig' };
+          const test=order([...mids,punt],main.shape);
+          await sleep(1100);
+          let r=null;
+          try{ r=await planRoute([tourStart,...test,dest],'tour',level); }catch{ continue; }
+          if(!alive()) return;
+          const was=curveProfile(main.shape).score, wasKm=main.km;
+          const na=curveProfile(r.shape).score;
+          /* Alleen houden als hij echt bochtiger wordt, niet veel langer, en
+             nergens omkeert. Twee punten winst is ruis, dus dat telt niet. */
+          if(na>was+2 && r.km<=wasKm*1.22 && !hasSpur(r.shape)){
+            mids=test; main=r; beter++;
+            const extra=Math.round(r.km-wasKm);
+            notes.push(`Via ${c.naam}: bochtigheid ${was} → ${na}`
+              +(extra>0?`, ${extra} km omrijden`:''));
+            show();
+          }
+        }
+        if(!beter) notes.push('Geen bochtiger weg gevonden die zonder omrijden in je route past.');
+      }catch{ notes.push('Bochtige wegen zoeken lukte niet — de plaatsenserver is druk.'); }
+    }
+
     /* 3 — echt andere routes zoeken en in kleur op de kaart zetten */
     const tourPoints=[tourStart,...mids,dest];
     placeName(main.shape[Math.floor(main.shape.length/2)]).then(n=>{

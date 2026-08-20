@@ -330,6 +330,56 @@ for (const [km, punten, aantal] of [[200, 5000, 150], [400, 11000, 320], [900, 2
 }
 
 console.log('');
+console.log('--- bochten zoeken: wegen meten en saaie stukken vinden ---');
+/* Bouwstenen om routes te verzinnen: een kaarsrecht stuk en een zigzag.
+   Punten van ongeveer 100 meter, zoals de routeserver ze ook geeft. */
+function recht(lon0, lat0, km) {
+  const stap = 0.1 / (111.32 * Math.cos(lat0 * Math.PI / 180));
+  const uit = [];
+  for (let i = 0; i * 0.1 <= km; i++) uit.push([lon0 + i * stap, lat0]);
+  return uit;
+}
+function zigzag(lon0, lat0, km, uitslag) {
+  const stap = 0.1 / (111.32 * Math.cos(lat0 * Math.PI / 180));
+  const uit = [];
+  for (let i = 0; i * 0.1 <= km; i++)
+    uit.push([lon0 + i * stap, lat0 + (i % 4 < 2 ? uitslag : -uitslag)]);
+  return uit;
+}
+
+const rechteWeg = recht(6.0, 50.4, 4);
+/* Uitslag 0,0004 graad: het pad wordt ongeveer 1,2x zo lang als de
+   rechte lijn. Dat is een echte bergweg; 0,004 zou een trap zijn. */
+const kronkelWeg = zigzag(6.0, 50.4, 4, 0.0004);
+console.log('     recht:   ' + JSON.stringify(wegBochtigheid(rechteWeg)));
+console.log('     kronkel: ' + JSON.stringify(wegBochtigheid(kronkelWeg)));
+check('een rechte weg heeft bochtigheid 0', wegBochtigheid(rechteWeg).score, 0);
+check('een kronkelweg komt door de zeef (>=45)', wegBochtigheid(kronkelWeg).score >= 45, true);
+check('lengte van 4 km klopt', wegBochtigheid(rechteWeg).km.toFixed(1), '4.0');
+check('een kort stukje telt niet mee', wegBochtigheid(recht(6.0, 50.4, 0.2)).score, 0);
+
+/* Een route van 15 km recht, 10 km kronkel, 15 km recht. Daar moet hij twee
+   saaie stukken in zien: het begin en het eind. */
+const gemengd = [...recht(6.0, 50.4, 15)];
+const na1 = gemengd[gemengd.length - 1];
+gemengd.push(...zigzag(na1[0], na1[1], 10, 0.0004));
+const na2 = gemengd[gemengd.length - 1];
+gemengd.push(...recht(na2[0], na2[1], 15));
+const stukken = saaieStukken(curveProfile(gemengd));
+console.log('     saaie stukken: ' + stukken.map(s =>
+  Math.round(s.van) + '-' + Math.round(s.tot) + ' km').join('  ') || '(geen)');
+check('twee saaie stukken gevonden', stukken.length, 2);
+check('het langste staat vooraan', stukken[0].tot - stukken[0].van >= stukken[1].tot - stukken[1].van, true);
+check('beide minstens 8 km', stukken.every(s => s.tot - s.van >= 8), true);
+
+/* Een route die van begin tot eind kronkelt heeft niets saais. */
+check('kronkelroute heeft geen saai stuk',
+      saaieStukken(curveProfile(zigzag(6.0, 50.4, 40, 0.0004))).length, 0);
+/* En een korte rechte rit is te kort om iets aan te doen. */
+check('5 km recht is te kort om op te knappen',
+      saaieStukken(curveProfile(recht(6.0, 50.4, 5))).length, 0);
+
+console.log('');
 console.log('--- zonTijden(): wanneer gaat de zon op en onder ---');
 /* Niet natrekken met cijfers uit mijn hoofd, maar met dingen die vaststaan:
    de langste dag in Amsterdam is 16 uur 46, de kortste 7 uur 44, en de zon
@@ -402,12 +452,32 @@ console.log('=== 4. klopt de interface met de code? ===');
     }
   }
 
-  /* Twee versienummers die uit elkaar lopen betekent een oude app uit de cache. */
-  const a = /versie (\d+)/.exec(html), b = /roadbook-app-v(\d+)/.exec(fs.readFileSync('sw.js', 'utf8'));
-  if (!a || !b || a[1] !== b[1]) {
-    console.log('FOUT versie in index.html (' + (a && a[1]) + ') en sw.js (' + (b && b[1]) + ') lopen uit elkaar');
+  /* Versienummers die uit elkaar lopen geven een halve oude app. Ze staan op
+     vier plekken en moeten alle vier gelijk zijn: de kop van index.html, achter
+     elke bestandsnaam die index.html opvraagt, de cachenaam in sw.js, en de V
+     in sw.js waarmee die zijn offline-lijst opbouwt. */
+  const sw = fs.readFileSync('sw.js', 'utf8');
+  const kop = /versie (\d+)/.exec(html);
+  const kast = /roadbook-app-v(\d+)/.exec(sw);
+  const swV = /const V = '(\d+)'/.exec(sw);
+  const achter = [...new Set([...html.matchAll(/\?v=(\d+)/g)].map(m => m[1]))];
+  const alle = [kop && kop[1], kast && kast[1], swV && swV[1], ...achter];
+  if (alle.some(x => !x) || new Set(alle).size !== 1) {
+    console.log('FOUT versienummers lopen uit elkaar: kop=' + (kop && kop[1])
+      + ' cache=' + (kast && kast[1]) + ' swV=' + (swV && swV[1])
+      + ' achter bestandsnamen=' + achter.join('/'));
     fouten++;
-  } else console.log('OK   versie ' + a[1] + ' staat in index.html en in sw.js');
+  } else {
+    console.log('OK   versie ' + kop[1] + ' staat overal hetzelfde ('
+      + achter.length + ' bestandsnaam + kop + sw.js)');
+  }
+  /* En elk eigen bestand moet dat nummer ook echt meekrijgen. */
+  const zonder = [...html.matchAll(/(?:src|href)="((?:\d\d-[a-z]+\.js|stijl\.css))"/g)];
+  if (zonder.length) {
+    console.log('FOUT zonder versienummer opgevraagd: '
+      + zonder.map(m => m[1]).join(', ') + ' — de browser mag dan een oude teruggeven');
+    fouten++;
+  } else console.log('OK   alle eigen bestanden worden met versienummer opgevraagd');
 })();
 
 console.log('');
