@@ -62,6 +62,17 @@
   .ac .opt.sel .k{color:#3A2A0C}
   .ac .note{padding:8px 10px;font-size:12px;color:var(--muted)}
 
+  .ord{display:flex;flex-direction:column;gap:2px;flex:0 0 auto;padding-bottom:1px;width:30px}
+  .ord button{width:30px;height:16px;border:1px solid var(--hair);border-radius:2px;
+    color:var(--muted);font-size:9px;line-height:1;display:grid;place-items:center}
+  .ord .numin{width:30px;height:24px;text-align:center;background:var(--ink);
+    border:1px solid var(--hair);border-radius:2px;color:var(--brass);
+    font-family:var(--mono);font-size:12px;padding:0;-moz-appearance:textfield}
+  .ord .numin::-webkit-outer-spin-button,.ord .numin::-webkit-inner-spin-button{
+    -webkit-appearance:none;margin:0}
+  .ord .numin:focus{border-color:var(--brass)}
+  .ord button:hover:not(:disabled){border-color:var(--brass);color:var(--brass)}
+  .ord button:disabled{opacity:.3;cursor:default}
   .via-row{display:flex;gap:6px;align-items:flex-end;margin-bottom:9px}
   .via-row .field{flex:1;margin:0}
   .icon-btn{width:34px;height:36px;border:1px solid var(--hair);border-radius:3px;
@@ -235,10 +246,18 @@
 <aside class="panel">
   <div class="masthead">
     <h1>Road<span>book</span></h1>
-    <p>Bochtige routes over OpenStreetMap. <span style="color:var(--brass)">versie 8</span></p>
+    <p>Bochtige routes over OpenStreetMap. <span style="color:var(--brass)">versie 12</span></p>
   </div>
 
   <div class="block">
+    <div class="eyebrow">Soort rit</div>
+    <div class="chips" id="tripMode" style="margin-bottom:14px">
+      <button data-m="one" class="on">Enkele reis</button>
+      <button data-m="back">Heen en terug</button>
+      <button data-m="loop">Rondje</button>
+    </div>
+    <p class="hint" id="modeHint" style="margin:-8px 0 14px">Van A naar B.</p>
+
     <div class="eyebrow">Route</div>
     <div class="field">
       <label for="start">Vertrek</label>
@@ -246,10 +265,36 @@
     </div>
     <div id="vias"></div>
     <button class="text-btn" id="addVia">+ Tussenstop toevoegen</button>
+    <label class="check" id="manualRow" hidden style="margin-top:8px">
+      <input type="checkbox" id="manualOrder"> Zelf de volgorde bepalen
+    </label>
     <div class="field" style="margin-top:9px">
-      <label for="dest">Bestemming</label>
+      <label for="dest" id="destLabel">Bestemming</label>
       <input id="dest" placeholder="Winterberg" value="Winterberg">
     </div>
+    <p class="hint" id="terugHint" style="margin:4px 0 10px">
+      Weer thuis eindigen? Kies bovenaan <b style="color:var(--paper);font-weight:500">Heen en terug</b> of <b style="color:var(--paper);font-weight:500">Rondje</b>.
+    </p>
+    <p class="inline" id="loopRow" hidden>
+      Rondje van ongeveer <input type="number" id="loopKm" min="80" max="900" step="25" value="300"> km
+    </p>
+    <button class="text-btn" id="gpxOpen">GPX-bestand openen</button>
+    <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden>
+    <p class="hint" style="margin-top:5px">Route van MyRoute-app, Kurviger, Komoot of een vriend? Download hem daar als GPX en open hem hier.</p>
+  </div>
+
+  <div class="block" id="libBlock">
+    <div class="eyebrow">Mijn routebibliotheek</div>
+    <div class="chips" style="margin-bottom:10px">
+      <button id="libAdd">GPX-bestanden toevoegen</button>
+      <button id="libShow">Alles op de kaart</button>
+    </div>
+    <input type="file" id="libFiles" accept=".gpx,application/gpx+xml" multiple hidden>
+    <div class="rows" id="libList"></div>
+    <p class="hint" id="libHint" style="margin-top:10px">
+      Sleep er gerust twintig tegelijk in. Ze worden gesorteerd op afstand vanaf je vertrekpunt,
+      zodat je ziet welke rit het dichtst bij je in de buurt ligt.
+    </p>
   </div>
 
   <div class="block">
@@ -491,6 +536,11 @@ map.on('load',()=>{
     paint:{'line-color':'#3FC4F0','line-width':5,'line-dasharray':[2,1.3]},
     layout:{'line-cap':'butt','line-join':'round'}});
 
+  map.addSource('lib',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'lib-line',type:'line',source:'lib',
+    paint:{'line-color':'#B879E0','line-width':2.5,'line-opacity':.75},
+    layout:{'line-cap':'round','line-join':'round'}});
+
   map.addSource('alts',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'alts-line',type:'line',source:'alts',
     paint:{'line-width':3,'line-opacity':.9,
@@ -725,21 +775,57 @@ async function resolve(text){
 /* ================= tussenstops ================= */
 function renderVias(){
   const box=el('vias'); box.innerHTML='';
+  const n=state.vias.length;
+  const move=(from,to)=>{
+    to=Math.max(0,Math.min(n-1,to));
+    if(to===from){ renderVias(); return; }
+    const [x]=state.vias.splice(from,1);
+    state.vias.splice(to,0,x);
+    manualOrder=true; el('manualOrder').checked=true;
+    renderVias(); saveSettings();
+    setStatus(`Punt staat nu op plek ${to+1}. Plan de route opnieuw.`);
+  };
   state.vias.forEach((v,i)=>{
     const row=document.createElement('div'); row.className='via-row';
-    row.innerHTML=`<div class="field">
-        <label>Tussenstop ${i+1}</label>
+    row.innerHTML=`<div class="ord">
+        <button class="up" title="Naar voren" aria-label="Punt ${i+1} naar voren">▲</button>
+        <input class="numin" type="number" min="1" max="${n}" value="${i+1}"
+               title="Typ een nummer om dit punt te verplaatsen"
+               aria-label="Volgnummer van punt ${i+1}">
+        <button class="dn" title="Naar achteren" aria-label="Punt ${i+1} naar achteren">▼</button>
+      </div>
+      <div class="field">
+        <label>Punt ${i+1}</label>
         <input value="${String(v).replace(/"/g,'&quot;')}" placeholder="Plaats of coördinaten">
       </div>
-      <button class="icon-btn" title="Verwijderen" aria-label="Tussenstop ${i+1} verwijderen">×</button>`;
-    const inp=row.querySelector('input');
+      <button class="icon-btn" title="Verwijderen" aria-label="Punt ${i+1} verwijderen">×</button>`;
+    const inp=row.querySelector('.field input');
     ['input','change'].forEach(ev=>inp.addEventListener(ev,e=>{ state.vias[i]=e.target.value; saveSettings(); }));
     attachAC(inp);
-    row.querySelector('button').addEventListener('click',()=>{ state.vias.splice(i,1); renderVias(); saveSettings(); });
+    const num=row.querySelector('.numin');
+    num.addEventListener('change',()=>move(i,(parseInt(num.value,10)||i+1)-1));
+    num.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); num.blur(); } });
+    const up=row.querySelector('.up'), dn=row.querySelector('.dn');
+    up.disabled=i===0; dn.disabled=i===n-1;
+    up.addEventListener('click',()=>move(i,i-1));
+    dn.addEventListener('click',()=>move(i,i+1));
+    row.querySelector('.icon-btn').addEventListener('click',()=>{
+      state.vias.splice(i,1); renderVias(); saveSettings();
+    });
     box.appendChild(row);
   });
+  el('manualRow').hidden = n<2;
 }
+
 function addVia(text=''){ state.vias.push(text); renderVias(); }
+
+let manualOrder=false;
+el('manualOrder').addEventListener('change',e=>{
+  manualOrder=e.target.checked; saveSettings();
+  setStatus(manualOrder
+    ? 'Jij bepaalt nu de volgorde. Gebruik de pijltjes of sleep de bolletjes op de kaart.'
+    : 'De app zet je punten weer op volgorde langs de route.');
+});
 
 /* ================= wegtype-knoppen ================= */
 document.querySelectorAll('#levels button').forEach(b=>{
@@ -1060,6 +1146,220 @@ async function placeName(pt){
 
 const ALT_COLORS=['#E0B354','#37BFA0','#B879E0','#6FA8DC'];
 
+/* ================= soort rit ================= */
+let tripMode='one';
+const MODE_HINT={
+  one:'Van A naar B.',
+  back:'Heen naar je bestemming, en over andere wegen weer terug naar huis.',
+  loop:'Een rondje vanaf je deur in de richting van het gebied dat je invult — heen langs de ene kant, terug langs de andere.'
+};
+document.querySelectorAll('#tripMode button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    tripMode=b.dataset.m;
+    document.querySelectorAll('#tripMode button').forEach(x=>x.classList.toggle('on',x===b));
+    el('modeHint').textContent=MODE_HINT[tripMode];
+    el('loopRow').hidden = tripMode!=='loop';
+    el('destLabel').textContent = tripMode==='loop'?'Richting welk gebied':'Bestemming';
+    el('terugHint').hidden = tripMode!=='one';
+    saveSettings();
+  });
+});
+
+
+/* ================= routebibliotheek =================
+   Tientallen GPX-bestanden bewaren, gesorteerd op hoe dicht ze bij je
+   vertrekpunt liggen. Zo zie je welke rit je zo kunt aanhaken. */
+function libAll(){ return store.get('rb.lib',[]); }
+function libSave(list){ return store.set('rb.lib',list); }
+
+function nearestOnLib(r,pt){
+  let m=Infinity;
+  for(const c of r.pts){ const d=haversine(c,[pt.lon,pt.lat]); if(d<m) m=d; }
+  return m;
+}
+
+function renderLib(){
+  const list=libAll();
+  const box=el('libList'); box.innerHTML='';
+  const thuis=state.startPt;
+  const rows=list.map(r=>({...r,_d:thuis?nearestOnLib(r,thuis):null}));
+  if(thuis) rows.sort((a,b)=>a._d-b._d);
+  if(!rows.length){
+    box.innerHTML='<p class="empty">Nog geen routes. Voeg GPX-bestanden toe met de knop hierboven.</p>';
+    return;
+  }
+  el('libHint').textContent=`${rows.length} route${rows.length>1?'s':''} bewaard.`
+    +(thuis?' Gesorteerd op afstand vanaf je vertrekpunt.':' Plan een route om ze op afstand te sorteren.');
+  rows.forEach(r=>{
+    const d=document.createElement('div'); d.className='r';
+    d.innerHTML=`<div style="min-width:0"><div class="nm">${r.name}</div>
+      <div class="ds">${r.km} km · ${r.score} bocht${r._d!=null?` · ${r._d<1?'op je vertrekpunt':r._d.toFixed(0)+' km van huis'}`:''}</div></div>`;
+    const acts=document.createElement('div'); acts.className='acts';
+    const open=document.createElement('button'); open.className='text-btn'; open.textContent='Rijden';
+    open.addEventListener('click',()=>useImported(r.pts,r.name,r.named));
+    const del=document.createElement('button'); del.className='text-btn';
+    del.style.color='#8D9AA4'; del.textContent='×'; del.title='Verwijderen';
+    del.addEventListener('click',()=>{ libSave(libAll().filter(x=>x.id!==r.id)); renderLib(); drawLib(); });
+    acts.append(open,del); d.appendChild(acts); box.appendChild(d);
+  });
+}
+
+let libVisible=false;
+function drawLib(){
+  const src=map.getSource('lib');
+  if(!src) return;
+  const feats = libVisible ? libAll().map(r=>({type:'Feature',
+    properties:{id:r.id,name:r.name}, geometry:{type:'LineString',coordinates:r.pts}})) : [];
+  src.setData({type:'FeatureCollection',features:feats});
+  el('libShow').classList.toggle('on',libVisible);
+}
+
+el('libShow').addEventListener('click',()=>{
+  libVisible=!libVisible; drawLib();
+  if(libVisible&&libAll().length){
+    const alle=libAll().flatMap(r=>r.pts);
+    if(alle.length) map.fitBounds(alle.reduce((bb,c)=>bb.extend(c),
+      new maplibregl.LngLatBounds(alle[0],alle[0])),{padding:60,duration:700});
+  }
+});
+
+el('libAdd').addEventListener('click',()=>el('libFiles').click());
+el('libFiles').addEventListener('change',async e=>{
+  const files=[...(e.target.files||[])];
+  if(!files.length) return;
+  if(!store.ok()){
+    setStatus('Bewaren werkt alleen op je eigen site, niet in dit voorbeeldvenster.',true);
+    e.target.value=''; return;
+  }
+  const btn=el('libAdd'); btn.classList.add('busy');
+  let ok=0, mis=0;
+  const list=libAll();
+  for(const f of files){
+    try{
+      const {pts,name,named}=parseGpx(await f.text());
+      const kort=simplify(pts,0.03);
+      const titel=(name==='Geopende route'?f.name.replace(/\.gpx$/i,''):name).slice(0,60);
+      const item={ id:Date.now()+'-'+ok, name:titel, at:Date.now(),
+        km:Math.round(cumulative(kort).slice(-1)[0]),
+        score:curveProfile(kort).score,
+        named:(named||[]).slice(0,40), pts:kort };
+      const zonder=list.filter(x=>x.name!==titel);
+      zonder.unshift(item);
+      if(!libSave(zonder.slice(0,60))){
+        setStatus('De opslag zit vol. Verwijder een paar routes en probeer opnieuw.',true);
+        break;
+      }
+      list.length=0; list.push(...zonder.slice(0,60));
+      ok++;
+    }catch(err){ mis++; }
+  }
+  btn.classList.remove('busy');
+  e.target.value='';
+  renderLib(); drawLib();
+  setStatus(`${ok} route${ok===1?'':'s'} toegevoegd${mis?`, ${mis} bestand${mis===1?'':'en'} lukte niet`:''}.`);
+});
+
+/* ================= GPX inlezen =================
+   MyRoute-app, Kurviger, Komoot en Wikiloc laten je routes als GPX
+   downloaden. Zo kun je andermans rit gewoon hier openen. */
+function parseGpx(text){
+  const doc=new DOMParser().parseFromString(text,'application/xml');
+  if(doc.getElementsByTagName('parsererror').length) throw new Error('Dit lijkt geen geldig GPX-bestand.');
+  const pick=tag=>[...doc.getElementsByTagName(tag)]
+    .map(n=>[parseFloat(n.getAttribute('lon')),parseFloat(n.getAttribute('lat'))])
+    .filter(c=>isFinite(c[0])&&isFinite(c[1]));
+  let pts=pick('trkpt');
+  if(pts.length<2) pts=pick('rtept');
+  if(pts.length<2) pts=pick('wpt');
+  if(pts.length<2) throw new Error('Geen routepunten in dit bestand gevonden.');
+  /* MyRoute-app en Garmin zetten hun genoemde tussenpunten in <rtept>/<wpt>.
+     Die zijn goud waard: dat is precies het roadbook van degene die hem maakte. */
+  const named=[];
+  for(const tag of ['rtept','wpt'])
+    for(const n of doc.getElementsByTagName(tag)){
+      const lat=parseFloat(n.getAttribute('lat')), lon=parseFloat(n.getAttribute('lon'));
+      const nm=(n.getElementsByTagName('name')[0]?.textContent||'').trim();
+      if(isFinite(lat)&&isFinite(lon)&&nm) named.push({name:nm,lat,lon});
+    }
+  const name=(doc.getElementsByTagName('name')[0]?.textContent||'').trim()||'Geopende route';
+  return {pts,name,named};
+}
+
+/* Route inkorten zonder de vorm te verliezen, zodat er tientallen in je
+   bibliotheek passen. 6600 punten wordt er zo ongeveer 700. */
+function perpKm(p,a,b){
+  const cs=Math.cos(a[1]*Math.PI/180);
+  const px=(p[0]-a[0])*111*cs, py=(p[1]-a[1])*111;
+  const bx=(b[0]-a[0])*111*cs, by=(b[1]-a[1])*111;
+  const L=bx*bx+by*by;
+  if(!L) return Math.hypot(px,py);
+  let t=(px*bx+py*by)/L; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-t*bx,py-t*by);
+}
+function simplify(pts,tol=0.03){
+  if(pts.length<3) return pts;
+  const keep=new Array(pts.length).fill(false);
+  keep[0]=keep[pts.length-1]=true;
+  const stack=[[0,pts.length-1]];
+  while(stack.length){
+    const [a,b]=stack.pop();
+    let idx=-1,max=0;
+    for(let i=a+1;i<b;i++){ const d=perpKm(pts[i],pts[a],pts[b]); if(d>max){max=d;idx=i;} }
+    if(max>tol&&idx>0){ keep[idx]=true; stack.push([a,idx],[idx,b]); }
+  }
+  return pts.filter((_,i)=>keep[i]).map(c=>[+c[0].toFixed(5),+c[1].toFixed(5)]);
+}
+
+function useImported(pts,name,named){
+  runSeq++;
+  state.fast={shape:[],km:0,sec:0}; state.mids=[];
+  state.pois=[]; state.stays=[]; state.along=null; state.extraRows=[];
+  clearAlong();
+  const km=cumulative(pts).slice(-1)[0];
+  state.variants={ imp:{ shape:pts, km, sec:0, prof:curveProfile(pts),
+    color:'#E0B354', label:name.slice(0,32), imported:true } };
+  const rond = haversine(pts[0],pts[pts.length-1])<2;
+  /* Routebouwers zetten veel vormpunten met een straatadres als naam in het
+     bestand. Die horen niet in je roadbook — alleen de plekken die iemand
+     bewust heeft aangewezen. */
+  const isAdres=n=>/\d{4,5}\s|\bstr\.|straße|strasse|\bstraat\b|^[A-Z]{1,2}\s?\d+\b|\d+\s*,|,\s*(Duitsland|Deutschland|Nederland|België|Belgien|France)$/i.test(n);
+  const tussen=(named||[]).slice(1,-1)
+    .filter(p=>!isAdres(p.name))
+    .map(p=>({...p,_kind:'uit het bestand'}));
+  const weg=(named||[]).length-tussen.length-2;
+  state.points=[
+    { name:(named?.[0]?.name)||'Start', lat:pts[0][1], lon:pts[0][0] },
+    ...tussen,
+    { name:rond?'Weer thuis':((named?.[named.length-1]?.name)||'Einde'),
+      lat:pts[pts.length-1][1], lon:pts[pts.length-1][0] }
+  ];
+  clearMarkers();
+  const veel=state.points.length>12;
+  state.points.forEach((p,i)=>{
+    const rand = i===0||i===state.points.length-1;
+    if(veel&&!rand) marker(p,'poi','',`<strong>${p.name}</strong>`);
+    else marker(p,'',String(i+1),`<strong>${p.name}</strong>`);
+  });
+  map.getSource('fast').setData(EMPTY);
+  applyVariant('imp');
+  map.fitBounds(pts.reduce((bb,c)=>bb.extend(c),new maplibregl.LngLatBounds(pts[0],pts[0])),
+    {padding:60,duration:800});
+  el('tourBlock').hidden=false;
+  setStatus(`"${name}" geopend: ${km.toFixed(0)} km, bochtigheid ${state.variants.imp.prof.score}`
+    +(weg>0?`, ${weg} straatadressen weggelaten`:'')
+    +'. Zoek er gerust tankstations of bezienswaardigheden bij.');
+}
+
+el('gpxOpen').addEventListener('click',()=>el('gpxFile').click());
+el('gpxFile').addEventListener('change',async e=>{
+  const f=e.target.files?.[0]; if(!f) return;
+  try{
+    const {pts,name,named}=parseGpx(await f.text());
+    useImported(pts, name==='Geopende route'?f.name.replace(/\.gpx$/i,''):name, named);
+  }catch(err){ setStatus(err.message,true); }
+  finally{ e.target.value=''; }
+});
+
 /* ================= steden mijden =================
    Het Ruhrgebied is voor een motorrijder waardeloos: stoplichten, 50-borden,
    geen bocht te bekennen. We zoeken de grote plaatsen op en tellen per route
@@ -1125,8 +1425,20 @@ async function findAlong(kind,shape,corridor=2.5){
 function clearMarkers(){ state.markers.forEach(m=>m.remove()); state.markers=[]; }
 function marker(p,cls,label,html){
   const d=document.createElement('div'); d.className='mk '+cls; if(label) d.textContent=label;
-  const m=new maplibregl.Marker({element:d}).setLngLat([p.lon,p.lat]);
+  /* Je eigen tussenstops kun je op de kaart naar een andere plek slepen. */
+  const sleepbaar = p._viaIndex!=null;
+  if(sleepbaar){ d.style.cursor='grab'; d.title='Sleep me naar een andere plek'; }
+  const m=new maplibregl.Marker({element:d, draggable:sleepbaar}).setLngLat([p.lon,p.lat]);
   if(html) m.setPopup(new maplibregl.Popup({offset:14,closeButton:false}).setHTML(html));
+  if(sleepbaar){
+    m.on('dragend',()=>{
+      const l=m.getLngLat();
+      state.vias[p._viaIndex]=`${l.lat.toFixed(5)}, ${l.lng.toFixed(5)}`;
+      renderVias();
+      setStatus(`Punt ${p._viaIndex+1} verplaatst — even opnieuw berekenen…`);
+      plan();
+    });
+  }
   m.addTo(map); state.markers.push(m); return m;
 }
 
@@ -1215,7 +1527,7 @@ function applyVariant(k){
   const cum=cumulative(state.shape); state.cum=cum;
   map.getSource('route').setData(v.prof.fc);
   el('sumKm').textContent=(state.fast.km+v.km).toFixed(0)+' km';
-  el('sumTime').textContent=fmtTime(state.fast.sec+v.sec);
+  el('sumTime').textContent = v.imported ? '—' : fmtTime(state.fast.sec+v.sec);
   el('sumCurve').textContent=String(v.prof.score);
   el('sumStops').textContent=String(state.mids.length);
   el('summary').hidden=false; el('legend').hidden=false; el('exports').hidden=false;
@@ -1248,7 +1560,11 @@ async function plan(){
     setStatus('Plaatsen opzoeken…');
     const start=await resolve(el('start').value);
     const viaPts=[];
-    for(const v of state.vias.filter(x=>String(x).trim())) viaPts.push(await resolve(v));
+    for(let i=0;i<state.vias.length;i++){
+      if(!String(state.vias[i]).trim()) continue;
+      const p=await resolve(state.vias[i]);
+      if(p) viaPts.push({...p,_viaIndex:i});
+    }
     const dest=await resolve(el('dest').value);
     state.startPt=start; state.destPt=dest; state.viaPts=viaPts;
 
@@ -1266,21 +1582,59 @@ async function plan(){
        sorteren we op de kilometerstand lángs die route. Dat voorkomt het
        heen-en-weer geslinger tussen tussenstops. */
     const order=(list,ref)=>{
+      /* Heb jij de volgorde zelf bepaald? Dan blijven jouw punten staan zoals
+         ze staan; alleen wat de app zelf toevoegt wordt ingepast. */
+      if(manualOrder){
+        const eigen=list.filter(p=>p._viaIndex!=null).sort((a,b)=>a._viaIndex-b._viaIndex);
+        const rest=list.filter(p=>p._viaIndex==null);
+        return [...eigen,...rest];
+      }
       if(!ref||!ref.length)
         return list.map(p=>({...p,_t:progressAlong(tourStart,dest,p).t})).sort((a,b)=>a._t-b._t);
       const line=coarse(ref), lcum=cumulative(line);
       return list.map(p=>({...p,_t:placeAlong(line,lcum,p).km})).sort((a,b)=>a._t-b._t);
     };
 
-    /* 1 — gewone route, meteen in beeld */
+    /* 1 — route opbouwen naar gelang het soort rit */
     setStatus('Route berekenen…');
     let mids=order(viaPts);
-    let main=await planRoute([tourStart,...mids,dest],'tour',level);
-    if(!alive()) return;
+    if(manualOrder&&viaPts.length>1) notes.push('Jouw volgorde is aangehouden.');
+    const luchtlijn0=haversine([tourStart.lon,tourStart.lat],[dest.lon,dest.lat]);
+    let terugPunt=null, main;
+
+    if(tripMode==='loop'){
+      /* Rondje: heen langs de ene kant van de lijn, terug langs de andere. */
+      const doel=+el('loopKm').value||300;
+      let off=Math.max(12,luchtlijn0*0.30);
+      for(let poging=0; poging<3; poging++){
+        const heen=sideWaypoint(tourStart,dest,off);
+        const terug=sideWaypoint(tourStart,dest,-off);
+        main=await planRoute([tourStart,heen,dest,terug,start],'tour',level);
+        if(!alive()) return;
+        mids=[{...heen,name:'Heenweg',_kind:'via'},{...dest,_kind:'Keerpunt'},
+              {...terug,name:'Terugweg',_kind:'via'}];
+        terugPunt=start;
+        if(main.km>=doel*0.8 && main.km<=doel*1.25) break;
+        off *= main.km<doel ? 1.6 : 0.6;
+        if(poging<2){ setStatus(`Rondje bijstellen (${main.km.toFixed(0)} van ${doel} km)…`); await sleep(1100); }
+      }
+    } else if(tripMode==='back'){
+      /* Heen en terug: de terugweg via een punt aan de andere kant. */
+      const terug=sideWaypoint(tourStart,dest,Math.max(12,luchtlijn0*0.28));
+      main=await planRoute([tourStart,...mids,dest,terug,start],'tour',level);
+      if(!alive()) return;
+      mids=[...mids,{...dest,_kind:'Keerpunt'},{...terug,name:'Terugweg',_kind:'via'}];
+      terugPunt=start;
+    } else {
+      main=await planRoute([tourStart,...mids,dest],'tour',level);
+      if(!alive()) return;
+    }
 
     const show=()=>{
       state.mids=mids;
-      state.points=[start,...(handover?[handover]:[]),...mids,dest];
+      state.points = terugPunt
+        ? [start,...(handover?[handover]:[]),...mids,{...terugPunt,name:terugPunt.name,_kind:'Weer thuis'}]
+        : [start,...(handover?[handover]:[]),...mids,dest];
       state.variants={ base:{...main, prof:curveProfile(main.shape),
         color:ALT_COLORS[0], label:state.baseLabel||'Hoofdroute'} };
       state.pois=[]; state.stays=[]; state.along=null; state.extraRows=[];
@@ -1299,7 +1653,7 @@ async function plan(){
       {padding:60,duration:800});
     el('tourBlock').hidden=false;
     btn.disabled=false; btn.textContent='Route plannen';
-    saveLast();
+    saveLast(); renderLib();
 
     /* 2 — grote plaatsen in kaart brengen */
     setStatus('Steden langs de route bekijken…');
@@ -1311,7 +1665,7 @@ async function plan(){
     }
 
     /* 3 — bos en water, alleen als het echt nauwelijks omrijden is */
-    if(el('findScenic').checked){
+    if(el('findScenic').checked && tripMode==='one'){
       setStatus('Bos en water langs de route zoeken…');
       let added=0;
       try{
@@ -1344,10 +1698,11 @@ async function plan(){
     });
 
     setStatus('Andere routes zoeken…');
+    const zoekAlternatief = tripMode==='one';
     const luchtlijn=haversine([tourStart.lon,tourStart.lat],[dest.lon,dest.lat]);
     const zij=Math.max(10,Math.min(50,luchtlijn*0.2));
     let found=0;
-    for(const kant of [zij,-zij]){
+    for(const kant of (zoekAlternatief?[zij,-zij]:[])){
       if(!alive()) return;
       if(found>=2) break;
       state.pending=true; renderAlts();
@@ -1374,10 +1729,10 @@ async function plan(){
       }catch{}
       state.pending=false; renderAlts();
     }
-    if(!found) notes.push('Geen wezenlijk andere route gevonden; alle wegen komen hier op hetzelfde neer.');
+    if(!found && zoekAlternatief) notes.push('Geen wezenlijk andere route gevonden; alle wegen komen hier op hetzelfde neer.');
 
     /* De route met de minste stad wint, mits het verschil de moeite waard is. */
-    if(found && places.length){
+    if(found && zoekAlternatief && places.length){
       let beste=state.shown, bs=state.variants[state.shown]?.urban?.score ?? 99;
       for(const [k,v] of Object.entries(state.variants))
         if(v.urban && v.urban.score<bs){ bs=v.urban.score; beste=k; }
@@ -1426,6 +1781,13 @@ function enableDragShaping(){
   const canvas=map.getCanvas();
   map.on('mouseenter','route-hit',()=>{ canvas.style.cursor='grab'; });
   map.on('mouseleave','route-hit',()=>{ canvas.style.cursor=''; });
+  map.on('mouseenter','lib-line',()=>{ canvas.style.cursor='pointer'; });
+  map.on('mouseleave','lib-line',()=>{ canvas.style.cursor=''; });
+  map.on('click','lib-line',e=>{
+    const id=e.features?.[0]?.properties?.id;
+    const r=libAll().find(x=>String(x.id)===String(id));
+    if(r){ skipClick=Date.now(); useImported(r.pts,r.name,r.named); }
+  });
   map.on('mouseenter','alts-line',()=>{ canvas.style.cursor='pointer'; });
   map.on('mouseleave','alts-line',()=>{ canvas.style.cursor=''; });
   map.on('click','alts-line',e=>{
@@ -1559,7 +1921,8 @@ function settings(){
     noToll:el('noToll').checked, noFerry:el('noFerry').checked,
     findScenic:el('findScenic').checked, findPois:el('findPois').checked,
     findStays:el('findStays').checked, showPhotos:el('showPhotos').checked,
-    tankKm:el('tankKm').value };
+    tankKm:el('tankKm').value, tripMode, loopKm:el('loopKm').value,
+    manualOrder:el('manualOrder').checked };
 }
 function applySettings(s){
   if(!s) return;
@@ -1569,6 +1932,16 @@ function applySettings(s){
   if(s.dirt!=null){ el('dirt').value=s.dirt; el('dirtVal').textContent=s.dirt; }
   if(s.sprint!=null) el('sprintKm').value=s.sprint;
   if(s.tankKm!=null) el('tankKm').value=s.tankKm;
+  if(s.loopKm!=null) el('loopKm').value=s.loopKm;
+  if(s.manualOrder!=null){ el('manualOrder').checked=!!s.manualOrder; manualOrder=!!s.manualOrder; }
+  if(s.tripMode){
+    tripMode=s.tripMode;
+    document.querySelectorAll('#tripMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===tripMode));
+    el('modeHint').textContent=MODE_HINT[tripMode];
+    el('loopRow').hidden = tripMode!=='loop';
+    el('destLabel').textContent = tripMode==='loop'?'Richting welk gebied':'Bestemming';
+    el('terugHint').hidden = tripMode!=='one';
+  }
   ['allowHighway','avoidTowns','noToll','noFerry','findScenic','findPois','findStays','showPhotos']
     .forEach(k=>{ if(s[k]!=null) el(k).checked=!!s[k]; });
 }
@@ -1648,7 +2021,7 @@ el('clear').addEventListener('click',()=>{
 el('addVia').addEventListener('click',()=>addVia());
 attachAC(el('start')); attachAC(el('dest'));
 el('dirt').addEventListener('input',e=>{ el('dirtVal').textContent=e.target.value; saveSettings(); });
-['sprintKm','allowHighway','avoidTowns','noToll','noFerry','findScenic','findPois','findStays','showPhotos']
+['sprintKm','allowHighway','avoidTowns','noToll','noFerry','findScenic','findPois','findStays','showPhotos','loopKm']
   .forEach(id=>el(id).addEventListener('change',saveSettings));
 ['start','dest'].forEach(id=>el(id).addEventListener('change',saveSettings));
 
@@ -1670,6 +2043,7 @@ if(remembered){
 }
 renderVias();
 renderSaved();
+renderLib();
 if(!store.ok())
   setStatus('Let op: dit venster mag geen gegevens bewaren. Op je eigen site werkt Bewaren wel.');
 </script>
