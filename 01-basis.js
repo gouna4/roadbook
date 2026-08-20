@@ -143,6 +143,13 @@ map.on('load',()=>{
     paint:{'line-color':'#000','line-width':20,'line-opacity':0.01},
     layout:{'line-cap':'round','line-join':'round'}});
 
+  /* Je eigen tekening: blijft als stippellijn staan zodat je kunt zien hoe goed
+     de route je vorm volgt. */
+  map.addSource('teken',{type:'geojson',data:EMPTY});
+  map.addLayer({id:'teken-line',type:'line',source:'teken',
+    paint:{'line-color':'#B879E0','line-width':3,'line-opacity':.85,'line-dasharray':[2,1.5]},
+    layout:{'line-cap':'round','line-join':'round'}});
+
   /* Lagen voor de rijmodus: je eigen spoor, het stuk dat je al gehad hebt,
      en de stippellijn terug naar de route als je een afslag mist. */
   map.addSource('spoor',{type:'geojson',data:EMPTY});

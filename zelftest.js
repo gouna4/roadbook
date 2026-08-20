@@ -207,6 +207,54 @@ const [, vakZ] = hoekVanTegel(8465, 5464, 14);
 check('vak van 4 bij 3', tegelsInVak(-180 + 8465 / nz * 360 + 0.001, vakZ + 0.0001,
                                     -180 + 8468 / nz * 360 + 0.001, vakN - 0.0001).size, 12);
 
+console.log('');
+console.log('--- tekenPunten(): jouw vorm opdelen in tussenstops ---');
+/* Een rechte lijn van ongeveer 120 km op 51 graden. */
+function rechteLijn(km, stukken) {
+  const stapLon = km / (111.32 * Math.cos(51 * Math.PI / 180)) / stukken;
+  const uit = [];
+  for (let i = 0; i <= stukken; i++) uit.push([6.0 + i * stapLon, 51.0]);
+  return uit;
+}
+const l120 = rechteLijn(120, 800);
+const punten120 = tekenPunten(l120);
+check('120 km geeft 11 punten', punten120.length, 11);
+check('begint bij je eerste veeg', punten120[0][0].toFixed(5), l120[0][0].toFixed(5));
+check('eindigt bij je laatste veeg', punten120[10][0].toFixed(5), l120[l120.length-1][0].toFixed(5));
+/* De stukken tussen de punten moeten ongeveer gelijk zijn: 120/10 = 12 km. */
+let kleinste = Infinity, grootste = 0;
+for (let i = 1; i < punten120.length; i++) {
+  const d = haversine(punten120[i-1], punten120[i]);
+  if (d < kleinste) kleinste = d;
+  if (d > grootste) grootste = d;
+}
+console.log('     stukken van ' + kleinste.toFixed(2) + ' tot ' + grootste.toFixed(2) + ' km');
+check('stukken zijn ongeveer 12 km', grootste - kleinste < 0.5, true);
+
+/* Heel lang: de rem moet erop, anders overvragen we de routeserver. */
+check('600 km blijft op 17 punten', tekenPunten(rechteLijn(600, 2000)).length, 17);
+check('1500 km ook 17 punten', tekenPunten(rechteLijn(1500, 2000)).length, 17);
+/* Heel kort: minstens twee stukken, dus drie punten. */
+check('8 km geeft 3 punten', tekenPunten(rechteLijn(8, 60)).length, 3);
+check('25 km geeft 3 punten', tekenPunten(rechteLijn(25, 200)).length, 3);
+check('36 km geeft 4 punten', tekenPunten(rechteLijn(36, 200)).length, 4);
+check('60 km geeft 6 punten', tekenPunten(rechteLijn(60, 400)).length, 6);
+
+/* Een rondje: eerste en laatste punt moeten op dezelfde plek liggen, anders
+   maakt de routeserver er geen rondje van. */
+const rondje = [];
+for (let g = 0; g < 360; g += 5) {
+  const r = g * Math.PI / 180;
+  rondje.push([6.0 + 0.5 * Math.cos(r), 50.5 + 0.32 * Math.sin(r)]);
+}
+rondje.push(rondje[0]);
+const puntenRond = tekenPunten(rondje);
+check('rondje: eind is gelijk aan begin',
+      puntenRond[0].join(',') === puntenRond[puntenRond.length-1].join(','), true);
+console.log('     rondje van ' + cumulative(rondje).slice(-1)[0].toFixed(0)
+            + ' km wordt ' + puntenRond.length + ' punten');
+
+
 console.log('\n--- terugwijzer: welke kant moet je op ---');
 drive.koers = 0;                                    /* je kijkt naar het noorden */
 const richting = bearing([6.0, 51.0], [6.01, 51.0]); /* route ligt pal oost */

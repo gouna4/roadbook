@@ -334,6 +334,7 @@ function enableDragShaping(){
   });
   map.on('mousedown','route-hit',e=>{
     if(e.originalEvent.button!==0) return;
+    if(teken.aan) return;              /* aan het tekenen: niet ook slepen */
     e.preventDefault();
     map.dragPan.disable(); canvas.style.cursor='grabbing';
     const g=document.createElement('div'); g.className='mk ghost';
@@ -360,6 +361,7 @@ el('addMode').addEventListener('click',()=>{
 });
 map.on('click',e=>{
   if(Date.now()-skipClick<400) return;
+  if(teken.aan) return;
   if(map.getLayer('alts-line') &&
      map.queryRenderedFeatures(e.point,{layers:['alts-line']}).length) return;
   if(!addMode||!el('dest').value.trim()) return;
@@ -367,3 +369,131 @@ map.on('click',e=>{
   setStatus(`Tussenstop ${state.vias.length} gezet. Plan de route opnieuw, of zet de knop uit.`);
 });
 
+
+/* ================= route tekenen met je vinger =================
+   Je trekt een vorm over de kaart; wij leggen daar een handvol punten op en
+   laten de routeserver de echte wegen ertussen zoeken. Wat je terugkrijgt
+   volgt jouw vorm, maar over asfalt en met jouw wegtype-instelling.
+
+   Er komt geen nieuwe dienst bij kijken: vanaf hier is het precies dezelfde
+   berekening als de knop Route plannen.
+
+   Het aantal punten is de hele truc. Te veel en hij volgt elke trilling van je
+   vinger, inclusief de rare bochtjes. Te weinig en hij snijdt je vorm af tot
+   een rechte lijn. Eén punt per ~12 km blijkt de goede maat. */
+const teken={ aan:false, bezig:false, punten:[] };
+
+function tekenLijnTonen(){
+  map.getSource('teken')?.setData(teken.punten.length>1
+    ? {type:'Feature',properties:{},geometry:{type:'LineString',coordinates:teken.punten}}
+    : EMPTY);
+}
+
+function tekenWis(){ teken.punten=[]; teken.bezig=false; tekenLijnTonen(); }
+
+function tekenModus(aan){
+  teken.aan=aan;
+  el('drawMode').classList.toggle('on',aan);
+  map.getCanvas().style.cursor=aan?'crosshair':'';
+  if(aan){
+    /* Slepen uit, anders schuift de kaart weg onder je vinger. Zoomen met twee
+       vingers blijft gewoon werken. */
+    map.dragPan.disable(); map.dragRotate.disable();
+    if(addMode){ addMode=false; el('addMode').classList.remove('on'); }
+    setStatus('Trek met je vinger een vorm over de kaart. Eindig waar je begon '
+      +'en het wordt een rondje. Op de computer: ingedrukt houden en slepen.');
+  }else{
+    map.dragPan.enable(); map.dragRotate.enable();
+    map.getCanvas().style.cursor='';
+  }
+}
+
+el('drawMode').addEventListener('click',()=>tekenModus(!teken.aan));
+
+/* Eén vinger tekent. Zodra er twee op het glas liggen wil je zoomen, dus dan
+   houden we ons erbuiten. */
+const eenVinger=e=>!(e.points&&e.points.length>1);
+
+function tekenBegin(e){
+  if(!teken.aan||!eenVinger(e)) return;
+  e.preventDefault?.();
+  teken.bezig=true;
+  teken.punten=[[e.lngLat.lng,e.lngLat.lat]];   /* een nieuwe vorm wist de oude */
+  tekenLijnTonen();
+}
+function tekenVerder(e){
+  if(!teken.aan||!teken.bezig||!eenVinger(e)) return;
+  const p=[e.lngLat.lng,e.lngLat.lat];
+  const vorig=teken.punten[teken.punten.length-1];
+  /* 150 meter is fijn genoeg; alles daaronder is beven. */
+  if(vorig&&haversine(vorig,p)<0.15) return;
+  teken.punten.push(p);
+  tekenLijnTonen();
+}
+function tekenEinde(){
+  if(!teken.aan||!teken.bezig) return;
+  teken.bezig=false;
+  /* Na het optillen van je vinger komt er nog een klik langs. Die mag geen
+     tussenstop worden. */
+  skipClick=Date.now();
+  tekenUitvoeren();
+}
+
+map.on('mousedown',tekenBegin);
+map.on('mousemove',tekenVerder);
+map.on('mouseup',tekenEinde);
+map.on('touchstart',tekenBegin);
+map.on('touchmove',tekenVerder);
+map.on('touchend',tekenEinde);
+map.on('touchcancel',tekenEinde);
+
+/* De vorm opdelen in punten op gelijke afstand. Apart gezet zodat het na te
+   rekenen is met de zelftest. Nooit meer dan 17 punten: de routeserver mag
+   maar één aanroep per seconde en hij moet er wel iets van kunnen maken. */
+function tekenPunten(lijn,perKm=12,maxVakken=16){
+  const lcum=cumulative(lijn);
+  const totaal=lcum[lcum.length-1];
+  const vakken=Math.max(2,Math.min(maxVakken,Math.round(totaal/perKm)));
+  const uit=[];
+  for(let k=0;k<=vakken;k++){
+    const doel=totaal*k/vakken;
+    let i=lcum.findIndex(d=>d>=doel);
+    if(i<0) i=lijn.length-1;
+    uit.push(lijn[i]);
+  }
+  return uit;
+}
+
+function tekenUitvoeren(){
+  const p=teken.punten;
+  const lengte=p.length>1?cumulative(p).slice(-1)[0]:0;
+  if(p.length<4||lengte<5){
+    setStatus('Die vorm is te klein om een rit van te maken. Trek een langere lijn.',true);
+    tekenWis();
+    return;
+  }
+  /* Eindig je in de buurt van je begin, dan wilde je een rondje. */
+  const rond=haversine(p[0],p[p.length-1])<Math.max(2,lengte*0.12);
+  const lijn=rond?[...p,p[0]]:p;
+  const totaal=cumulative(lijn).slice(-1)[0];
+
+  const punten=tekenPunten(lijn);
+
+  /* Je hebt de hele vorm zelf getekend, dus heen-en-terug of een rondje er
+     nóg eens omheen is niet wat je bedoelt. */
+  const knop=document.querySelector('#tripMode button[data-m="one"]');
+  if(knop&&tripMode!=='one') knop.click();
+
+  const naam=c=>`${c[1].toFixed(5)}, ${c[0].toFixed(5)}`;
+  el('start').value=naam(punten[0]);
+  el('dest').value=naam(punten[punten.length-1]);
+  state.vias=punten.slice(1,-1).map(naam);
+  manualOrder=true; el('manualOrder').checked=true;
+  renderVias();
+  tekenModus(false);
+
+  setStatus(`Je vorm is ${Math.round(totaal)} km lang${rond?' en loopt rond':''}. `
+    +`Ik leg er ${punten.length} punten op en zoek de wegen ertussen. `
+    +`Je tekening blijft als stippellijn staan, dan kun je vergelijken.`);
+  plan();
+}
