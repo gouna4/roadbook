@@ -97,9 +97,14 @@ async function plan(){
     if(tripMode==='loop'){
       /* Rondje: heen langs de ene kant van de lijn, terug langs de andere. */
       const doel=+el('loopKm').value||300;
+      /* Heb je "rondje op een vaste afstand" aangevinkt, dan proberen we die
+         lengte echt te halen. Staat het uit, dan kijken we alleen of je niet
+         te veel dubbel rijdt en is de eerste route die goed is meteen goed. */
+      const vast=el('loopOn').checked;
+      const pogingen=3;
       let off=Math.max(12,luchtlijn0*0.30);
       const eigen=manualOrder?viaPts:order(viaPts);
-      for(let poging=0; poging<3; poging++){
+      for(let poging=0; poging<pogingen; poging++){
         const heen={...sideWaypoint(tourStart,dest,off),name:'Heenweg',_kind:'lus',_tag:'Heenweg'};
         const terug={...sideWaypoint(tourStart,dest,-off),name:'Terugweg',_kind:'lus',_tag:'Terugweg'};
         /* Jouw eigen tussenstops horen gewoon in de lus, niet weggegooid. */
@@ -119,7 +124,7 @@ async function plan(){
               : `Dit rondje wordt ${-verschil} km korter dan de ${doel} km die je opgaf.`);
         }
         off *= main.km<doel ? 1.6 : 0.6;
-        if(poging<2){ setStatus(`Rondje bijstellen (${main.km.toFixed(0)} van ${doel} km)…`); await sleep(1100); }
+        if(poging<pogingen-1){ setStatus(`Rondje bijstellen (${main.km.toFixed(0)} van ${doel} km)…`); await sleep(1100); }
       }
     } else if(tripMode==='back'){
       /* Heen en terug: de terugweg via een punt aan de andere kant. Rijd je
@@ -389,9 +394,13 @@ map.on('click',e=>{
 const teken={ aan:false, bezig:false, punten:[], px:null, pid:null };
 
 function tekenLijnTonen(){
-  map.getSource('teken')?.setData(teken.punten.length>1
+  const heeft=teken.punten.length>1;
+  map.getSource('teken')?.setData(heeft
     ? {type:'Feature',properties:{},geometry:{type:'LineString',coordinates:teken.punten}}
     : EMPTY);
+  /* Zodra er een tekening ligt hoort de wisknop erbij te staan, ook als de pen
+     alweer uit is. Anders moet je het paneel opentrekken om hem weg te halen. */
+  el('drawClear').hidden=!heeft;
 }
 
 function tekenWis(){ teken.punten=[]; teken.bezig=false; tekenLijnTonen(); }
@@ -433,6 +442,11 @@ function tekenModus(aan){
 }
 
 el('drawMode').addEventListener('click',()=>tekenModus(!teken.aan));
+el('drawClear').addEventListener('click',()=>{
+  tekenWis();
+  if(teken.aan) tekenZeg('Tekening weg. Trek een nieuwe vorm.');
+  else setStatus('Tekening weg.');
+});
 
 /* Waar op de kaart ligt dit puntje van het scherm? */
 function tekenPlek(ev){

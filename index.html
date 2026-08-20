@@ -32,7 +32,7 @@
   </div>
   <div class="masthead">
     <h1>Road<span>book</span></h1>
-    <p>Bochtige routes over OpenStreetMap. <span style="color:var(--brass)">versie 30</span></p>
+    <p>Bochtige routes over OpenStreetMap. <span style="color:var(--brass)">versie 32</span></p>
   </div>
 
   <div class="block">
@@ -81,7 +81,7 @@
     </p>
   </div>
 
-  <div class="block" data-fold>
+  <div class="block" data-fold data-shut>
     <div class="eyebrow">Wat voor wegen</div>
     <div class="levels" id="levels">
       <button data-v="1" title="Maximaal kronkelen, ook door dorpjes">
@@ -154,16 +154,19 @@
     </div>
   </div>
 
-  <div class="block">
-    <p class="inline" style="margin:0 0 10px">
+  <div class="block actions">
+    <p class="inline" style="margin:0 0 8px">
       Vertrek om <input type="time" id="depTime" value="09:00" style="width:88px">
     </p>
-    <button class="go" id="go">Route plannen</button>
-    <button class="go alt" id="goDrive" hidden>▶ Route starten</button>
+    <div class="gorow">
+      <button class="go" id="go">Route plannen</button>
+      <button class="go alt" id="goDrive" hidden>▶ Starten</button>
+    </div>
     <div class="toolrow">
       <button id="btnUndo" title="Laatste wijziging terugdraaien">↶ Ongedaan</button>
       <button id="btnReverse" title="Begin en eind omdraaien">⇄ Omkeren</button>
       <button id="btnFit" title="Hele route in beeld">⤢ Hele route</button>
+      <button id="clear" title="Route en tekening weghalen">✕ Wissen</button>
     </div>
     <p class="status" id="status"></p>
   </div>
@@ -174,7 +177,7 @@
     <p class="hint" style="margin-top:9px">Klik een route aan, in het paneel of op de kaart.</p>
   </div>
 
-  <div class="block" id="alongBlock" data-fold>
+  <div class="block" id="alongBlock" data-fold data-shut>
     <div class="eyebrow">Onderweg</div>
     <div class="chips" id="alongChips">
       <button data-k="fuel"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 15V4a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 10 4v11M2.5 15h9M5 7h4M12 5.5l2 2V12a1.2 1.2 0 0 0 2.4 0V6.5"/></svg>Tanken</button>
@@ -223,7 +226,6 @@
     <button id="printBtn">Afdrukken</button>
     <button id="share">Delen</button>
     <button id="save">Bewaren</button>
-    <button id="clear">Wissen</button>
   </div>
 
   <div class="block" id="ritBlock" hidden>
@@ -235,7 +237,7 @@
     </div>
   </div>
 
-  <div class="block" id="savedBlock" hidden data-fold>
+  <div class="block" id="savedBlock" hidden data-fold data-shut>
     <div class="eyebrow">Bewaarde routes</div>
     <div class="rows" id="savedList"></div>
   </div>
@@ -361,6 +363,7 @@
   <div id="map"></div>
   <button class="toolsbtn" id="toolsBtn" aria-label="Kaartknoppen">▤</button>
   <button class="penbtn" id="drawMode" title="Trek met je vinger een vorm over de kaart">✎ Tekenen</button>
+  <button class="penbtn wis" id="drawClear" hidden title="Tekening weghalen">✕</button>
   <div id="drawBanner" hidden></div>
   <div id="mapTools">
     <button class="addmode" id="driveBtn">▶ Rijmodus</button>
@@ -369,7 +372,7 @@
       <button id="curveToggle">Bochtige wegen</button>
       <button id="riddenToggle">Al gereden</button>
     </div>
-    <div class="layers" role="group" aria-label="Kaartlaag kiezen">
+    <div class="layers" id="bases" role="group" aria-label="Kaartlaag kiezen">
       <button data-base="kleur" class="on">Kleur</button>
       <button data-base="topo">Topo</button>
       <button data-base="sat">Satelliet</button>

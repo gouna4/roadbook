@@ -14,7 +14,12 @@
       geschreven; hij komt alleen te vroeg. Zet zulke verwijzingen in een
       pijlfunctie, dan worden ze pas opgezocht als je erop klikt.
 
-   2. Het rekenwerk dat zonder server gebeurt: richtingen, afstanden, waar je op
+   2. Of alle namen bestaan. Hiervoor wordt de compiler gebruikt die in VS Code
+      meegeleverd wordt; die kent de scope-regels precies. Zo vonden we `vast`
+      in de rondje-logica: die naam bestond nergens, en daardoor klapte het
+      plannen van een rondje er altijd uit.
+
+   3. Het rekenwerk dat zonder server gebeurt: richtingen, afstanden, waar je op
       de route bent en waar je hem weer oppakt als je een afslag hebt gemist. */
 
 const fs = require('fs');
@@ -89,6 +94,54 @@ for (const f of BESTANDEN) {
     if (r) console.log('     regel ' + r[1] + ':  ' + (code.split('\n')[+r[1] - 1] || '').trim());
   }
 }
+
+/* ================= 1b. bestaan alle namen? =================
+   De compiler die in VS Code meegeleverd wordt kent de scope-regels van
+   JavaScript precies. Zo vinden we namen die gebruikt worden maar nergens
+   gemaakt zijn — zoals `vast` in de rondje-logica, die daar alles liet
+   klappen zodra je een rondje plande. */
+console.log('');
+console.log('=== 1b. bestaan alle namen die gebruikt worden? ===');
+(function namenCheck(){
+  const os = require('os'), pad = require('path');
+  const kandidaten = [];
+  const basis = [
+    pad.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code'),
+    'C:/Program Files/Microsoft VS Code',
+    pad.join(os.homedir(), '.vscode-server')
+  ];
+  for (const b of basis) {
+    if (!fs.existsSync(b)) continue;
+    /* De map heeft een wisselende naam per versie, dus even rondkijken. */
+    const stapels = [b, ...fs.readdirSync(b).map(d => pad.join(b, d))];
+    for (const s of stapels) {
+      const p = pad.join(s, 'resources/app/extensions/node_modules/typescript/lib/typescript.js');
+      if (fs.existsSync(p)) kandidaten.push(p);
+    }
+  }
+  if (!kandidaten.length) {
+    console.log('  overgeslagen: de compiler van VS Code niet gevonden');
+    return;
+  }
+  const ts = require(kandidaten[0]);
+  const program = ts.createProgram(BESTANDEN, {
+    allowJs: true, checkJs: true, noEmit: true, target: ts.ScriptTarget.ES2020,
+    lib: ['lib.es2020.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts']
+  });
+  /* 2304 en 2552: naam bestaat niet. 2448 en 2454: gebruikt voor hij bestaat. */
+  const LETOP = new Set([2304, 2552, 2448, 2454]);
+  /* maplibregl komt van de kaartbibliotheek en staat dus niet in onze code. */
+  const raak = ts.getPreEmitDiagnostics(program)
+    .filter(d => LETOP.has(d.code))
+    .filter(d => !/maplibregl/.test(ts.flattenDiagnosticMessageText(d.messageText, ' ')));
+  if (!raak.length) { console.log('OK   alle namen bestaan'); return; }
+  for (const d of raak) {
+    fouten++;
+    const r = d.file ? d.file.getLineAndCharacterOfPosition(d.start).line + 1 : '?';
+    console.log('FOUT ' + (d.file ? d.file.fileName.split(/[\/]/).pop() : '?') + ':' + r
+      + '  ' + ts.flattenDiagnosticMessageText(d.messageText, ' '));
+  }
+})();
 
 /* ================= 2. het rekenwerk ================= */
 console.log('\n=== 2. rekent het goed? ===');
@@ -276,5 +329,51 @@ for (const [km, punten, aantal] of [[200, 5000, 150], [400, 11000, 320], [900, 2
   check(`${km} km past ruim binnen 5 MB`, kb < 1500, true);
 }
 
+console.log('');
+console.log('=== 4. klopt de interface met de code? ===');
+(function interfaceCheck(){
+  const html = fs.readFileSync('index.html', 'utf8');
+  const ids = new Set([...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]));
+
+  /* Elke el('id') moet een element hebben, anders klapt de app eruit zodra je
+     die knop nodig hebt. */
+  let ontbreekt = 0;
+  for (const f of BESTANDEN) {
+    for (const m of fs.readFileSync(f, 'utf8').matchAll(/el\('([^']+)'\)/g)) {
+      if (!ids.has(m[1])) { console.log('FOUT ' + f + ': el(' + m[1] + ') bestaat niet'); ontbreekt++; fouten++; }
+    }
+  }
+  if (!ontbreekt) console.log("OK   elke el('id') vindt zijn element");
+
+  /* De kaartlaag-knoppen moeten in hun eigen rij staan. Deelden ze een klasse
+     met "Bochtige wegen", dan zette die knop ook de kaart uit — zwart scherm,
+     en je kon het niet meer aanzetten. */
+  const bases = /<div class="layers" id="bases"[\s\S]*?<\/div>/.exec(html);
+  if (!bases) { console.log('FOUT de rij met kaartlagen heeft geen id="bases"'); fouten++; }
+  else {
+    const knoppen = [...bases[0].matchAll(/<button([^>]*)>/g)].map(m => m[1]);
+    const zonder = knoppen.filter(a => !/data-base=/.test(a));
+    const buiten = [...html.matchAll(/<button([^>]*)>/g)]
+      .filter(m => /data-base=/.test(m[1]) && bases[0].indexOf(m[0]) < 0);
+    if (zonder.length) { console.log('FOUT knop in #bases zonder data-base: ' + zonder.length); fouten++; }
+    else if (buiten.length) { console.log('FOUT data-base-knop buiten #bases: ' + buiten.length); fouten++; }
+    else console.log('OK   de kaartlaag-knoppen staan apart');
+    for (const f of BESTANDEN) {
+      if (/querySelectorAll\('\.layers button'\)/.test(fs.readFileSync(f, 'utf8'))) {
+        console.log('FOUT ' + f + " luistert naar '.layers button' — dat raakt ook de overlays");
+        fouten++;
+      }
+    }
+  }
+
+  /* Twee versienummers die uit elkaar lopen betekent een oude app uit de cache. */
+  const a = /versie (\d+)/.exec(html), b = /roadbook-app-v(\d+)/.exec(fs.readFileSync('sw.js', 'utf8'));
+  if (!a || !b || a[1] !== b[1]) {
+    console.log('FOUT versie in index.html (' + (a && a[1]) + ') en sw.js (' + (b && b[1]) + ') lopen uit elkaar');
+    fouten++;
+  } else console.log('OK   versie ' + a[1] + ' staat in index.html en in sw.js');
+})();
+
+console.log('');
 console.log(fouten ? `\n${fouten} FOUT(EN) — eerst oplossen.` : '\nAlles goed.');
 process.exit(fouten ? 1 : 0);

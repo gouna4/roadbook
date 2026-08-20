@@ -65,6 +65,9 @@ map.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
 
 let baseGround=[], baseLabels=[], origVis={};
 function setBase(kind){
+  /* Onbekende waarde? Dan de kleurenkaart. Anders zetten we alle vlakken van de
+     basiskaart uit zonder er iets voor terug te geven, en is de kaart zwart. */
+  if(kind!=='kleur' && !BASES[kind]) kind='kleur';
   const raster = kind!=='kleur';
   /* Alle vlakken en lijnen van de basiskaart uit als er een foto onder ligt.
      Anders schijnen groene bossen en blauw water door de luchtfoto heen. */
@@ -74,7 +77,7 @@ function setBase(kind){
     map.setLayoutProperty(id,'visibility', kind==='topo'?'none':origVis[id]); });
   for(const k of Object.keys(BASES)) if(map.getLayer('base-'+k))
     map.setLayoutProperty('base-'+k,'visibility', k===kind?'visible':'none');
-  document.querySelectorAll('.layers button').forEach(b=>b.classList.toggle('on',b.dataset.base===kind));
+  document.querySelectorAll('#bases button').forEach(b=>b.classList.toggle('on',b.dataset.base===kind));
   store.set('rb.base',kind);
 }
 
@@ -89,7 +92,10 @@ map.on('load',()=>{
       maxzoom:cfg.maxzoom,attribution:cfg.attribution});
     map.addLayer({id:'base-'+k,type:'raster',source:'base-'+k,layout:{visibility:'none'}},firstLabel);
   }
-  document.querySelectorAll('.layers button').forEach(b=>
+  /* Alleen de knoppen Kleur/Topo/Satelliet. "Bochtige wegen" en "Al gereden"
+     staan in een rij met dezelfde klasse, en die luisterden hier ook naar:
+     dan werd de kaart zwart en kon je het niet meer uitzetten. */
+  document.querySelectorAll('#bases button').forEach(b=>
     b.addEventListener('click',()=>setBase(b.dataset.base)));
 
   map.addSource('fast',{type:'geojson',data:EMPTY});

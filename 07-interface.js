@@ -157,6 +157,17 @@ initSheet();
 
 /* ================= uitklapbare blokken ================= */
 function setupFolds(){
+  /* Bijna alles stond open en dat werd een lange sliert. Sinds versie 31 staat
+     alleen het bovenste stuk open. Wie de app al gebruikte heeft zijn eigen
+     stand bewaard, dus die maken we één keer schoon — anders ziet hij de
+     nieuwe indeling nooit. */
+  if(store.get('rb.fold.v')!==2){
+    try{
+      Object.keys(localStorage).filter(k=>k.indexOf('rb.fold.')===0)
+        .forEach(k=>localStorage.removeItem(k));
+    }catch{}
+    store.set('rb.fold.v',2);
+  }
   document.querySelectorAll('.block[data-fold]').forEach((blk,n)=>{
     const eb=blk.querySelector('.eyebrow');
     if(!eb||eb.classList.contains('fold')) return;
