@@ -149,6 +149,13 @@ map.on('load',()=>{
     paint:{'line-color':'#000','line-width':20,'line-opacity':0.01},
     layout:{'line-cap':'round','line-join':'round'}});
 
+  /* De punten die je zelf aanwijst, met een lijn ertussen zodat je ziet welke
+     weg je aan het vastleggen bent. */
+  map.addSource('punten',{type:'geojson',data:EMPTY});
+  map.addLayer({id:'punten-line',type:'line',source:'punten',
+    paint:{'line-color':'#C9973F','line-width':2.5,'line-opacity':.9,'line-dasharray':[1.5,1.2]},
+    layout:{'line-cap':'butt','line-join':'round'}});
+
   /* Je eigen tekening: blijft als stippellijn staan zodat je kunt zien hoe goed
      de route je vorm volgt. */
   map.addSource('teken',{type:'geojson',data:EMPTY});

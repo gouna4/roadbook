@@ -36,7 +36,14 @@ async function planRoute(points, mode='tour', lv=level){
         use_trails: el('noDirt').checked?0:dirt,
         exclude_unpaved: (el('noDirt').checked||dirt<0.05)?1:0,
         top_speed:130 };
-  const body={ locations:points.map(p=>({lat:p.lat,lon:p.lon,type:'break'})),
+  /* Een punt dat jij zelf op de kaart hebt aangewezen is geen stop maar een
+     vormpunt: daar wil je doorrijden, niet keren, en je wil er geen
+     afslag-instructie voor. Dat is in Valhalla het verschil tussen "break"
+     en "through", en het scheelt enorm in hoe natuurlijk de route loopt.
+     Aangewezen punten heten "50.70111, 6.25306"; een plaatsnaam is een stop. */
+  const isCoord=n=>/^-?\d+(?:\.\d+)?,\s*-?\d+(?:\.\d+)?$/.test(String(n||''));
+  const body={ locations:points.map((p,i)=>({ lat:p.lat, lon:p.lon,
+      type:(i>0 && i<points.length-1 && isCoord(p.name)) ? 'through' : 'break' })),
     costing:'motorcycle', costing_options:{motorcycle:opts},
     directions_options:{units:'kilometers'}, language:'nl-NL' };
   const r=await fetch(`${VALHALLA}?json=${encodeURIComponent(JSON.stringify(body))}`);

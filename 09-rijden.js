@@ -182,7 +182,8 @@ el('offWhere').addEventListener('change',()=>saveSettings());
 const drive={ on:false, watch:null, lock:null, stem:true, gezegd:new Set(),
               shape:null, cum:null, man:null, sec:0,
               volgen:true, noord:false, koers:0, pos:null, idx:0, mij:null,
-              spoor:[], spoorRit:false, terugGezegd:0, gedaanIdx:-1 };
+              spoor:[], spoorRit:false, terugGezegd:0, gedaanIdx:-1,
+              afSinds:0, herLaatst:0, herBezig:false, geenNet:false };
 
 const AF_KM=0.25;   /* meer dan 250 meter naast de lijn heet "van de route af" */
 
@@ -318,6 +319,99 @@ function vanDeRouteAf(lat,lon){
   }
 }
 
+/* ================= opnieuw berekenen onderweg =================
+   Neem je een andere afslag, dan wijst de app je terug naar de route. Dat werkt
+   zonder bereik, maar met bereik kan het beter: dan berekenen we een echt
+   nieuw stukje weg van waar je nu bent naar het punt waar je de route weer
+   oppakt, en plakken de rest van je route eraan vast.
+
+   Dat is precies wat je wil: je geplande rit blijft staan, alleen het gat
+   wordt gedicht. En het is één korte aanvraag in plaats van je hele rit
+   opnieuw laten uitrekenen.
+
+   Niet bij elk gps-hikje: eerst 300 meter eraf, dan acht seconden zo blijven,
+   en daarna nooit vaker dan één keer per twintig seconden. */
+const HER_KM=0.30;        /* zo ver van de route af mag hij herberekenen */
+const HER_WACHT=8000;     /* en dan pas na acht seconden aaneengesloten */
+const HER_PAUZE=20000;    /* nooit vaker dan elke twintig seconden */
+
+/* Het nieuwe stukje en de rest van je oude route aan elkaar plakken.
+   Los gezet zodat het na te rekenen is met de zelftest, want dit is precies het
+   soort rekenwerk dat stil misgaat: één punt dubbel, of afslagen die op de
+   verkeerde kilometer komen te staan.
+
+   Het laatste punt van het nieuwe stukje ís het instappunt, dus bij de staart
+   slaan we dat punt over. De oude afslagen die nog moeten komen schuiven mee
+   met de lengte van het nieuwe stukje. */
+function plakRoute(nieuwe,oudShape,oudCum,oudMan,i){
+  const kopCum=cumulative(nieuwe.shape);
+  const kopKm=kopCum[kopCum.length-1];
+  const shape=nieuwe.shape.concat(oudShape.slice(i+1));
+  const vanaf=oudCum[i];
+  const man=afslagen({man:nieuwe.man},kopCum).concat(
+    (oudMan||[]).filter(m=>m.km>vanaf+0.05)
+                .map(m=>({ km:kopKm+(m.km-vanaf), tekst:m.tekst })));
+  return { shape, cum:cumulative(shape), man, kopKm, vanaf,
+           oudTotaal:oudCum[oudCum.length-1] };
+}
+
+async function herbereken(lat,lon){
+  if(drive.herBezig) return;
+  /* Rijd je terug over je eigen spoor, dan is dat je route. Daar hoort geen
+     nieuwe berekening bij. */
+  if(drive.spoorRit) return;
+  const nu=Date.now();
+  if(nu-drive.herLaatst<HER_PAUZE) return;
+
+  drive.herBezig=true;
+  try{
+    const her=herintrede(lat,lon);
+    const doel=drive.shape[her.i];
+    if(!doel){ return; }
+
+    const r=await planRoute([{lat,lon},{lat:doel[1],lon:doel[0]}],'tour',level);
+    if(!drive.on||drive.spoorRit) return;
+
+    const plak=plakRoute(r,drive.shape,drive.cum,drive.man,her.i);
+    drive.shape=plak.shape;
+    drive.cum=plak.cum;
+    drive.man=plak.man;
+    drive.sec=(r.sec||0)+drive.sec*Math.max(0,1-plak.vanaf/Math.max(0.1,plak.oudTotaal));
+    drive.idx=0; drive.gedaanIdx=-1; drive.gezegd.clear();
+    drive.herLaatst=Date.now(); drive.afSinds=0; drive.geenNet=false;
+    map.getSource('terug')?.setData(EMPTY);
+    el('dArrow').hidden=true;
+
+    zeg('Nieuwe route.');
+    el('dThen').textContent=`Nieuwe route: ${afst(plak.kopKm)} tot je weer op je rit zit`;
+    /* Ook de route in je zak bijwerken, zodat een herstart je de nieuwe geeft. */
+    if(typeof ritBijwerken==='function')
+      ritBijwerken(drive.shape,drive.man,drive.cum[drive.cum.length-1],drive.sec);
+  }catch(e){
+    /* Geen bereik of de server is druk. Dan blijft de terugwijzer het werk
+       doen; dat is waar hij voor is. Eén keer zeggen is genoeg. */
+    drive.herLaatst=Date.now();
+    if(!drive.geenNet){
+      drive.geenNet=true;
+      el('dThen').textContent='Geen nieuwe route mogelijk — ik wijs je terug naar je rit';
+      zeg('Ik kan geen nieuwe route berekenen. Volg de pijl terug naar je route.');
+    }
+  }finally{
+    drive.herBezig=false;
+  }
+}
+
+/* Ben je lang genoeg en ver genoeg van de route af? Dan opnieuw berekenen.
+   Stilstaan telt niet: dan sta je misschien naast de weg te kijken. */
+function herberekenMisschien(lat,lon,off,snelheid){
+  if(off<HER_KM){ drive.afSinds=0; return; }
+  if(snelheid!=null && snelheid>=0 && snelheid*3.6<5){ return; }
+  const nu=Date.now();
+  if(!drive.afSinds){ drive.afSinds=nu; return; }
+  if(nu-drive.afSinds<HER_WACHT) return;
+  herbereken(lat,lon);
+}
+
 function driveTick(pos){
   if(!drive.on) return;
   const {latitude:la,longitude:lo,speed,heading}=pos.coords;
@@ -335,8 +429,14 @@ function driveTick(pos){
   el('dSpeed').textContent=(speed!=null&&speed>=0?Math.round(speed*3.6):'—')+' km/u';
 
   const hier=dichtstbij(drive.shape,la,lo,drive.idx);
-  if(hier.off>AF_KM){ vanDeRouteAf(la,lo); return; }
+  if(hier.off>AF_KM){
+    vanDeRouteAf(la,lo);
+    herberekenMisschien(la,lo,hier.off,speed);
+    return;
+  }
 
+  /* Weer op de route: de teller voor herberekenen gaat op nul. */
+  drive.afSinds=0; drive.geenNet=false;
   drive.idx=hier.i;
   el('dArrow').hidden=true;
   map.getSource('terug')?.setData(EMPTY);
@@ -391,6 +491,7 @@ async function startDrive(){
   rijRouteUit(v);
   drive.on=true; drive.pos=null; drive.volgen=true; drive.spoorRit=false;
   drive.spoor=[]; drive.terugGezegd=0;
+  drive.afSinds=0; drive.herLaatst=0; drive.herBezig=false; drive.geenNet=false;
 
   document.body.classList.add('rijden');
   el('drive').hidden=false;

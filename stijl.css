@@ -267,10 +267,36 @@
     box-shadow:0 2px 10px var(--schaduw)}
   .penbtn:hover{border-color:var(--brass);color:var(--brass)}
   .penbtn.on{background:var(--signal);border-color:var(--signal);color:var(--opknop)}
+  /* De puntenknop staat links van de penknop: twee manieren om zelf je route te
+     bepalen, dus horen ze naast elkaar. */
+  .penbtn.punt{right:126px;bottom:74px}
+
+  /* Balk voor de punten-modus, boven de kaart. Hier staan knoppen in, dus deze
+     vangt aanrakingen — anders dan de balk bij het tekenen. */
+  #pinBar{position:absolute;left:50%;transform:translateX(-50%);
+    top:calc(12px + env(safe-area-inset-top));z-index:6;
+    max-width:calc(100vw - 24px);background:var(--glas);
+    border:1px solid var(--brass);border-radius:14px;color:var(--paper);
+    padding:9px 12px;font-size:12.5px;line-height:1.35;text-align:center}
+  #pinBar[hidden]{display:none}
+  .pinrij{display:flex;align-items:center;gap:7px;justify-content:center;flex-wrap:wrap}
+  .pinrij button{border:1px solid var(--hair);border-radius:16px;padding:7px 13px;
+    font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;
+    font-size:11.5px;font-weight:600;color:var(--muted)}
+  .pinrij button.on{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
+  #pinCount{font-family:var(--mono);font-size:11.5px;color:var(--brass)}
+  #pinUitleg{color:var(--muted);margin-top:6px}
+  #pinWaarschuw{color:var(--signal);margin-top:4px}
+  #pinWaarschuw[hidden]{display:none}
   /* Tekening weghalen zonder eerst het paneel open te trekken. */
   .penbtn.wis{right:12px;bottom:130px;padding:14px 17px;border-color:var(--signal);
     color:var(--signal)}
   .penbtn.wis:hover{background:var(--signal);color:var(--opknop)}
+  /* Terugdraaien staat naast wissen, niet erboven: twee tikjes op dezelfde hoogte
+     vind je met handschoenen aan makkelijker dan een torentje knoppen. */
+  .penbtn.terug{right:70px;bottom:130px;padding:14px 17px;border-color:var(--brass);
+    color:var(--brass)}
+  .penbtn.terug:hover{background:var(--brass);color:var(--opknop)}
   .penbtn[hidden]{display:none}
 
   /* Wat je tijdens het tekenen moet weten hoort over de kaart: op de telefoon
@@ -333,6 +359,7 @@
   body.rijden .toolsbtn,
   body.rijden .penbtn,
   body.rijden #drawBanner,
+  body.rijden #pinBar,
   body.rijden .tip,
   body.rijden .maplibregl-ctrl-top-right,
   body.rijden .maplibregl-ctrl-bottom-left{display:none}
@@ -478,13 +505,18 @@
     .toolsbtn{display:block}
     /* Het bodemblad laat onderaan 86 px zien; daaronder is niets te raken. */
     .penbtn{bottom:104px;padding:15px 18px}
+    .penbtn.punt{right:132px;bottom:104px}
     .penbtn.wis{bottom:166px}
+    .penbtn.terug{bottom:166px;right:74px}
     .toolsbtn{bottom:104px}
     #mapTools{bottom:160px}
     #sheetDrive{background:none;border:1px solid var(--brass);color:var(--brass);
       border-radius:3px;padding:9px 14px;font-family:var(--display);font-weight:700;
       text-transform:uppercase;letter-spacing:.1em;font-size:12px;white-space:nowrap}
     #sheetDrive[hidden]{display:none}
+    #sheetClear{flex:0 0 42px;border:1px solid var(--hair);border-radius:3px;
+      color:var(--muted);font-size:17px;line-height:1}
+    #sheetClear:hover{color:var(--signal);border-color:var(--signal)}
     #mapTools{display:none;left:12px;max-width:calc(100vw - 24px)}
     #mapTools.open{display:flex}
     .addmode,.layers button{font-size:12.5px;padding:11px 14px}
@@ -511,7 +543,8 @@
       border-bottom:1px solid var(--hair);cursor:grab;touch-action:none;
     }
     .griphandle{width:42px;height:4px;border-radius:2px;background:var(--hair);margin:0 auto 9px}
-    .sheetbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .sheetbar{display:flex;align-items:center;gap:9px}
+    #sheetInfo{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     #sheetInfo{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;
       font-size:13px;color:var(--paper);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     #sheetGo{background:var(--signal);color:var(--opknop);border-radius:3px;padding:9px 16px;
@@ -549,7 +582,9 @@
     #sheetGo{padding:10px 7px;writing-mode:vertical-rl;letter-spacing:.12em}
     #mapTools{bottom:14px;left:56px}
     .penbtn{bottom:14px}
+    .penbtn.punt{bottom:14px;right:126px}
     .penbtn.wis{bottom:76px}
+    .penbtn.terug{bottom:76px;right:74px}
     .toolsbtn{bottom:14px;left:8px}
   }
 

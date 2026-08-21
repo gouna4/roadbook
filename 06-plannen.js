@@ -427,19 +427,33 @@ map.on('click',e=>{
    (pointerdown/move/up) in plaats van naar die van de kaart. Eén weg voor
    muis, vinger en pen, en met setPointerCapture blijven we je vinger volgen
    ook als hij even van de kaart af glijdt. */
-const teken={ aan:false, bezig:false, punten:[], px:null, pid:null };
+const teken={ aan:false, bezig:false, punten:[], px:null, pid:null, oud:[] };
 
 function tekenLijnTonen(){
   const heeft=teken.punten.length>1;
   map.getSource('teken')?.setData(heeft
     ? {type:'Feature',properties:{},geometry:{type:'LineString',coordinates:teken.punten}}
     : EMPTY);
-  /* Zodra er een tekening ligt hoort de wisknop erbij te staan, ook als de pen
-     alweer uit is. Anders moet je het paneel opentrekken om hem weg te halen. */
-  el('drawClear').hidden=!heeft;
+  kaartKnoppenBij();
 }
 
-function tekenWis(){ teken.punten=[]; teken.bezig=false; tekenLijnTonen(); }
+/* De ✕ en ↶ op de kaart horen bij álles wat je zelf hebt aangewezen: een
+   tekening én losse punten. Eén plek die bepaalt of ze zichtbaar zijn, anders
+   zetten die twee elkaar om de beurt uit. */
+function kaartKnoppenBij(){
+  const tek=teken.punten.length>1;
+  const pun=(typeof pinPunten==='function') && pinPunten().length>0;
+  el('drawClear').hidden=!(tek||pun);
+  el('drawUndo').hidden=!(tek||pun||teken.oud.length);
+}
+
+/* Wissen is nooit definitief: de tekening gaat eerst op het stapeltje, zodat
+   de terugknop hem weer tevoorschijn kan halen. */
+function tekenOnthoud(){
+  if(teken.punten.length>1) teken.oud.push(teken.punten);
+  if(teken.oud.length>8) teken.oud.shift();
+}
+function tekenWis(){ tekenOnthoud(); teken.punten=[]; teken.bezig=false; tekenLijnTonen(); }
 
 /* Onderweg staat het paneel dicht, dus setStatus() is op de telefoon
    onzichtbaar. Wat je tijdens het tekenen moet weten hoort over de kaart. */
@@ -479,9 +493,46 @@ function tekenModus(aan){
 
 el('drawMode').addEventListener('click',()=>tekenModus(!teken.aan));
 el('drawClear').addEventListener('click',()=>{
+  /* Staan er aangewezen punten? Dan zijn die aan de beurt: die ben je net aan
+     het zetten, dus die wil je als eerste kwijt. */
+  const pun=(typeof pinPunten==='function') ? pinPunten().length : 0;
+  if(pun){
+    state.vias=state.vias.filter(v=>!isCoordNaam(v));
+    renderVias(); pinLijnTonen();
+    setStatus(`${pun} aangewezen punten weggehaald.`);
+    return;
+  }
   tekenWis();
   if(teken.aan) tekenZeg('Tekening weg. Trek een nieuwe vorm.');
   else setStatus('Tekening weg.');
+});
+
+/* Eén stap terug. Eerst de tekening, want daar ben je mee bezig; is er niets
+   meer om terug te halen, dan draait hij de laatste wijziging aan je route
+   terug. Zo staat er nooit een knop die niets doet. */
+el('drawUndo').addEventListener('click',()=>{
+  /* Eerst het laatste aangewezen punt: dat is wat je net deed. */
+  if(typeof pinPunten==='function' && pinPunten().length){
+    for(let i=state.vias.length-1;i>=0;i--){
+      if(isCoordNaam(state.vias[i])){ state.vias.splice(i,1); break; }
+    }
+    renderVias(); pinLijnTonen();
+    setStatus(`Laatste punt weg — er staan er nog ${pinPunten().length}.`);
+    return;
+  }
+  if(teken.oud.length){
+    teken.punten=teken.oud.pop();
+    tekenLijnTonen();
+    const m='Vorige tekening staat er weer. Druk op Plannen om die te gebruiken.';
+    if(teken.aan) tekenZeg(m); else setStatus(m);
+    return;
+  }
+  if(teken.punten.length>1){
+    tekenWis();
+    if(teken.aan) tekenZeg('Tekening weg.'); else setStatus('Tekening weg.');
+    return;
+  }
+  if(typeof doUndo==='function') doUndo();
 });
 
 /* Waar op de kaart ligt dit puntje van het scherm? */
@@ -498,7 +549,8 @@ function tekenNeer(ev){
   teken.bezig=true; teken.pid=ev.pointerId;
   try{ ev.currentTarget.setPointerCapture(ev.pointerId); }catch{}
   teken.px=[ev.clientX,ev.clientY];
-  teken.punten=[tekenPlek(ev)];                 /* een nieuwe vorm wist de oude */
+  tekenOnthoud();                              /* de vorige vorm blijft terug te halen */
+  teken.punten=[tekenPlek(ev)];
   tekenLijnTonen();
 }
 
@@ -585,3 +637,169 @@ function tekenUitvoeren(){
     +`Je tekening blijft als stippellijn staan, dan kun je vergelijken.`);
   plan();
 }
+
+/* ================= zelf de wegen aanwijzen =================
+   Zoom in op het gebied en tik de wegen aan die je wil rijden. Elke tik is een
+   punt; de route moet er langs. Hoe dichter je punten bij elkaar zitten, hoe
+   strakker hij jouw weg volgt — één punt per 20 km is een suggestie, één punt
+   per twee kilometer is een opdracht.
+
+   Slepen en zoomen blijft gewoon werken: alleen een echte tik op één plek is
+   een punt. Daarom kijken we hoeveel je vinger bewoog voordat je hem optilde.
+
+   En met "Hele weg" hoef je niet te tikken tot je vinger eraf valt: dan vraagt
+   de app die ene weg op bij OpenStreetMap en legt hem in één keer vast. */
+const pin={ aan:false, soort:'punt', neer:null, bezig:false };
+
+const isCoordNaam=n=>/^-?\d+(?:\.\d+)?,\s*-?\d+(?:\.\d+)?$/.test(String(n||'').trim());
+
+/* De aangewezen punten zijn gewoon je tussenstops, dus we lezen ze daaruit
+   terug. Zo blijft de lijn kloppen als je er in het paneel een weghaalt. */
+function pinPunten(){
+  return state.vias.filter(isCoordNaam).map(v=>{
+    const d=String(v).split(',');
+    return [parseFloat(d[1]), parseFloat(d[0])];
+  }).filter(c=>isFinite(c[0])&&isFinite(c[1]));
+}
+
+function pinLijnTonen(){
+  const p=pinPunten();
+  map.getSource('punten')?.setData(p.length>1
+    ? {type:'Feature',properties:{},geometry:{type:'LineString',coordinates:p}}
+    : EMPTY);
+  if(pin.aan) pinBalk();
+  kaartKnoppenBij();
+}
+
+function pinBalk(){
+  const n=pinPunten().length;
+  el('pinCount').textContent = n ? `${n} ${n===1?'punt':'punten'} aangewezen` : 'Tik de wegen aan die je wil rijden';
+  el('pinWaarschuw').hidden = n<40;
+}
+
+function pinModus(aan){
+  pin.aan=aan;
+  el('pinMode').classList.toggle('on',aan);
+  el('pinBar').hidden=!aan;
+  map.getCanvasContainer().style.cursor=aan?'crosshair':'';
+  if(aan){
+    if(teken.aan) tekenModus(false);
+    if(addMode){ addMode=false; el('addMode').classList.remove('on'); }
+    el('mapTools').classList.remove('open');
+    el('toolsBtn').classList.remove('on');
+    /* Je wijst ze in een bepaalde volgorde aan, dus die volgorde houden we aan. */
+    manualOrder=true; el('manualOrder').checked=true;
+    pinBalk();
+  }
+  pinLijnTonen();
+}
+
+el('pinMode').addEventListener('click',()=>pinModus(!pin.aan));
+document.querySelectorAll('#pinBar button[data-soort]').forEach(b=>
+  b.addEventListener('click',()=>{
+    pin.soort=b.dataset.soort;
+    document.querySelectorAll('#pinBar button[data-soort]')
+      .forEach(x=>x.classList.toggle('on',x===b));
+    el('pinUitleg').textContent = pin.soort==='weg'
+      ? 'Tik op een weg: die wordt in één keer helemaal vastgelegd.'
+      : 'Elke tik zet één punt. Dichter bij elkaar = strakker jouw weg.';
+  }));
+
+/* Een tik is een tik en geen sleep: minder dan 8 beeldpunten bewogen en binnen
+   een halve seconde weer los. Zo kun je tussen twee punten gewoon de kaart
+   verschuiven en inzoomen. */
+function pinNeer(ev){
+  if(!pin.aan||pin.bezig) return;
+  pin.neer={ x:ev.clientX, y:ev.clientY, t:Date.now() };
+}
+async function pinOp(ev){
+  if(!pin.aan||!pin.neer||pin.bezig) return;
+  const dx=ev.clientX-pin.neer.x, dy=ev.clientY-pin.neer.y;
+  const snel=Date.now()-pin.neer.t < 600;
+  pin.neer=null;
+  if(dx*dx+dy*dy>64||!snel) return;          /* je was aan het slepen */
+
+  const r=map.getCanvasContainer().getBoundingClientRect();
+  const ll=map.unproject([ev.clientX-r.left, ev.clientY-r.top]);
+  if(pin.soort==='weg') await pinHeleWeg(ll.lat,ll.lng);
+  else pinPuntBij(ll.lat,ll.lng);
+}
+
+function pinPuntBij(lat,lon){
+  if(pinPunten().length>=45){
+    setStatus('Meer dan 45 punten kan de routeserver niet aan. Haal er eerst een paar weg.',true);
+    return;
+  }
+  addVia(`${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+  pinLijnTonen();
+  setStatus(`${pinPunten().length} punten aangewezen. Druk op Route plannen als je klaar bent.`);
+}
+
+/* Eén weg in één keer vastleggen. We vragen bij OpenStreetMap de wegen rond je
+   vinger op, kiezen die waarvan de lijn er het dichtst bij ligt, en leggen daar
+   punten op van ongeveer anderhalve kilometer. */
+async function pinHeleWeg(lat,lon){
+  pin.bezig=true;
+  el('pinCount').textContent='Weg opzoeken…';
+  try{
+    const j=await overpass(`[out:json][timeout:25];
+      way(around:40,${lat.toFixed(6)},${lon.toFixed(6)})
+        ["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|track)$"]
+        ["access"!~"^(no|private)$"];
+      out geom 60;`,20000);
+
+    let best=null;
+    for(const e of (j.elements||[])){
+      const g=e.geometry;
+      if(!g||g.length<2) continue;
+      const co=g.map(p=>[p.lon,p.lat]);
+      let bd=Infinity;
+      for(const c of co){ const d=haversine(c,[lon,lat]); if(d<bd) bd=d; }
+      if(!best||bd<best.af) best={ af:bd, co, naam:e.tags?.name||e.tags?.ref||'die weg' };
+    }
+    if(!best){
+      el('pinCount').textContent='Geen weg gevonden op die plek — tik iets preciezer.';
+      return;
+    }
+
+    /* Welke kant op? Sluit aan op het punt dat je het laatst hebt gezet. */
+    const eerder=pinPunten();
+    let co=best.co;
+    if(eerder.length){
+      const laatst=eerder[eerder.length-1];
+      if(haversine(laatst,co[co.length-1])<haversine(laatst,co[0])) co=[...co].reverse();
+    }
+
+    /* Punten op ongeveer 1,5 km, en altijd begin en eind. */
+    const cum=cumulative(co), lang=cum[cum.length-1];
+    const stappen=Math.max(1,Math.min(10,Math.round(lang/1.5)));
+    const nieuw=[];
+    for(let k=0;k<=stappen;k++){
+      let i=cum.findIndex(d=>d>=lang*k/stappen);
+      if(i<0) i=co.length-1;
+      nieuw.push(co[i]);
+    }
+    const ruimte=45-eerder.length;
+    if(ruimte<=0){
+      setStatus('Er zitten al 45 punten in. Haal er eerst een paar weg.',true);
+      return;
+    }
+    const pak=nieuw.slice(0,ruimte);
+    for(const c of pak) addVia(`${c[1].toFixed(5)}, ${c[0].toFixed(5)}`);
+    pinLijnTonen();
+    const w=wegBochtigheid(co);
+    setStatus(`"${best.naam}" vastgelegd met ${pak.length} punten `
+      +`(${lang.toFixed(1)} km, bochtigheid ${w.score}). `
+      +(pak.length<nieuw.length?'Niet alles paste — de rest is weggelaten. ':'')
+      +'Druk op Route plannen als je klaar bent.');
+  }catch(e){
+    el('pinCount').textContent='De plaatsenserver is druk. Probeer het zo nog eens.';
+  }finally{
+    pin.bezig=false;
+    if(pin.aan) pinBalk();
+  }
+}
+
+const pinVak=map.getCanvasContainer();
+pinVak.addEventListener('pointerdown',pinNeer);
+pinVak.addEventListener('pointerup',pinOp);

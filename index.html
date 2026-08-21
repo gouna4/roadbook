@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=34">
+<link rel="stylesheet" href="stijl.css?v=36">
 </head>
 <body>
 
@@ -28,12 +28,13 @@
       <span id="sheetInfo">Plan je rit</span>
       <button id="sheetGo">Plannen</button>
       <button id="sheetDrive" hidden>▶ Rijden</button>
+      <button id="sheetClear" title="Route en tekening weghalen">✕</button>
     </div>
   </div>
 
   <header class="top">
     <h1>Road<span>book</span></h1>
-    <span class="ver" id="verNr">versie 34</span>
+    <span class="ver" id="verNr">versie 36</span>
     <button class="themebtn" id="themeBtn" title="Licht, donker of automatisch">☀</button>
   </header>
 
@@ -94,6 +95,11 @@
       <p class="hint">
         Trek met je vinger een vorm over de kaart met de knop <b>✎ Tekenen</b>.
         Eindig waar je begon en het wordt een rondje.
+      </p>
+      <p class="hint">
+        Wil je precies bepaalde weggetjes rijden? Zoom in en gebruik
+        <b>📍 Punten</b>. Elke tik is een punt waar de route langs moet, en met
+        <b>Hele weg</b> leg je een weg in één tik helemaal vast.
       </p>
       <button class="text-btn" id="gpxOpen">GPX-bestand openen</button>
       <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden>
@@ -433,8 +439,19 @@
   <div id="mapDim"></div>
   <button class="toolsbtn" id="toolsBtn" aria-label="Kaartknoppen">▤</button>
   <button class="penbtn" id="drawMode" title="Trek met je vinger een vorm over de kaart">✎ Tekenen</button>
+  <button class="penbtn punt" id="pinMode" title="Tik de wegen aan die je wil rijden">📍 Punten</button>
+  <button class="penbtn terug" id="drawUndo" hidden title="Laatste stap terugdraaien">↶</button>
   <button class="penbtn wis" id="drawClear" hidden title="Tekening weghalen">✕</button>
   <div id="drawBanner" hidden></div>
+  <div id="pinBar" hidden>
+    <div class="pinrij">
+      <button data-soort="punt" class="on">Punt</button>
+      <button data-soort="weg">Hele weg</button>
+      <span id="pinCount">Tik de wegen aan die je wil rijden</span>
+    </div>
+    <p id="pinUitleg">Elke tik zet één punt. Dichter bij elkaar = strakker jouw weg.</p>
+    <p id="pinWaarschuw" hidden>Bijna vol — de routeserver neemt ongeveer 45 punten.</p>
+  </div>
   <div id="mapTools">
     <button class="addmode" id="driveBtn">▶ Rijmodus</button>
     <button class="addmode" id="addMode">+ Tussenstop plaatsen</button>
@@ -454,17 +471,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=34"></script>
-<script src="02-invoer.js?v=34"></script>
-<script src="03-route.js?v=34"></script>
-<script src="04-bibliotheek.js?v=34"></script>
-<script src="05-weergave.js?v=34"></script>
-<script src="06-plannen.js?v=34"></script>
-<script src="07-interface.js?v=34"></script>
-<script src="08-onderweg.js?v=34"></script>
-<script src="09-rijden.js?v=34"></script>
-<script src="10-uitvoer.js?v=34"></script>
-<script src="11-offline.js?v=34"></script>
-<script src="12-opstarten.js?v=34"></script>
+<script src="01-basis.js?v=36"></script>
+<script src="02-invoer.js?v=36"></script>
+<script src="03-route.js?v=36"></script>
+<script src="04-bibliotheek.js?v=36"></script>
+<script src="05-weergave.js?v=36"></script>
+<script src="06-plannen.js?v=36"></script>
+<script src="07-interface.js?v=36"></script>
+<script src="08-onderweg.js?v=36"></script>
+<script src="09-rijden.js?v=36"></script>
+<script src="10-uitvoer.js?v=36"></script>
+<script src="11-offline.js?v=36"></script>
+<script src="12-opstarten.js?v=36"></script>
 </body>
 </html>

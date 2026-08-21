@@ -182,7 +182,10 @@ el('save').addEventListener('click',()=>{
   setStatus(`"${item.name}" bewaard.`);
 });
 
-el('clear').addEventListener('click',()=>{
+/* Wissen zit op twee knoppen: in de balk onderaan en op de greep van het
+   bodemblad. Op de telefoon is die greep het enige wat je ziet als het blad
+   dicht is, dus daar hoort hij ook te staan. */
+function alsWissen(){
   clearMarkers(); runSeq++;
   if(typeof tekenWis==='function') tekenWis();
   el('goDrive').hidden=true; el('sheetDrive').hidden=true;
@@ -198,7 +201,10 @@ el('clear').addEventListener('click',()=>{
   document.querySelectorAll('#alongChips button').forEach(b=>b.classList.remove('on'));
   el('roadbook').innerHTML='<p class="empty">Vul vertrek en bestemming in en plan je route. Tik op de kaart om ergens een tussenstop neer te zetten, of sleep de route zelf een andere kant op.</p>';
   setStatus('');
-});
+  el('sheetInfo').textContent='Plan je rit';
+}
+el('clear').addEventListener('click',alsWissen);
+el('sheetClear').addEventListener('click',alsWissen);
 
 
 /* ================= route in je zak =================
@@ -223,6 +229,22 @@ function ritOpslaan(){
     rit.shape=simplify(v.shape,0.02);
     rit.uitgedund=true;
     if(!store.set('rb.rit',rit)) return;
+  }
+  ritBlokBij();
+}
+
+/* Na een herberekening onderweg staat er een andere route op je scherm dan de
+   route die je bewaard hebt. Die halen we bij, zodat je na een herstart verder
+   kunt met de route die je nu rijdt. */
+function ritBijwerken(shape,man,km,sec){
+  const oud=store.get('rb.rit');
+  if(!oud||!shape?.length) return;
+  const rit={ ...oud, at:Date.now(), km:+km.toFixed(1), sec:sec||oud.sec,
+    shape:shape.map(c=>[+c[0].toFixed(5),+c[1].toFixed(5)]),
+    man:(man||[]).map(m=>({km:+m.km.toFixed(3),tekst:m.tekst})) };
+  if(!store.set('rb.rit',rit)){
+    rit.shape=simplify(shape,0.02);
+    store.set('rb.rit',rit);
   }
   ritBlokBij();
 }

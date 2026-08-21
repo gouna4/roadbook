@@ -5,7 +5,7 @@
      $env:ELECTRON_RUN_AS_NODE = "1"
      & "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe" zelftest.js
 
-   Er worden twee dingen nagekeken.
+   Er worden vier dingen nagekeken.
 
    1. De laadvolgorde. De bestanden gaan in dezelfde volgorde door de molen als
       in de browser. Gebruikt een bestand een naam die pas in een later bestand
@@ -20,7 +20,12 @@
       plannen van een rondje er altijd uit.
 
    3. Het rekenwerk dat zonder server gebeurt: richtingen, afstanden, waar je op
-      de route bent en waar je hem weer oppakt als je een afslag hebt gemist. */
+      de route bent, waar je hem weer oppakt als je een afslag hebt gemist, de
+      zonnestand, en het aan elkaar plakken van een nieuwe en een oude route.
+
+   4. Of de interface klopt met de code: bestaat elk element dat de code
+      opvraagt, staan de kaartlaag-knoppen apart, en is het versienummer overal
+      hetzelfde. */
 
 const fs = require('fs');
 const BESTANDEN = ['01-basis.js','02-invoer.js','03-route.js','04-bibliotheek.js',
@@ -378,6 +383,64 @@ check('kronkelroute heeft geen saai stuk',
 /* En een korte rechte rit is te kort om iets aan te doen. */
 check('5 km recht is te kort om op te knappen',
       saaieStukken(curveProfile(recht(6.0, 50.4, 5))).length, 0);
+
+console.log('');
+console.log('--- plakRoute(): nieuwe route aan de oude vastmaken ---');
+/* Oude route: 20 km pal noord, met afslagen op 5, 10 en 15 km. Je bent bij km
+   10 van de route af geraakt en er komt een nieuw stukje van 3 km dat je daar
+   weer op zet. */
+const oudR = [];
+for (let i = 0; i <= 200; i++) oudR.push([6.0, 51.0 + i * 0.0009]);
+const oudC = cumulative(oudR);
+const oudM = [5, 10, 15].map(km => {
+  let i = oudC.findIndex(d => d >= km);
+  return { km: oudC[i], tekst: 'afslag op ' + km + ' km' };
+});
+let instap = oudC.findIndex(d => d >= 10);
+const nieuwStuk = { shape: [], man: [] };
+for (let i = 0; i <= 30; i++) nieuwStuk.shape.push([6.02 - i * 0.0003, oudR[instap][1]]);
+nieuwStuk.shape.push(oudR[instap]);
+nieuwStuk.man = [{ begin_shape_index: 0, instruction: 'Rijd weg.' },
+                 { begin_shape_index: 20, instruction: 'Ga links.' }];
+
+const plak = plakRoute(nieuwStuk, oudR, oudC, oudM, instap);
+const nieuwTotaal = plak.cum[plak.cum.length - 1];
+console.log('     nieuw stukje ' + plak.kopKm.toFixed(2) + ' km, instap op '
+  + plak.vanaf.toFixed(2) + ' km van de oude route van ' + plak.oudTotaal.toFixed(1) + ' km');
+console.log('     samen ' + nieuwTotaal.toFixed(2) + ' km, ' + plak.man.length + ' afslagen');
+
+/* Geen punt dubbel: de lengte is het nieuwe stukje plus wat er van de oude
+   route nog over was. */
+check('lengte klopt', nieuwTotaal.toFixed(2),
+      (plak.kopKm + (plak.oudTotaal - plak.vanaf)).toFixed(2));
+check('geen dubbel punt op de naad',
+      haversine(plak.shape[nieuwStuk.shape.length - 1], plak.shape[nieuwStuk.shape.length]) > 0, true);
+/* De afslag op 5 km lag achter je en moet weg zijn; die op 10 valt op de naad
+   en gaat ook weg; die op 15 komt terug, 5 km ná het instappunt. */
+check('oude afslagen achter je zijn weg', plak.man.filter(m => /op 5 km/.test(m.tekst)).length, 0);
+const later = plak.man.find(m => /op 15 km/.test(m.tekst));
+check('de afslag verderop staat er nog', !!later, true);
+check('en op de goede kilometer', (later.km - plak.kopKm).toFixed(2),
+      (oudC[oudC.findIndex(d => d >= 15)] - plak.vanaf).toFixed(2));
+check('afslagen lopen op', plak.man.every((m, i, a) => i === 0 || m.km >= a[i-1].km), true);
+check('het nieuwe stukje heeft zijn eigen afslagen',
+      plak.man.filter(m => /Rijd weg|Ga links/.test(m.tekst)).length, 2);
+
+console.log('');
+console.log('--- aangewezen punten herkennen ---');
+check('coordinaat is een aangewezen punt', isCoordNaam('50.70111, 6.25306'), true);
+check('ook zonder decimalen', isCoordNaam('50, 6'), true);
+check('negatief mag ook', isCoordNaam('-3.20000, 55.90000'), true);
+check('een plaatsnaam niet', isCoordNaam('Adenau'), false);
+check('een adres niet', isCoordNaam('Eifel, Adenau · Ahrweiler'), false);
+check('leeg niet', isCoordNaam(''), false);
+/* En uit de lijst met tussenstops komen alleen de aangewezen punten, op orde. */
+state.vias = ['Adenau', '50.70111, 6.25306', 'Nurburg', '50.60000, 6.10000'];
+const uitLijst = pinPunten();
+check('twee punten uit vier tussenstops', uitLijst.length, 2);
+check('eerste punt goed', uitLijst[0].join(','), '6.25306,50.70111');
+check('volgorde blijft', uitLijst[1].join(','), '6.1,50.6');
+state.vias = [];
 
 console.log('');
 console.log('--- zonTijden(): wanneer gaat de zon op en onder ---');
