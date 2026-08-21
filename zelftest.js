@@ -560,6 +560,37 @@ console.log('=== 4. klopt de interface met de code? ===');
     if (!mis) console.log('OK   van kaart wisselen gaat via een eigen knop');
   }
 
+  /* ---------- de opmaak ----------
+     Een kleur die naar zichzelf verwijst (--glas:var(--glas)) is voor de browser
+     geen kleur: die valt stil weg en dan is het vlak doorzichtig. Zo hebben alle
+     kaartjes en knoppen op de kaart weken zonder achtergrond gestaan, en dat zie
+     je alleen als je er met je eigen ogen naar kijkt. */
+  const css = fs.readFileSync('stijl.css', 'utf8');
+  const kringetjes = [...css.matchAll(/(--[\w-]+)\s*:\s*var\(\s*\s*\)/g)];
+  if (kringetjes.length) {
+    for (const k of kringetjes)
+      console.log('FOUT ' + k[1] + ' verwijst naar zichzelf — dat wordt doorzichtig');
+    fouten += kringetjes.length;
+  } else console.log('OK   geen kleur die naar zichzelf verwijst');
+
+  /* Elke var(--x) moet ook ergens gemaakt worden, anders krijg je hetzelfde. */
+  const gemaakt = new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map(m => m[1]));
+  const gebruikt = new Set([...css.matchAll(/var\(\s*(--[\w-]+)/g)].map(m => m[1]));
+  const zoek = [...gebruikt].filter(v => !gemaakt.has(v));
+  if (zoek.length) {
+    console.log('FOUT kleuren die nergens gemaakt worden: ' + zoek.join(', '));
+    fouten++;
+  } else console.log('OK   elke kleur die gebruikt wordt bestaat ook');
+
+  /* Een selector die per ongeluk twee keer hetzelfde stukje bevat
+     (body.rijden body.rijden .knop) raakt niets. Zo bleven de plus- en minknop
+     van de kaart in de rijmodus over de afslag heen staan. */
+  const dubbel = [...css.matchAll(/(\.[\w-]+|#[\w-]+)((?:\s+)+)[\s,{]/g)];
+  if (dubbel.length) {
+    for (const d of dubbel) console.log('FOUT selector bevat twee keer "' + d[1] + '"');
+    fouten += dubbel.length;
+  } else console.log('OK   geen selector die zichzelf herhaalt');
+
   /* Versienummers die uit elkaar lopen geven een halve oude app. Ze staan op
      vier plekken en moeten alle vier gelijk zijn: de kop van index.html, achter
      elke bestandsnaam die index.html opvraagt, de cachenaam in sw.js, en de V

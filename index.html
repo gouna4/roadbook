@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=38">
+<link rel="stylesheet" href="stijl.css?v=39">
 </head>
 <body>
 
@@ -34,7 +34,7 @@
 
   <header class="top">
     <h1>Road<span>book</span></h1>
-    <span class="ver" id="verNr">versie 38</span>
+    <span class="ver" id="verNr">versie 39</span>
     <button class="themebtn" id="themeBtn" title="Licht, donker of automatisch">☀</button>
   </header>
 
@@ -385,12 +385,18 @@
 <div class="mapwrap">
   <div id="map"></div>
   <div id="mapDim"></div>
-  <button class="penbtn" id="drawMode" aria-label="Zelf de route bepalen" title="Zelf bepalen: tik voor een punt, veeg voor een vorm">✎</button>
-  <button class="penbtn terug" id="drawUndo" hidden title="Laatste stap terugdraaien">↶</button>
-  <button class="penbtn wis" id="drawClear" hidden title="Weghalen">✕</button>
+  <!-- Meldingen die over de kaart moeten, want op de telefoon staat het
+       paneel dicht en is de statusregel onzichtbaar. -->
+  <div id="toast" hidden></div>
+  <!-- Alle kaartknoppen in één kolom rechtsonder. De pen zit onderaan, want die
+       gebruik je het meest en daar zit je duim. Wat verborgen is neemt geen
+       ruimte in, dus de kolom schuift netjes mee. -->
   <div class="mapleft">
     <button class="addmode" id="baseCycle" aria-label="Andere kaart" title="Andere kaart: kleur, topo, satelliet">▤</button>
     <button class="addmode" id="curveToggle" aria-label="Bochtige wegen tonen" title="Bochtige wegen op de kaart">∿</button>
+    <button class="addmode terug" id="drawUndo" hidden title="Laatste stap terugdraaien">↶</button>
+    <button class="addmode wis" id="drawClear" hidden title="Weghalen">✕</button>
+    <button class="addmode pen" id="drawMode" aria-label="Zelf de route bepalen" title="Zelf bepalen: tik voor een punt, veeg voor een vorm">✎</button>
   </div>
   <div id="pinBar" hidden>
     <div class="pinrij">
@@ -402,17 +408,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=38"></script>
-<script src="02-invoer.js?v=38"></script>
-<script src="03-route.js?v=38"></script>
-<script src="04-bibliotheek.js?v=38"></script>
-<script src="05-weergave.js?v=38"></script>
-<script src="06-plannen.js?v=38"></script>
-<script src="07-interface.js?v=38"></script>
-<script src="08-onderweg.js?v=38"></script>
-<script src="09-rijden.js?v=38"></script>
-<script src="10-uitvoer.js?v=38"></script>
-<script src="11-offline.js?v=38"></script>
-<script src="12-opstarten.js?v=38"></script>
+<script src="01-basis.js?v=39"></script>
+<script src="02-invoer.js?v=39"></script>
+<script src="03-route.js?v=39"></script>
+<script src="04-bibliotheek.js?v=39"></script>
+<script src="05-weergave.js?v=39"></script>
+<script src="06-plannen.js?v=39"></script>
+<script src="07-interface.js?v=39"></script>
+<script src="08-onderweg.js?v=39"></script>
+<script src="09-rijden.js?v=39"></script>
+<script src="10-uitvoer.js?v=39"></script>
+<script src="11-offline.js?v=39"></script>
+<script src="12-opstarten.js?v=39"></script>
 </body>
 </html>

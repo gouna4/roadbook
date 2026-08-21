@@ -9,15 +9,15 @@
   :root{
     --dicht:150px;
     --ink:#14181C; --panel:#1C2228; --panel-2:#232B32; --hair:#333D45;
-    --paper:#E7E4DC; --muted:#8D9AA4; --zacht:var(--zacht);
+    --paper:#E7E4DC; --muted:#8D9AA4; --zacht:#66727C;
     --brass:#C9973F; --signal:#FF5A1F; --moss:#6B8F71; --sky:#3FC4F0;
     --diep:#0B0E11;                 /* achtergrond van de rijmodus */
-    --glas:var(--glas);      /* knoppen die op de kaart liggen */
-    --glas-diep:var(--glas-diep);
-    --opknop:var(--opknop);               /* tekst op oranje en messing */
-    --link:var(--link);
-    --fout:var(--fout);
-    --schaduw:var(--schaduw);
+    --glas:rgba(20,24,28,.95);      /* knoppen die op de kaart liggen */
+    --glas-diep:rgba(9,12,15,.97);
+    --opknop:#150C06;               /* tekst op oranje en messing */
+    --link:#7E8B95;
+    --fout:#E8705A;
+    --schaduw:rgba(0,0,0,.55);
     --kaartdim:.34;                 /* hoeveel de kaart 's avonds gedempt wordt */
     --display:'Barlow Condensed',system-ui,sans-serif;
     --body:'Inter',system-ui,sans-serif;
@@ -28,8 +28,8 @@
     --paper:#1A1F25; --muted:#5F6871; --zacht:#8A9299;
     --brass:#8A5D12; --signal:#C93C0B; --moss:#4C6E53; --sky:#15719B;
     --diep:#0B0E11;
-    --glas:rgba(251,249,245,.94);
-    --glas-diep:rgba(251,249,245,.96);
+    --glas:rgba(255,254,251,.96);
+    --glas-diep:rgba(255,254,251,.98);
     --opknop:#FFF6EE;
     --link:#5F6871;
     --fout:#B23112;
@@ -230,51 +230,35 @@
 
   .mapwrap{position:relative;overflow:hidden}
   #map{width:100%;height:100%}
-  .addmode{background:var(--glas);border:1px solid var(--hair);border-radius:3px;
-    padding:9px 13px;font-family:var(--display);text-transform:uppercase;
-    letter-spacing:.09em;font-size:11.5px;font-weight:600;color:var(--muted)}
-  .addmode:hover{color:var(--paper)}
-  .addmode.on{background:var(--signal);border-color:var(--signal);color:var(--opknop)}
-  /* Linksonder: van welke kaart, en de bochtige wegen erover. Twee knoppen op
-     de kaart in plaats van een menu met een menu erin. */
-  .mapleft{position:absolute;left:12px;bottom:26px;z-index:4;display:flex;
-    flex-direction:column;align-items:flex-start;gap:8px}
-  /* De penknop staat altijd op de kaart, niet weggestopt in het menu: als je
-     iets wil tekenen moet je zien dat het kan. Groot genoeg voor handschoenen. */
-  .penbtn{position:absolute;right:12px;bottom:74px;z-index:4;
-    width:54px;height:54px;border-radius:50%;background:var(--glas);
-    border:1px solid var(--hair);color:var(--paper);font-size:21px;line-height:1;
+  /* Ronde icoonknoppen op de kaart, rechts onder elkaar — zoals elke
+     motornavigatie het doet. 54 pixels: te bedienen met handschoenen aan. */
+  .mapleft{position:absolute;right:12px;bottom:142px;z-index:4;display:flex;
+    flex-direction:column;align-items:flex-end;gap:10px}
+  .addmode{width:54px;height:54px;border-radius:50%;background:var(--glas);
+    border:1px solid var(--hair);color:var(--paper);font-size:20px;line-height:1;
     display:grid;place-items:center;box-shadow:0 3px 12px var(--schaduw)}
-  .penbtn:hover{border-color:var(--brass);color:var(--brass)}
-  .penbtn.on{background:var(--signal);border-color:var(--signal);color:var(--opknop)}
-  /* De puntenknop staat links van de penknop: twee manieren om zelf je route te
-     bepalen, dus horen ze naast elkaar. */
+  .addmode:hover{border-color:var(--brass);color:var(--brass)}
+  .addmode.on{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
+  .addmode.busy{opacity:.55;cursor:wait;border-color:var(--brass)}
+  /* De pen is de belangrijkste knop op de kaart en staat dus onderaan de kolom,
+     in de accentkleur. Terugdraaien en weghalen komen erboven te staan zodra er
+     iets te wissen is; verborgen knoppen nemen geen ruimte in. */
+  .addmode.pen{border-color:var(--brass);color:var(--brass);font-size:22px}
+  .addmode.pen.on{background:var(--signal);border-color:var(--signal);color:var(--opknop)}
+  .addmode.wis{border-color:var(--signal);color:var(--signal)}
+  .addmode.terug{border-color:var(--brass);color:var(--brass)}
+  .addmode[hidden]{display:none}
 
-  /* Balk voor de punten-modus, boven de kaart. Hier staan knoppen in, dus deze
-     vangt aanrakingen — anders dan de balk bij het tekenen. */
-  #pinBar{position:absolute;left:50%;transform:translateX(-50%);
-    top:calc(12px + env(safe-area-inset-top));z-index:6;
-    max-width:calc(100vw - 24px);background:var(--glas);
-    border:1px solid var(--brass);border-radius:14px;color:var(--paper);
-    padding:9px 12px;font-size:12.5px;line-height:1.35;text-align:center}
-  #pinBar[hidden]{display:none}
-  .pinrij{display:flex;align-items:center;gap:7px;justify-content:center;flex-wrap:wrap}
-  .pinrij button{border:1px solid var(--hair);border-radius:16px;padding:7px 13px;
-    font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;
-    font-size:11.5px;font-weight:600;color:var(--muted)}
-  .pinrij button.on{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
-  #pinCount{font-family:var(--mono);font-size:11.5px;color:var(--brass)}
-  #pinUitleg{color:var(--muted);margin-top:6px}
-  #pinWaarschuw{color:var(--signal);margin-top:4px}
-  #pinWaarschuw[hidden]{display:none}
-  /* Tekening weghalen zonder eerst het paneel open te trekken. */
-  .penbtn.wis{right:12px;bottom:206px;border-color:var(--signal);color:var(--signal)}
-  .penbtn.wis:hover{background:var(--signal);color:var(--opknop)}
-  /* Terugdraaien staat naast wissen, niet erboven: twee tikjes op dezelfde hoogte
-     vind je met handschoenen aan makkelijker dan een torentje knoppen. */
-  .penbtn.terug{right:12px;bottom:270px;border-color:var(--brass);color:var(--brass)}
-  .penbtn.terug:hover{background:var(--brass);color:var(--opknop)}
-  .penbtn[hidden]{display:none}
+  /* Meldingen over de kaart: goed dekkend en met een rand, want ze moeten ook
+     in fel zonlicht op een luchtfoto leesbaar zijn. */
+  #toast{position:absolute;left:50%;transform:translateX(-50%);
+    top:calc(14px + env(safe-area-inset-top));z-index:7;pointer-events:none;
+    max-width:calc(100vw - 28px);background:var(--glas-diep);
+    border:1px solid var(--hair);border-radius:14px;color:var(--paper);
+    padding:11px 16px;font-size:13px;line-height:1.35;text-align:center;
+    box-shadow:0 4px 16px var(--schaduw)}
+  #toast[hidden]{display:none}
+  #toast.err{border-color:var(--signal)}
 
   /* Wat je tijdens het tekenen moet weten hoort over de kaart: op de telefoon
      staat het paneel dicht en is de gewone statusregel onzichtbaar. */
@@ -319,10 +303,13 @@
      onder. Alleen de balken vangen aanrakingen, de kaart ertussen blijft
      te slepen. */
   body.rijden{grid-template-columns:1fr}
+  /* In de rijmodus is alleen de cockpit te zien. Stond dit fout, dan lagen de
+     plus- en minknop van de kaart over je afslag heen. */
   body.rijden .panel,
-  body.rijden  body.rijden .penbtn,
-  body.rijden  body.rijden #pinBar,
-  body.rijden  body.rijden .maplibregl-ctrl-top-right,
+  body.rijden .mapleft,
+  body.rijden #pinBar,
+  body.rijden .maplibregl-ctrl-top-right,
+  body.rijden .maplibregl-ctrl-bottom-right,
   body.rijden .maplibregl-ctrl-bottom-left{display:none}
   body.rijden .mapwrap{position:fixed;inset:0;height:100dvh;width:100vw;z-index:40}
 
@@ -532,9 +519,7 @@
     .sheetbar{flex-direction:column;gap:10px}
     #sheetInfo{writing-mode:vertical-rl;font-size:11px;max-height:40vh}
     #sheetGo{padding:10px 7px;writing-mode:vertical-rl;letter-spacing:.12em}
-    .penbtn{bottom:14px}
-    .penbtn.wis{bottom:76px}
-    .penbtn.terug{bottom:76px;right:74px}
+    .mapleft{bottom:14px}
   }
 
 
@@ -550,6 +535,8 @@
     .steps button b{width:20px;height:20px;font-size:12px}
     .steps button span{font-size:9.5px}
     .top{padding:9px 14px 8px;order:0}
+    /* boven het kaartje dat altijd blijft staan */
+    .mapleft{bottom:calc(var(--dicht) + 14px)}
     .top h1{font-size:20px}
     .steps{padding:8px 10px}
     .steps button{padding:9px 3px 8px}

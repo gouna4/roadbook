@@ -144,6 +144,10 @@ el('sheetGo').addEventListener('click',()=>{
 function sheetSamenvatting(){
   const v=state.variants?.[state.shown];
   const box=el('sheetInfo');
+  /* Ligt er een route? Dan is rijden wat je wil, niet plannen. De grote knop
+     wisselt dus van rol in plaats van dat er twee naast elkaar staan. */
+  el('grip').classList.toggle('klaar',!!v);
+  el('sheetGo').hidden=!!v;
   if(!v){ box.innerHTML='<span class="leeg">Plan je rit</span>'; return; }
   const km=(state.fast.km+v.km).toFixed(0);
   const tijd=v.imported?'—':fmtTime(state.fast.sec+v.sec);

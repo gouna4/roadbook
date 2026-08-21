@@ -11,11 +11,14 @@ async function loadCurveLayer(){
   const breed=haversine([b.getWest(),b.getSouth()],[b.getEast(),b.getSouth()]);
   const hoog=haversine([b.getWest(),b.getSouth()],[b.getWest(),b.getNorth()]);
   if(breed*hoog>4500){
-    setStatus(`Zoom eerst wat in — dit gebied is ${Math.round(breed)}×${Math.round(hoog)} km, dat wordt te veel.`,true);
+    /* Op de telefoon staat het paneel dicht, dus setStatus() is onzichtbaar.
+       Zeg het over de kaart, anders lijkt de knop stuk. */
+    kaartMelding(`Zoom eerst wat in — dit gebied is ${Math.round(breed)}×${Math.round(hoog)} km,`
+      +` dat is te veel om door te meten.`,true);
     return false;
   }
   curveBusy=true; el('curveToggle').classList.add('busy');
-  setStatus('Wegen ophalen en doormeten…');
+  kaartMelding('Wegen ophalen en doormeten…');
   try{
     const bbox=`${b.getSouth().toFixed(4)},${b.getWest().toFixed(4)},${b.getNorth().toFixed(4)},${b.getEast().toFixed(4)}`;
     const q=`[out:json][timeout:35][bbox:${bbox}];
@@ -34,11 +37,11 @@ async function loadCurveLayer(){
         geometry:{type:'LineString',coordinates:co}});
     }
     map.getSource('curve').setData({type:'FeatureCollection',features:feats});
-    setStatus(feats.length
+    kaartMelding(feats.length
       ? `${feats.length} bochtige wegen in beeld, waarvan ${leuk} echt de moeite waard.`
       : 'Geen bochtige wegen gevonden in dit gebied — vlak land.');
     return true;
-  }catch(err){ setStatus('De plaatsenserver is druk, probeer het zo nog eens.',true); return false; }
+  }catch(err){ kaartMelding('De plaatsenserver is druk, probeer het zo nog eens.',true); return false; }
   finally{ curveBusy=false; el('curveToggle').classList.remove('busy'); }
 }
 

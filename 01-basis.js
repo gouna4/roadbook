@@ -187,6 +187,20 @@ map.on('load',()=>{
 
 /* ================= rekenhulp ================= */
 function setStatus(msg,isErr){ const s=el('status'); s.textContent=msg||''; s.classList.toggle('err',!!isErr); }
+
+/* Een melding over de kaart. Nodig omdat op de telefoon het paneel dichtstaat:
+   wat in de statusregel komt zie je daar niet, en dan lijkt een knop stuk. */
+let toastTimer=null;
+function kaartMelding(tekst,fout){
+  setStatus(tekst,fout);
+  const t=el('toast');
+  if(!t) return;
+  t.textContent=tekst;
+  t.classList.toggle('err',!!fout);
+  t.hidden=false;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{ t.hidden=true; }, 5000);
+}
 function haversine(a,b){
   const R=6371, dLat=(b[1]-a[1])*Math.PI/180, dLon=(b[0]-a[0])*Math.PI/180;
   const la1=a[1]*Math.PI/180, la2=b[1]*Math.PI/180;
