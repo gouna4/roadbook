@@ -111,7 +111,10 @@ function initSheet(){
     const dy=e.clientY-sheet.y0;
     const top=Math.max(0,sheet.h0+dy);
     const hoogte=window.innerHeight*0.92;
-    p.style.setProperty('--sheet',Math.max(0,Math.min(hoogte-86,top-(window.innerHeight-hoogte)))+'px');
+    /* Wat er altijd blijft staan: het resultaatkaartje plus de tabbalk. */
+    const dicht=parseInt(getComputedStyle(document.documentElement)
+      .getPropertyValue('--dicht'))||150;
+    p.style.setProperty('--sheet',Math.max(0,Math.min(hoogte-dicht,top-(window.innerHeight-hoogte)))+'px');
   });
   const los=e=>{
     if(!sheet.slepen) return;
@@ -135,11 +138,18 @@ el('sheetGo').addEventListener('click',()=>{
 });
 
 /* Samenvatting in de balk van het blad */
+/* Het kaartje dat je altijd ziet als het blad dichtgeschoven is: drie grote
+   cijfers met een woordje eronder, zoals in elke motornavigatie. Vaste vakjes,
+   zodat ze niet verspringen als het getal een cijfer langer wordt. */
 function sheetSamenvatting(){
   const v=state.variants?.[state.shown];
-  el('sheetInfo').textContent = v
-    ? `${(state.fast.km+v.km).toFixed(0)} km · ${v.imported?'—':fmtTime(state.fast.sec+v.sec)} · ${v.prof.score} bocht`
-    : 'Plan je rit';
+  const box=el('sheetInfo');
+  if(!v){ box.innerHTML='<span class="leeg">Plan je rit</span>'; return; }
+  const km=(state.fast.km+v.km).toFixed(0);
+  const tijd=v.imported?'—':fmtTime(state.fast.sec+v.sec);
+  box.innerHTML=`<span class="cij"><b>${km}</b><i>km</i></span>`
+    +`<span class="cij"><b>${tijd}</b><i>rijtijd</i></span>`
+    +`<span class="cij"><b>${v.prof.score}</b><i>bochtig</i></span>`;
 }
 
 let draaiTimer=null;

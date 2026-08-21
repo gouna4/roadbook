@@ -72,12 +72,13 @@ async function plan(){
       catch(err){
         if(err.code===154||err.code===150) return await planLangeRit(punten,lv,notes);
         if(err.code!==442&&err.code!==441) throw err;
-        const was={h:el('noHighway').checked,f:el('noFerry').checked};
-        el('noHighway').checked=false; el('noFerry').checked=false;
+        /* Lukt het niet? Dan even alles toestaan: hoogste stand en veerboten aan. */
+        const was={lv:level,f:el('noFerry').checked};
+        el('noFerry').checked=false;
         setStatus('Lukte niet — opnieuw met snelwegen en veerboten toegestaan…');
         try{
           let r;
-          try{ r=await planRoute(punten,'tour',lv); }
+          try{ r=await planRoute(punten,'tour',5); }
           catch(e2){
             if(e2.code===154||e2.code===150) r=await planLangeRit(punten,lv,notes);
             else throw e2;
@@ -85,7 +86,7 @@ async function plan(){
           notes.push('Snelwegen en veerboten waren nodig om deze route mogelijk te maken.');
           return r;
         } finally {
-          el('noHighway').checked=was.h; el('noFerry').checked=was.f;
+          el('noFerry').checked=was.f;
         }
       }
     };

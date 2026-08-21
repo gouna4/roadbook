@@ -21,7 +21,8 @@ async function planRoute(points, mode='tour', lv=level){
   const dirt=+el('dirt').value/100;
   const L=LEVELS[lv]||LEVELS[3];
   const towns=el('avoidTowns').checked;
-  const hw=el('noHighway').checked?L.hw:Math.min(1,L.hw+0.4);
+  /* De stand bepaalt hoeveel snelweg mag. Stand 5 laat hem helemaal vrij. */
+  const hw=L.hw;
   const opts = mode==='fast'
     ? { use_highways:1, use_tolls:el('noToll').checked?0:1, use_ferry:0.5,
         use_tracks:0, use_trails:0, exclude_unpaved:1, top_speed:130 }

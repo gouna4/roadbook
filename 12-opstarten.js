@@ -6,7 +6,7 @@
 el('addVia').addEventListener('click',()=>addVia());
 attachAC(el('start')); attachAC(el('dest'));
 el('dirt').addEventListener('input',e=>{ el('dirtVal').textContent=e.target.value; saveSettings(); });
-['sprintKm','noHighway','avoidTowns','noRepeat','noToll','noFerry','findPois','findStays','loopKm','findCurvy']
+['sprintKm','avoidTowns','noRepeat','noToll','noFerry','findPois','findStays','loopKm','findCurvy']
   .forEach(id=>el(id).addEventListener('change',saveSettings));
 ['start','dest'].forEach(id=>{
   el(id).addEventListener('change',saveSettings);

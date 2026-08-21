@@ -37,9 +37,15 @@ const LEVELS={
   3:{ name:'Vlot',    hw:0.3, living:0,   man:30,
       path:'M2 11c6 0 8-6 14-6s8 6 14 6c4 0 6-2 8-3',
       hint:'Doorgaande landwegen met vloeiende bochten. Dorpen worden zoveel mogelijk gemeden.' },
-  4:{ name:'Recht',   hw:0.6, living:0,   man:8,
+  4:{ name:'Recht',   hw:0.35, living:0,   man:8,
       path:'M2 8h36',
-      hint:'Zo snel mogelijk over gewone wegen.' }
+      hint:'Zo snel mogelijk over gewone wegen. Snelweg alleen als het niet anders kan.' },
+  /* Stand 5 doet wat het vinkje "Snelwegen vermijden" deed, maar dan als
+     stand: gewoon zo snel mogelijk, snelweg mag. Eén keuze in plaats van een
+     stand plus een vinkje dat elkaar tegenspreken. */
+  5:{ name:'Snel',    hw:1,   living:0,   man:5,
+      path:'M2 12h12l4-8h20',
+      hint:'Zo snel mogelijk naar je bestemming, snelweg mag. Voor het stuk dat gewoon weg moet.' }
 };
 let level=3;
 const LV_COLOR={1:'#B879E0',2:'#37BFA0',3:'#E0B354',4:'#6FA8DC'};
@@ -80,7 +86,9 @@ function setBase(kind){
   for(const k of Object.keys(BASES)) if(map.getLayer('base-'+k))
     map.setLayoutProperty('base-'+k,'visibility', k===kind?'visible':'none');
   /* Eén knop die doorklikt. Hij laat zien welke kaart je nú hebt. */
-  el('baseCycle').textContent=BASE_NAAM[kind]||'Kleur';
+  /* De knop is een icoon, dus even in de statusregel zeggen wat je nu hebt. */
+  el('baseCycle').title='Kaart: '+(BASE_NAAM[kind]||'Kleur')+' — tik voor de volgende';
+  if(typeof setStatus==='function' && baseGround.length) setStatus('Kaart: '+(BASE_NAAM[kind]||'Kleur'));
   store.set('rb.base',kind);
 }
 

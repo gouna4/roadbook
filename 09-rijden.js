@@ -195,16 +195,55 @@ function zeg(tekst){
 
 const afst=km=> km<1 ? Math.round(km*100)*10+' m' : km.toFixed(1)+' km';
 
-/* Afslagen op één noemer: hoeveel kilometer vanaf het begin, en wat je moet
-   doen. Zo werkt het zowel met een verse route van de server als met een
-   route die uit je eigen opslag komt. */
-function afslagen(v,cum){
+/* Hoeveel graden draait de weg op dit punt? Zestig meter ervoor en zestig
+   meter erna de koers pakken en het verschil nemen. Positief is naar rechts.
+
+   We rekenen dit uit de lijn en niet uit de nummers die de routeserver
+   meestuurt. Twee redenen: het werkt ook bij een route die uit je opslag komt,
+   en het is na te rekenen — een lijst met nummers uit een handleiding is dat
+   niet. */
+function bochtHoek(shape,cum,km){
+  if(!shape?.length||!cum?.length) return 0;
+  const totaal=cum[cum.length-1];
+  const punt=d=>{
+    const g=Math.max(0,Math.min(totaal,d));
+    let i=cum.findIndex(x=>x>=g);
+    if(i<0) i=shape.length-1;
+    return shape[i];
+  };
+  const a=punt(km-0.06), b=punt(km), c=punt(km+0.06);
+  if(!a||!b||!c) return 0;
+  if(haversine(a,b)<0.005||haversine(b,c)<0.005) return 0;
+  let d=bearing(b,c)-bearing(a,b);
+  while(d>180) d-=360;
+  while(d<-180) d+=360;
+  return d;
+}
+
+/* De bocht in gewone taal. Ook de pijl draait hierop mee. */
+function richtingWoord(hoek){
+  const a=Math.abs(hoek);
+  if(a>150) return 'Keer om';
+  if(a<12) return 'Rechtdoor';
+  const kant=hoek>0?'rechts':'links';
+  if(a<35) return 'Licht '+kant;
+  if(a<105) return kant.charAt(0).toUpperCase()+kant.slice(1);
+  return 'Scherp '+kant;
+}
+
+/* Afslagen op één noemer: hoeveel kilometer vanaf het begin, wat je moet doen,
+   en hoe scherp de bocht is. Zo werkt het zowel met een verse route van de
+   server als met een route die uit je eigen opslag komt. */
+function afslagen(v,cum,shape){
   const m=v.man||[];
   if(!m.length) return [];
-  if(m[0].km!=null) return m.filter(x=>x.tekst);
+  const lijn=shape||v.shape;
+  const metHoek=x=>({...x, hoek:x.hoek!=null?x.hoek:bochtHoek(lijn,cum,x.km)});
+  if(m[0].km!=null) return m.filter(x=>x.tekst).map(metHoek);
   return m.map(x=>({ km:cum[Math.min(cum.length-1,Math.max(0,x.begin_shape_index||0))],
                      tekst:(x.instruction||'').trim() }))
-          .filter(x=>x.tekst);
+          .filter(x=>x.tekst)
+          .map(metHoek);
 }
 
 /* Waar op de route ben je? Eerst kijken we vlak bij waar je net was — dat is
@@ -234,6 +273,21 @@ function kant(g){
   if(g<250) return 'links achter je';
   if(g<290) return 'links';
   return 'links voor je';
+}
+
+/* De pijl draait mee met de bocht: vier graden naar rechts is ook echt een
+   klein beetje naar rechts. Bij omkeren wordt het een aparte vorm, want een
+   omgedraaide pijl leest niemand goed. */
+const PIJL_RECHT='M24 4 L38 26 L28 26 L28 44 L20 44 L20 26 L10 26 Z';
+const PIJL_KEER='M14 44 L14 20 A10 10 0 0 1 34 20 L34 30 L42 30 L30 44 L18 30 L26 30 L26 20 A2 2 0 0 0 22 20 L22 44 Z';
+function pijlZet(hoek){
+  const p=el('dArrowPath');
+  if(!p) return;
+  const keer=Math.abs(hoek)>150;
+  p.setAttribute('d', keer?PIJL_KEER:PIJL_RECHT);
+  /* Niet verder dan 135 graden draaien; daarboven wordt het onleesbaar. */
+  const draai=keer?0:Math.max(-135,Math.min(135,hoek));
+  el('dArrow').style.transform=`rotate(${Math.round(draai)}deg)`;
 }
 
 function mijMarker(){
@@ -303,8 +357,7 @@ function vanDeRouteAf(lat,lon){
     ? `De route pakt je ${afst(verder)} verderop weer op — ${kant(rel)}`
     : `Het dichtstbijzijnde punt ligt ${kant(rel)}`;
 
-  const a=el('dArrow'); a.hidden=false;
-  a.firstElementChild.style.transform=`rotate(${Math.round((rel%360+360)%360)}deg)`;
+  pijlZet(((rel+180)%360+360)%360-180);
   map.getSource('terug')?.setData({type:'Feature',properties:{},
     geometry:{type:'LineString',coordinates:[[lon,lat],doel]}});
 
@@ -344,7 +397,7 @@ function plakRoute(nieuwe,oudShape,oudCum,oudMan,i){
   const kopKm=kopCum[kopCum.length-1];
   const shape=nieuwe.shape.concat(oudShape.slice(i+1));
   const vanaf=oudCum[i];
-  const man=afslagen({man:nieuwe.man},kopCum).concat(
+  const man=afslagen({man:nieuwe.man},kopCum,nieuwe.shape).concat(
     (oudMan||[]).filter(m=>m.km>vanaf+0.05)
                 .map(m=>({ km:kopKm+(m.km-vanaf), tekst:m.tekst })));
   return { shape, cum:cumulative(shape), man, kopKm, vanaf,
@@ -376,7 +429,6 @@ async function herbereken(lat,lon){
     drive.idx=0; drive.gedaanIdx=-1; drive.gezegd.clear();
     drive.herLaatst=Date.now(); drive.afSinds=0; drive.geenNet=false;
     map.getSource('terug')?.setData(EMPTY);
-    el('dArrow').hidden=true;
 
     zeg('Nieuwe route.');
     el('dThen').textContent=`Nieuwe route: ${afst(plak.kopKm)} tot je weer op je rit zit`;
@@ -422,7 +474,7 @@ function driveTick(pos){
   mijMarker().setLngLat(drive.pos).setRotation(drive.koers).addTo(map);
   naviCam();
   spoorBij(lo,la);
-  el('dSpeed').textContent=(speed!=null&&speed>=0?Math.round(speed*3.6):'—')+' km/u';
+  el('dSpeed').textContent=(speed!=null&&speed>=0?Math.round(speed*3.6):'—');
 
   const hier=dichtstbij(drive.shape,la,lo,drive.idx);
   if(hier.off>AF_KM){
@@ -434,30 +486,32 @@ function driveTick(pos){
   /* Weer op de route: de teller voor herberekenen gaat op nul. */
   drive.afSinds=0; drive.geenNet=false;
   drive.idx=hier.i;
-  el('dArrow').hidden=true;
   map.getSource('terug')?.setData(EMPTY);
   tekenGedaan(hier.i);
 
   const gereden=drive.cum[hier.i];
   const totaal=drive.cum[drive.cum.length-1];
   const over=Math.max(0,totaal-gereden);
-  el('dLeft').textContent=over.toFixed(0)+' km';
+  el('dLeft').textContent=over.toFixed(0);
   const restSec=drive.sec?drive.sec*(over/Math.max(0.1,totaal)):0;
   el('dEta').textContent=restSec?new Date(Date.now()+restSec*1000).toTimeString().slice(0,5):'—';
 
   const volg=drive.man.find(m=>m.km>gereden+0.02);
   if(!volg){
+    pijlZet(0);
     el('dNext').textContent=over<0.2?'Je bent er':'Rechtdoor';
     el('dDist').textContent=afst(over);
-    el('dThen').textContent='';
+    el('dThen').hidden=true;
     if(over<0.2 && !drive.gezegd.has('eind')){ drive.gezegd.add('eind'); zeg('Je bent er. Goede rit gehad.'); }
     return;
   }
   const naar=volg.km-gereden;
+  pijlZet(volg.hoek||0);
   el('dNext').textContent=volg.tekst.replace(/\.$/,'');
   el('dDist').textContent=afst(naar);
   const later=drive.man[drive.man.indexOf(volg)+1];
-  el('dThen').textContent=later?('Daarna: '+later.tekst):'';
+  el('dThen').hidden=!later;
+  if(later) el('dThen').textContent='daarna '+richtingWoord(later.hoek||0).toLowerCase();
 
   const id='m'+volg.km.toFixed(3);
   if(naar<0.4 && !drive.gezegd.has(id+'v')){
@@ -476,7 +530,7 @@ function rijRouteUit(v){
   drive.shape=v.shape;
   drive.cum=cumulative(v.shape);
   drive.sec=v.sec||0;
-  drive.man=afslagen(v,drive.cum);
+  drive.man=afslagen(v,drive.cum,v.shape);
   drive.idx=0; drive.gedaanIdx=-1; drive.gezegd.clear();
 }
 
@@ -492,12 +546,11 @@ async function startDrive(){
   document.body.classList.add('rijden');
   el('drive').hidden=false;
   el('dRecenter').hidden=true;
-  el('dArrow').hidden=true;
   el('dNext').textContent='Wachten op gps…';
   el('dDist').textContent='—';
-  el('dThen').textContent='';
+  el('dThen').hidden=true;
   el('dTrack').classList.remove('on');
-  el('dTrack').textContent='↩ Terug over mijn spoor';
+  el('dTrack').textContent='↩';
   map.resize();
   map.easeTo({zoom:15,pitch:52,duration:600});
 
@@ -531,7 +584,7 @@ el('sheetDrive').addEventListener('click',startDrive);
 el('dStop').addEventListener('click',stopDrive);
 el('dMute').addEventListener('click',()=>{
   drive.stem=!drive.stem;
-  el('dMute').textContent=drive.stem?'🔊 Stem aan':'🔇 Stem uit';
+  el('dMute').textContent=drive.stem?'🔊':'🔇';
   if(!drive.stem) try{ speechSynthesis.cancel(); }catch{}
 });
 
@@ -557,20 +610,20 @@ el('dTrack').addEventListener('click',()=>{
     rijRouteUit(v);
     drive.spoorRit=false;
     el('dTrack').classList.remove('on');
-    el('dTrack').textContent='↩ Terug over mijn spoor';
+    el('dTrack').textContent='↩';
     zeg('Weer op de geplande route.');
     return;
   }
   const s=drive.spoor.length>2?drive.spoor:store.get('rb.spoor',[]);
   if(s.length<3){
-    el('dThen').textContent='Er is nog geen spoor om over terug te rijden';
+    el('dThen').hidden=false; el('dThen').textContent='geen spoor om over terug te rijden';
     zeg('Er is nog geen spoor om over terug te rijden.');
     return;
   }
   rijRouteUit({shape:[...s].reverse(), sec:0, man:[]});
   drive.spoorRit=true;
   el('dTrack').classList.add('on');
-  el('dTrack').textContent='↩ Terug naar de route';
+  el('dTrack').textContent='⤿';
   zeg('Je rijdt nu terug over je eigen spoor.');
 });
 

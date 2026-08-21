@@ -44,7 +44,7 @@ function printRoadbook(){
 /* ================= bewaren ================= */
 function settings(){
   return { level, dirt:el('dirt').value, sprint:el('sprintKm').value,
-    noHighway:el('noHighway').checked, avoidTowns:el('avoidTowns').checked,
+    avoidTowns:el('avoidTowns').checked,
     noRepeat:el('noRepeat').checked,
     noToll:el('noToll').checked, noFerry:el('noFerry').checked,
     findPois:el('findPois').checked, findStays:el('findStays').checked,
@@ -73,7 +73,7 @@ function applySettings(s){
     updateDestLabel();
     el('terugHint').hidden = tripMode!=='one';
   }
-  ['noHighway','avoidTowns','noRepeat','noToll','noFerry','findPois','findStays','findCurvy']
+  ['avoidTowns','noRepeat','noToll','noFerry','findPois','findStays','findCurvy']
     .forEach(k=>{ if(s[k]!=null) el(k).checked=!!s[k]; });
 }
 function saveSettings(){ store.set('rb.set',{...settings(),start:el('start').value,dest:el('dest').value,vias:state.vias}); }
@@ -154,7 +154,8 @@ function ritOpslaan(){
     naam:((el('start').value||'Vertrek')+' → '+(el('dest').value||'Bestemming')).slice(0,70),
     km:+cum[cum.length-1].toFixed(1), sec:v.sec||0,
     shape:v.shape.map(c=>[+c[0].toFixed(5),+c[1].toFixed(5)]),
-    man:afslagen(v,cum).map(m=>({km:+m.km.toFixed(3),tekst:m.tekst})) };
+    man:afslagen(v,cum,v.shape).map(m=>({km:+m.km.toFixed(3),tekst:m.tekst,
+                                         hoek:Math.round(m.hoek||0)})) };
 
   if(!store.set('rb.rit',rit)){
     rit.shape=simplify(v.shape,0.02);

@@ -7,6 +7,7 @@
      het werkt ook zonder bereik. Alleen de kleuren wisselen — verder blijft
      alles precies hetzelfde staan. */
   :root{
+    --dicht:150px;
     --ink:#14181C; --panel:#1C2228; --panel-2:#232B32; --hair:#333D45;
     --paper:#E7E4DC; --muted:#8D9AA4; --zacht:var(--zacht);
     --brass:#C9973F; --signal:#FF5A1F; --moss:#6B8F71; --sky:#3FC4F0;
@@ -241,10 +242,9 @@
   /* De penknop staat altijd op de kaart, niet weggestopt in het menu: als je
      iets wil tekenen moet je zien dat het kan. Groot genoeg voor handschoenen. */
   .penbtn{position:absolute;right:12px;bottom:74px;z-index:4;
-    background:var(--glas);border:1px solid var(--hair);border-radius:24px;
-    color:var(--paper);padding:14px 18px;font-family:var(--display);font-weight:600;
-    text-transform:uppercase;letter-spacing:.09em;font-size:13px;
-    box-shadow:0 2px 10px var(--schaduw)}
+    width:54px;height:54px;border-radius:50%;background:var(--glas);
+    border:1px solid var(--hair);color:var(--paper);font-size:21px;line-height:1;
+    display:grid;place-items:center;box-shadow:0 3px 12px var(--schaduw)}
   .penbtn:hover{border-color:var(--brass);color:var(--brass)}
   .penbtn.on{background:var(--signal);border-color:var(--signal);color:var(--opknop)}
   /* De puntenknop staat links van de penknop: twee manieren om zelf je route te
@@ -268,13 +268,11 @@
   #pinWaarschuw{color:var(--signal);margin-top:4px}
   #pinWaarschuw[hidden]{display:none}
   /* Tekening weghalen zonder eerst het paneel open te trekken. */
-  .penbtn.wis{right:12px;bottom:130px;padding:14px 17px;border-color:var(--signal);
-    color:var(--signal)}
+  .penbtn.wis{right:12px;bottom:206px;border-color:var(--signal);color:var(--signal)}
   .penbtn.wis:hover{background:var(--signal);color:var(--opknop)}
   /* Terugdraaien staat naast wissen, niet erboven: twee tikjes op dezelfde hoogte
      vind je met handschoenen aan makkelijker dan een torentje knoppen. */
-  .penbtn.terug{right:70px;bottom:130px;padding:14px 17px;border-color:var(--brass);
-    color:var(--brass)}
+  .penbtn.terug{right:12px;bottom:270px;border-color:var(--brass);color:var(--brass)}
   .penbtn.terug:hover{background:var(--brass);color:var(--opknop)}
   .penbtn[hidden]{display:none}
 
@@ -328,49 +326,53 @@
   body.rijden .maplibregl-ctrl-bottom-left{display:none}
   body.rijden .mapwrap{position:fixed;inset:0;height:100dvh;width:100vw;z-index:40}
 
+  /* ---------- rijmodus: een cockpit ----------
+     Zoals Garmin en TomTom het doen: de afslag als vorm boven, drie vakjes
+     onder die altijd even groot zijn en nooit verspringen. Je kijkt niet naar
+     je telefoon, je pikt er iets uit — dan moet alles op zijn vaste plek staan. */
   #drive{position:fixed;inset:0;z-index:50;color:var(--paper);pointer-events:none;
-    display:flex;flex-direction:column;justify-content:space-between}
+    display:flex;flex-direction:column;align-items:center}
   #drive[hidden]{display:none}
-  /* Alleen de balken vangen aanrakingen. Zou de middenstrook dat ook doen,
-     dan kun je de kaart daar niet meer slepen. */
-  #drive > .dtop, #drive > .dbottom{pointer-events:auto}
+  #drive > *{pointer-events:auto}
 
-  .dtop{display:flex;align-items:center;gap:14px;background:var(--glas-diep);
-    border-bottom:1px solid var(--hair);padding:12px 16px;
-    padding-top:calc(12px + env(safe-area-inset-top))}
-  .dtxt{flex:1;min-width:0}
-  .dnext{font-family:var(--display);font-size:clamp(21px,5.4vw,38px);line-height:1.06;
-    font-weight:600;text-transform:uppercase;letter-spacing:.01em}
-  .ddist{font-family:var(--mono);font-size:clamp(26px,8vw,54px);color:var(--signal);
-    line-height:1;font-weight:500;white-space:nowrap}
-  .dthen{color:var(--muted);font-size:clamp(12px,3vw,16px);min-height:1.3em;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .darrow{flex:none;width:clamp(38px,10vw,62px)}
-  .darrow svg{width:100%;height:auto;display:block;fill:var(--signal);
-    transition:transform .5s ease}
-  @media (prefers-reduced-motion:reduce){.darrow svg{transition:none}}
+  .dtop{display:flex;align-items:center;gap:16px;width:calc(100% - 20px);
+    max-width:520px;margin-top:calc(10px + env(safe-area-inset-top));
+    background:var(--glas-diep);border:1px solid var(--hair);border-radius:16px;
+    padding:14px 18px;box-shadow:0 6px 20px var(--schaduw)}
+  .dpijl{flex:none;width:clamp(44px,12vw,58px);height:clamp(44px,12vw,58px);
+    transition:transform .35s ease}
+  .dpijl svg{width:100%;height:100%;display:block}
+  .dpijl svg path{fill:var(--signal)}
+  @media (prefers-reduced-motion:reduce){.dpijl{transition:none}}
+  .dtxt{min-width:0;flex:1}
+  .ddist{font-family:var(--mono);font-size:clamp(28px,8vw,44px);line-height:1;
+    font-weight:500}
+  .dnext{font-family:var(--display);font-size:clamp(15px,4vw,22px);line-height:1.15;
+    font-weight:600;text-transform:uppercase;letter-spacing:.01em;color:var(--muted);
+    margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-  .dmid{display:flex;justify-content:center;pointer-events:none}
-  .dpill{pointer-events:auto;background:var(--glas-diep);border:1px solid var(--brass);
-    border-radius:22px;color:var(--brass);padding:12px 20px;font-family:var(--display);
-    text-transform:uppercase;letter-spacing:.09em;font-size:13px;font-weight:600}
-  .dpill[hidden]{display:none}
+  .dthen{margin-top:8px;background:var(--glas-diep);border:1px solid var(--hair);
+    border-radius:14px;padding:7px 14px;font-size:12.5px;color:var(--muted)}
+  .dthen[hidden]{display:none}
 
-  .dbottom{background:var(--glas-diep);border-top:1px solid var(--hair);
-    padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
-  .dbar{display:flex;justify-content:center;gap:clamp(18px,7vw,54px);
-    border-bottom:1px solid var(--hair);padding:4px 0 10px}
-  .dbar div{text-align:center}
-  .dbar span{display:block;font-family:var(--display);text-transform:uppercase;
-    letter-spacing:.12em;font-size:10px;color:var(--muted)}
-  .dbar strong{font-family:var(--mono);font-weight:500;font-size:clamp(17px,4.6vw,26px)}
-  .dbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
-  .dbtns button{border:1px solid var(--hair);border-radius:4px;padding:14px 16px;
-    font-family:var(--display);text-transform:uppercase;letter-spacing:.07em;
-    font-size:13px;font-weight:600;color:var(--muted);flex:1 1 auto;min-width:120px}
-  .dbtns button:hover{color:var(--paper);border-color:var(--paper)}
-  .dbtns button.on{background:var(--brass);border-color:var(--brass);color:var(--ink)}
-  #dStop{border-color:var(--signal);color:var(--signal);flex:0 1 130px}
+  /* De knoppen staan rechts onder elkaar, waar je duim bij kan. */
+  .dside{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+    display:flex;flex-direction:column;gap:10px}
+  .dround{width:54px;height:54px;border-radius:50%;background:var(--glas-diep);
+    border:1px solid var(--hair);color:var(--paper);font-size:20px;line-height:1;
+    box-shadow:0 3px 12px var(--schaduw)}
+  .dround[hidden]{display:none}
+  .dround.on{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
+  .dround.stop{border-color:var(--signal);color:var(--signal)}
+
+  .dbottom{margin-top:auto;display:flex;gap:8px;width:calc(100% - 20px);
+    max-width:520px;margin-bottom:calc(10px + env(safe-area-inset-bottom))}
+  .dvak{flex:1 1 0;background:var(--glas-diep);border:1px solid var(--hair);
+    border-radius:14px;padding:10px 6px;text-align:center;min-width:0}
+  .dvak strong{display:block;font-family:var(--mono);font-weight:500;
+    font-size:clamp(19px,5.4vw,28px);line-height:1}
+  .dvak span{display:block;font-family:var(--display);text-transform:uppercase;
+    letter-spacing:.1em;font-size:9.5px;color:var(--muted);margin-top:3px}
 
   /* Je eigen positie: een pijl die met de kaart meedraait. */
   .mk.mij{width:34px;height:34px;background:none;border:0;border-radius:0;
@@ -471,12 +473,12 @@
       border-right:0;border-top:1px solid var(--hair);
       border-radius:16px 16px 0 0;
       box-shadow:0 -10px 30px var(--schaduw);
-      transform:translateY(var(--sheet,calc(92dvh - 86px)));
+      transform:translateY(var(--sheet,calc(92dvh - var(--dicht))));
       transition:transform .26s cubic-bezier(.22,.7,.3,1);
       overscroll-behavior:contain;
     }
     .panel.dragging{transition:none}
-    .panel.peek{--sheet:calc(92dvh - 86px)}
+    .panel.peek{--sheet:calc(92dvh - var(--dicht))}
     .panel.half{--sheet:46dvh}
     .panel.full{--sheet:0dvh}
 
@@ -486,8 +488,15 @@
       border-bottom:1px solid var(--hair);cursor:grab;touch-action:none;
     }
     .griphandle{width:42px;height:4px;border-radius:2px;background:var(--hair);margin:0 auto 9px}
+    .grip{order:-1}
     .sheetbar{display:flex;align-items:center;gap:9px}
-    #sheetInfo{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #sheetInfo{flex:1;min-width:0;display:flex;gap:14px;align-items:baseline}
+    #sheetInfo .cij{display:flex;flex-direction:column;line-height:1}
+    #sheetInfo .cij b{font-family:var(--mono);font-weight:500;font-size:19px}
+    #sheetInfo .cij i{font-family:var(--display);font-style:normal;font-size:9px;
+      text-transform:uppercase;letter-spacing:.11em;color:var(--muted);margin-top:3px}
+    #sheetInfo .leeg{font-family:var(--display);text-transform:uppercase;
+      letter-spacing:.1em;font-size:12px;color:var(--muted)}
     #sheetInfo{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;
       font-size:13px;color:var(--paper);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     #sheetGo{background:var(--signal);color:var(--opknop);border-radius:3px;padding:9px 16px;
@@ -531,12 +540,21 @@
 
   /* ---------- telefoon: iets ruimer aanraken, kop wat kleiner ---------- */
   @media (max-width:860px){
-    .top{padding:9px 14px 8px}
+    /* De kaart is de app. Wat je ziet als het blad dichtgeschoven is: het
+       resultaat van je rit, en daaronder de tabbalk waar je duim zit. Verder
+       is alles kaart. */
+    :root{--dicht:150px}          /* greep + tabbalk = wat je altijd ziet */
+    .steps{order:9;padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+      border-top:1px solid var(--hair);border-bottom:0;background:var(--panel)}
+    .steps button{padding:9px 3px 7px;border-radius:10px}
+    .steps button b{width:20px;height:20px;font-size:12px}
+    .steps button span{font-size:9.5px}
+    .top{padding:9px 14px 8px;order:0}
     .top h1{font-size:20px}
     .steps{padding:8px 10px}
     .steps button{padding:9px 3px 8px}
     .steps button span{font-size:10px}
-    .bar{padding:9px 10px calc(10px + env(safe-area-inset-bottom))}
+    .bar{padding:9px 10px 10px;order:8;box-shadow:none}
     .bicon{flex:0 0 44px;font-size:18px}
     .block{padding:12px 14px}
     input,select{font-size:16px}   /* onder 16px zoomt iOS zelf in */

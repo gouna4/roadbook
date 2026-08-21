@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=37">
+<link rel="stylesheet" href="stijl.css?v=38">
 </head>
 <body>
 
@@ -34,7 +34,7 @@
 
   <header class="top">
     <h1>Road<span>book</span></h1>
-    <span class="ver" id="verNr">versie 37</span>
+    <span class="ver" id="verNr">versie 38</span>
     <button class="themebtn" id="themeBtn" title="Licht, donker of automatisch">☀</button>
   </header>
 
@@ -119,9 +119,13 @@
           <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 11c6 0 8-6 14-6s8 6 14 6c4 0 6-2 8-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           <span>Vlot</span>
         </button>
-        <button data-v="4" title="Zo snel mogelijk, zonder snelweg">
+        <button data-v="4" title="Zo snel mogelijk over gewone wegen">
           <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 8h36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           <span>Recht</span>
+        </button>
+        <button data-v="5" title="Snelweg mag ook">
+          <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 12h12l4-8h20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Snel</span>
         </button>
       </div>
       <p class="hint" id="levelHint">
@@ -142,7 +146,6 @@
     <div class="block">
       <div class="eyebrow">Vermijden</div>
       <div class="checks">
-        <label class="check"><input type="checkbox" id="noHighway" checked> Snelwegen</label>
         <label class="check"><input type="checkbox" id="avoidTowns" checked> Dorpskernen en woonwijken</label>
         <label class="check"><input type="checkbox" id="noRepeat" checked> Dezelfde weg twee keer rijden</label>
         <label class="check"><input type="checkbox" id="noToll"> Tolwegen</label>
@@ -355,39 +358,39 @@
 
 <div id="drive" hidden>
   <div class="dtop">
-    <div class="darrow" id="dArrow" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L20 20 L12 15 L4 20 Z"/></svg></div>
-    <div class="dtxt">
-      <div class="dnext" id="dNext">Wachten op gps…</div>
-      <div class="dthen" id="dThen"></div>
+    <div class="dpijl" id="dArrow">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <path id="dArrowPath" d="M24 4 L38 26 L28 26 L28 44 L20 44 L20 26 L10 26 Z"/>
+      </svg>
     </div>
-    <div class="ddist" id="dDist">—</div>
+    <div class="dtxt">
+      <div class="ddist" id="dDist">—</div>
+      <div class="dnext" id="dNext">Wachten op gps…</div>
+    </div>
   </div>
-  <div class="dmid">
-    <button class="dpill" id="dRecenter" hidden>◎ Terug naar mij</button>
+  <div class="dthen" id="dThen"></div>
+  <div class="dside">
+    <button class="dround" id="dRecenter" hidden aria-label="Terug naar mij">◎</button>
+    <button class="dround" id="dTrack" aria-label="Terug over mijn spoor">↩</button>
+    <button class="dround" id="dMute" aria-label="Stem aan of uit">🔊</button>
+    <button class="dround stop" id="dStop" aria-label="Stoppen">■</button>
   </div>
   <div class="dbottom">
-    <div class="dbar">
-      <div><span>Snelheid</span><strong id="dSpeed">— km/u</strong></div>
-      <div><span>Nog te gaan</span><strong id="dLeft">— km</strong></div>
-      <div><span>Aankomst</span><strong id="dEta">—</strong></div>
-    </div>
-    <div class="dbtns">
-      <button id="dTrack">↩ Terug over mijn spoor</button>
-      <button id="dMute">🔊 Stem aan</button>
-      <button id="dStop">■ Stoppen</button>
-    </div>
+    <div class="dvak"><strong id="dEta">—</strong><span>aankomst</span></div>
+    <div class="dvak"><strong id="dLeft">—</strong><span>km te gaan</span></div>
+    <div class="dvak"><strong id="dSpeed">—</strong><span>km/u</span></div>
   </div>
 </div>
 
 <div class="mapwrap">
   <div id="map"></div>
   <div id="mapDim"></div>
-  <button class="penbtn" id="drawMode" title="Tik voor een punt, veeg voor een vorm">✎ Zelf bepalen</button>
+  <button class="penbtn" id="drawMode" aria-label="Zelf de route bepalen" title="Zelf bepalen: tik voor een punt, veeg voor een vorm">✎</button>
   <button class="penbtn terug" id="drawUndo" hidden title="Laatste stap terugdraaien">↶</button>
   <button class="penbtn wis" id="drawClear" hidden title="Weghalen">✕</button>
   <div class="mapleft">
-    <button class="addmode" id="baseCycle" title="Andere kaart">Kleur</button>
-    <button class="addmode" id="curveToggle">Bochtige wegen</button>
+    <button class="addmode" id="baseCycle" aria-label="Andere kaart" title="Andere kaart: kleur, topo, satelliet">▤</button>
+    <button class="addmode" id="curveToggle" aria-label="Bochtige wegen tonen" title="Bochtige wegen op de kaart">∿</button>
   </div>
   <div id="pinBar" hidden>
     <div class="pinrij">
@@ -399,17 +402,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=37"></script>
-<script src="02-invoer.js?v=37"></script>
-<script src="03-route.js?v=37"></script>
-<script src="04-bibliotheek.js?v=37"></script>
-<script src="05-weergave.js?v=37"></script>
-<script src="06-plannen.js?v=37"></script>
-<script src="07-interface.js?v=37"></script>
-<script src="08-onderweg.js?v=37"></script>
-<script src="09-rijden.js?v=37"></script>
-<script src="10-uitvoer.js?v=37"></script>
-<script src="11-offline.js?v=37"></script>
-<script src="12-opstarten.js?v=37"></script>
+<script src="01-basis.js?v=38"></script>
+<script src="02-invoer.js?v=38"></script>
+<script src="03-route.js?v=38"></script>
+<script src="04-bibliotheek.js?v=38"></script>
+<script src="05-weergave.js?v=38"></script>
+<script src="06-plannen.js?v=38"></script>
+<script src="07-interface.js?v=38"></script>
+<script src="08-onderweg.js?v=38"></script>
+<script src="09-rijden.js?v=38"></script>
+<script src="10-uitvoer.js?v=38"></script>
+<script src="11-offline.js?v=38"></script>
+<script src="12-opstarten.js?v=38"></script>
 </body>
 </html>

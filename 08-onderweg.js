@@ -153,7 +153,7 @@ function shareData(){
   });
   return { s:el('start').value, d:el('dest').value, v:state.vias, m:tripMode,
            l:level, t:el('depTime').value, k:el('loopKm').value, c:co,
-           o:{ nh:el('noHighway').checked, at:el('avoidTowns').checked,
+           o:{ at:el('avoidTowns').checked,
                nr:el('noRepeat').checked,
                tl:el('noToll').checked, fy:el('noFerry').checked },
            dt:el('dirt').value, sp:el('sprintKm').value, mo:manualOrder };
@@ -182,7 +182,7 @@ function applyShared(b64){
     if(j.dt!=null){ el('dirt').value=j.dt; el('dirtVal').textContent=j.dt; }
     if(j.sp!=null) el('sprintKm').value=j.sp;
     const o=j.o||{};
-    el('noHighway').checked=!!o.nh; el('avoidTowns').checked=!!o.at;
+    el('avoidTowns').checked=!!o.at;
     el('noRepeat').checked=!!o.nr;
     el('noToll').checked=!!o.tl; el('noFerry').checked=!!o.fy;
     manualOrder=!!j.mo;

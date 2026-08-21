@@ -385,6 +385,55 @@ check('5 km recht is te kort om op te knappen',
       saaieStukken(curveProfile(recht(6.0, 50.4, 5))).length, 0);
 
 console.log('');
+console.log('--- bochtHoek(): hoe scherp is de afslag ---');
+/* Een route die 1 km pal noord gaat en dan 1 km pal oost: bij de hoek is dat
+   een bocht van 90 graden naar rechts. Punten van 20 meter, want bochtHoek
+   kijkt 60 meter voor en na de afslag. */
+const noord = [], stapN = 0.02 / 111.32;
+for (let i = 0; i <= 50; i++) noord.push([6.0, 51.0 + i * stapN]);
+const hoek = noord[noord.length - 1];
+const stapO = 0.02 / (111.32 * Math.cos(51 * Math.PI / 180));
+for (let i = 1; i <= 50; i++) noord.push([hoek[0] + i * stapO, hoek[1]]);
+const cumH = cumulative(noord);
+const opDeHoek = cumH[50];
+console.log('     hoek op km ' + opDeHoek.toFixed(2) + ': '
+  + bochtHoek(noord, cumH, opDeHoek).toFixed(0) + ' graden');
+check('bocht naar rechts is +90', Math.round(bochtHoek(noord, cumH, opDeHoek) / 5) * 5, 90);
+check('halverwege het rechte stuk is 0', Math.round(bochtHoek(noord, cumH, 0.5)), 0);
+
+/* Dezelfde route gespiegeld: dan is het een bocht naar links, dus negatief. */
+const west = [];
+for (let i = 0; i <= 50; i++) west.push([6.0, 51.0 + i * stapN]);
+for (let i = 1; i <= 50; i++) west.push([6.0 - i * stapO, hoek[1]]);
+check('bocht naar links is -90', Math.round(bochtHoek(west, cumulative(west), opDeHoek) / 5) * 5, -90);
+/* Buiten de route vragen mag niet ontploffen. */
+check('voorbij het eind', bochtHoek(noord, cumH, 999).toFixed(0), '0');
+check('lege lijn', bochtHoek([], [], 1), 0);
+
+console.log('');
+console.log('--- richtingWoord(): de bocht in gewone taal ---');
+check('0 graden', richtingWoord(0), 'Rechtdoor');
+check('8 graden', richtingWoord(8), 'Rechtdoor');
+check('20 graden', richtingWoord(20), 'Licht rechts');
+check('-20 graden', richtingWoord(-20), 'Licht links');
+check('60 graden', richtingWoord(60), 'Rechts');
+check('-60 graden', richtingWoord(-60), 'Links');
+check('120 graden', richtingWoord(120), 'Scherp rechts');
+check('-120 graden', richtingWoord(-120), 'Scherp links');
+check('170 graden', richtingWoord(170), 'Keer om');
+check('-170 graden', richtingWoord(-170), 'Keer om');
+
+console.log('');
+console.log('--- vijf standen wegtype ---');
+check('er zijn vijf standen', Object.keys(LEVELS).length, 5);
+check('stand 1 mijdt snelweg helemaal', LEVELS[1].hw, 0);
+check('stand 5 laat snelweg vrij', LEVELS[5].hw, 1);
+check('elke stand heeft een symbool', Object.values(LEVELS).every(l => !!l.path), true);
+check('elke stand heeft uitleg', Object.values(LEVELS).every(l => !!l.hint), true);
+check('snelweg loopt op per stand',
+      [1,2,3,4,5].every((n,i,a) => i===0 || LEVELS[n].hw >= LEVELS[a[i-1]].hw), true);
+
+console.log('');
 console.log('--- plakRoute(): nieuwe route aan de oude vastmaken ---');
 /* Oude route: 20 km pal noord, met afslagen op 5, 10 en 15 km. Je bent bij km
    10 van de route af geraakt en er komt een nieuw stukje van 3 km dat je daar
