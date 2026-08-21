@@ -352,6 +352,24 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
 
+## De tabbalk bereikbaar, versie 43
+
+Op een iPhone schoof het bodemblad in de volledig-open stand tot **onder het
+camera-eilandje**: de tabbalk lag achter de statusbalk en was niet meer aan te
+tikken. Twee dingen daaraan gedaan:
+
+1. **Het blad blijft onder de veilige zone.** De hoogte staat nu in `--blad`
+   (`94dvh - env(safe-area-inset-top)`) en dat getal wordt ook gebruikt in de
+   schuifstanden, zodat ze niet uit elkaar kunnen lopen.
+2. **Vegen om van tabblad te wisselen.** Naar links is verder, naar rechts is
+   terug. Hij kijkt pas als je je vinger optilt en eist minstens 60 beeldpunten
+   duidelijk zijwaarts — anders was je aan het scrollen. Een veeg die aan de
+   linkerrand begint blijft van de telefoon zelf; dat is diens terug-veeg.
+
+Het versienummer in de tabbalk is `v43` in plaats van `versie 43`, want die
+lange vorm werd op een smal scherm afgekapt. `zelftest.js` leest het nummer nu
+uit het element zelf in plaats van uit een los stukje tekst.
+
 ## De adresvelden, versie 42
 
 - **◎ in het vertrekveld** pakt je huidige locatie. Stond eerst als tekstregel

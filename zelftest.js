@@ -670,7 +670,7 @@ console.log('=== 4. klopt de interface met de code? ===');
      elke bestandsnaam die index.html opvraagt, de cachenaam in sw.js, en de V
      in sw.js waarmee die zijn offline-lijst opbouwt. */
   const sw = fs.readFileSync('sw.js', 'utf8');
-  const kop = /versie (\d+)/.exec(html);
+  const kop = /id="verNr"[^>]*>\s*v(?:ersie)?\s*(\d+)/.exec(html);
   const kast = /roadbook-app-v(\d+)/.exec(sw);
   const swV = /const V = '(\d+)'/.exec(sw);
   const achter = [...new Set([...html.matchAll(/\?v=(\d+)/g)].map(m => m[1]))];

@@ -7,7 +7,10 @@
      het werkt ook zonder bereik. Alleen de kleuren wisselen — verder blijft
      alles precies hetzelfde staan. */
   :root{
-    --dicht:96px;
+    --dicht:96px;                   /* greep + tabs: wat je ziet als het blad dicht is */
+    /* Hoe hoog het bodemblad maximaal wordt. Nooit tot onder de statusbalk of
+       het camera-eilandje van de telefoon, want dan is de tabbalk onbereikbaar. */
+    --blad:calc(94dvh - env(safe-area-inset-top));
     --ink:#14181C; --panel:#1C2228; --panel-2:#232B32; --hair:#333D45;
     --paper:#E7E4DC; --muted:#8D9AA4; --zacht:#66727C;
     --brass:#C9973F; --signal:#FF5A1F; --moss:#6B8F71; --sky:#3FC4F0;
@@ -325,7 +328,7 @@
 
   .tabs{display:flex;align-items:stretch;gap:2px;flex:none;
     border-bottom:1px solid var(--hair);background:var(--panel);padding:0 8px}
-  .tabs button{padding:13px 12px 11px;font-family:var(--display);font-weight:600;
+  .tabs button{padding:14px 12px 12px;font-family:var(--display);font-weight:600;
     text-transform:none;font-size:15px;color:var(--muted);
     border-bottom:2px solid transparent;margin-bottom:-1px}
   .tabs button:hover{color:var(--paper)}
@@ -333,7 +336,7 @@
   /* Het versienummer staat in de tabbalk, dus altijd in beeld. Daaraan zie je
      of je telefoon de nieuwe app heeft. */
   .tabs .ver{margin-left:auto;align-self:center;font-family:var(--mono);
-    font-size:9.5px;color:var(--brass);white-space:nowrap;padding-right:4px}
+    font-size:10px;color:var(--brass);white-space:nowrap;padding-right:2px;flex:none}
   .tabs button.sliders{font-size:17px;padding:13px 10px 11px}
 
   .tabwrap{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
@@ -518,16 +521,19 @@
     .panel{
       position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;
       display:flex;flex-direction:column;
-      height:92dvh;max-height:92dvh;z-index:30;
+      /* Blijf onder het eilandje met de camera. Ging dit fout, dan lag de
+         tabbalk in de volledig-open stand onder de statusbalk van de telefoon
+         en kon je er niet meer bij. */
+      height:var(--blad);max-height:var(--blad);z-index:30;
       border-right:0;border-top:1px solid var(--hair);
       border-radius:16px 16px 0 0;
       box-shadow:0 -10px 30px var(--schaduw);
-      transform:translateY(var(--sheet,calc(92dvh - var(--dicht))));
+      transform:translateY(var(--sheet,calc(var(--blad) - var(--dicht))));
       transition:transform .26s cubic-bezier(.22,.7,.3,1);
       overscroll-behavior:contain;
     }
     .panel.dragging{transition:none}
-    .panel.peek{--sheet:calc(92dvh - var(--dicht))}
+    .panel.peek{--sheet:calc(var(--blad) - var(--dicht))}
     .panel.half{--sheet:46dvh}
     .panel.full{--sheet:0dvh}
 

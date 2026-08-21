@@ -261,6 +261,35 @@ el('zoekBalk').addEventListener('click',()=>{
   el('dest').focus();
 });
 
+/* Vegen om van tabblad te wisselen. Op een iPhone ligt de tabbalk in de
+   volledig-open stand vlak onder het camera-eilandje, en dan is hij lastig te
+   raken. Met een veeg naar links of rechts kom je er altijd.
+
+   We kijken pas als je je vinger optilt: duidelijk zijwaarts en minstens 60
+   beeldpunten, anders was je gewoon aan het scrollen. Een veeg die aan de
+   linkerrand begint laten we staan — dat is de terug-veeg van de telefoon zelf. */
+const TABORDE=['plan','weg','rit','set'];
+(function tabVegen(){
+  const vak=document.querySelector('.tabwrap');
+  if(!vak) return;
+  let x0=0, y0=0, bezig=false;
+  vak.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse') return;
+    if(e.clientX<26) return;              /* laat de terug-veeg met rust */
+    bezig=true; x0=e.clientX; y0=e.clientY;
+  });
+  vak.addEventListener('pointerup',e=>{
+    if(!bezig) return;
+    bezig=false;
+    const dx=e.clientX-x0, dy=e.clientY-y0;
+    if(Math.abs(dx)<60 || Math.abs(dx)<Math.abs(dy)*1.6) return;
+    const i=TABORDE.indexOf(tab);
+    const naar=TABORDE[Math.max(0,Math.min(TABORDE.length-1, i+(dx<0?1:-1)))];
+    if(naar!==tab) zetTab(naar);
+  });
+  vak.addEventListener('pointercancel',()=>{ bezig=false; });
+})();
+
 /* Ligt er een route? Dan komt de groene startknop tevoorschijn en zegt de
    zoekbalk waar je heen gaat. */
 function klaarBij(){
