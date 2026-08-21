@@ -183,7 +183,9 @@ const drive={ on:false, watch:null, lock:null, stem:true, gezegd:new Set(),
               shape:null, cum:null, man:null, sec:0,
               volgen:true, noord:false, koers:0, pos:null, idx:0, mij:null,
               spoor:[], spoorRit:false, terugGezegd:0, gedaanIdx:-1,
-              afSinds:0, herLaatst:0, herBezig:false, geenNet:false, eerste:true };
+              afSinds:0, herLaatst:0, herBezig:false, geenNet:false, eerste:true,
+              tempo:0, vorigeMelding:0, pad:null, terugAan:false,
+              spoorGetekend:0, spoorBewaard:0, laatsteKmu:null };
 
 const AF_KM=0.25;   /* meer dan 250 meter naast de lijn heet "van de route af" */
 
@@ -331,6 +333,10 @@ function mijMarker(){
     +'<path d="M20 3 L34 34 L20 26.5 L6 34 Z" fill="#4FC8F5"'
     +' stroke="#07131A" stroke-width="2.6" stroke-linejoin="round"/></svg>';
   drive.mij=new maplibregl.Marker({element:d,rotationAlignment:'map',pitchAlignment:'map'});
+  /* Eén keer aan de kaart hangen. addTo() doet intern eerst remove(), dus elke
+     melding opnieuw aanroepen sloopt de pijl uit het scherm en plakt hem
+     terug — midden in een lopende beweging. */
+  drive.mij.setLngLat(drive.pos||[6.2,51.3]).addTo(map);
   return drive.mij;
 }
 
@@ -338,7 +344,7 @@ function mijMarker(){
    Gekanteld meekijken over je schouder, zoals elke navigatie. Je staat niet in
    het midden maar op 70% naar beneden, zodat je vooruit ziet wat er aankomt in
    plaats van wat je net gehad hebt. */
-const NAVI={ zoom:16.5, pitch:55, duur:1000, laag:0.70 };
+const NAVI={ zoom:16.5, pitch:55, duur:800, laag:0.70 };
 
 /* De kaart centreert in wat er overblijft ná de padding. Willen we het
    middelpunt op 70% van de hoogte, dan moet er bovenaan 40% bij: het
@@ -349,17 +355,50 @@ function naviPadding(hoogte){
   return { top:Math.round(h*(NAVI.laag-0.5)*2), bottom:0, left:0, right:0 };
 }
 
-function naviCam(eerste){
+/* Hoe vaak meldt je telefoon zich echt? Dat verschilt per toestel, dus we meten
+   het. De animatie moet net kláár zijn als de volgende melding komt: duurt hij
+   langer, dan wordt hij afgebroken; duurt hij korter, dan staat de kaart even
+   stil. Beide zie je als een schok. */
+function meldTempo(){
+  const nu=Date.now();
+  if(drive.vorigeMelding){
+    const dt=nu-drive.vorigeMelding;
+    /* Rustig bijstellen en rare uitschieters negeren. */
+    if(dt>200&&dt<5000)
+      drive.tempo=drive.tempo?drive.tempo*0.7+dt*0.3:dt;
+  }
+  drive.vorigeMelding=nu;
+  return Math.max(350,Math.min(1400,Math.round((drive.tempo||1000)*0.9)));
+}
+
+/* De koers dempen. De richting van je telefoon springt zomaar tien graden heen
+   en weer; ongedempt draait de hele kaart daarmee mee. Kleine verschillen
+   negeren we, grote volgen we snel — anders loopt hij in een bocht achter. */
+function koersDemp(huidig,nieuw){
+  let d=nieuw-huidig;
+  while(d>180) d-=360;
+  while(d<-180) d+=360;
+  if(Math.abs(d)<2) return huidig;            /* ruis */
+  const factor=Math.abs(d)>25?0.7:0.35;        /* echte bocht volgen we snel */
+  return (huidig+d*factor+360)%360;
+}
+
+function naviCam(eerste,duur){
   if(!drive.volgen||!drive.pos) return;
   const opzet={
     center:drive.pos,
     bearing:drive.noord?0:drive.koers,
     pitch:drive.noord?0:NAVI.pitch,
-    padding:naviPadding(),
-    /* Lineair en één seconde lang: dan glijdt de kaart mee in plaats van bij
-       elke gps-melding een sprongetje te maken. */
-    duration:eerste?900:NAVI.duur,
-    easing:t=>t
+    /* Eén keer uitgerekend en bewaard. Elke melding opnieuw uit de schermhoogte
+       rekenen gaf minisprongetjes, want op een iPhone verandert die hoogte als
+       de adresbalk in- of uitschuift. */
+    padding:drive.pad||naviPadding(),
+    duration:eerste?900:(duur||NAVI.duur),
+    easing:t=>t,
+    /* Zonder dit gooit MapLibre de animatie helemaal weg als op je telefoon
+       "Verminder beweging" aanstaat — dan springt de kaart bij elke melding
+       en is er van vloeiend rijden geen sprake. */
+    essential:true
   };
   if(eerste) opzet.zoom=NAVI.zoom;
   map.easeTo(opzet);
@@ -368,11 +407,20 @@ function naviCam(eerste){
 /* Het stuk dat je al gehad hebt grijs maken, zodat je in één oogopslag ziet
    welke kant je op moet. Alleen bijwerken als je echt opgeschoten bent: elke
    seconde een lijn van duizenden punten hertekenen kost accu voor niets. */
+/* Het stuk dat je al gehad hebt grijs maken. We tekenen alleen de laatste paar
+   kilometer achter je, niet de hele afgelegde route: verder terug zie je toch
+   niet, en de hele lijn opnieuw opbouwen was halverwege een dagrit ruim 100 KB
+   per keer. Nu is het altijd even klein. */
+const GEDAAN_KM=3;
 function tekenGedaan(i){
   if(drive.gedaanIdx>=0 && i-drive.gedaanIdx<8) return;
   drive.gedaanIdx=i;
+  const tot=drive.cum[i];
+  let van=i;
+  while(van>0 && tot-drive.cum[van]<GEDAAN_KM) van--;
+  const deel=drive.shape.slice(van,Math.max(van+2,i+1));
   map.getSource('gedaan')?.setData({type:'Feature',properties:{},
-    geometry:{type:'LineString',coordinates:drive.shape.slice(0,Math.max(2,i+1))}});
+    geometry:{type:'LineString',coordinates:deel}});
 }
 
 /* Broodkruimels: elke ~40 meter een punt van waar je gereden hebt. Zo kun je
@@ -385,9 +433,24 @@ function spoorBij(lon,lat){
   if(vorig && haversine(vorig,p)<0.04) return;
   drive.spoor.push(p);
   if(drive.spoor.length>8000) drive.spoor.splice(0,2000);
-  map.getSource('spoor')?.setData({type:'Feature',properties:{},
-    geometry:{type:'LineString',coordinates:drive.spoor.length>1?drive.spoor:[]}});
-  if(drive.spoor.length%15===0) store.set('rb.spoor',drive.spoor);
+
+  const nu=Date.now();
+  /* De lijn van je spoor groeit de hele rit door. Elke paar seconden die hele
+     lijn opnieuw naar de kaart sturen is na een uur 70 KB per keer — dat voelt
+     je als een hapering. Eens per 15 seconden is ruim genoeg; je kijkt naar de
+     weg vóór je, niet naar waar je al was. */
+  if(nu-(drive.spoorGetekend||0)>15000){
+    drive.spoorGetekend=nu;
+    map.getSource('spoor')?.setData({type:'Feature',properties:{},
+      geometry:{type:'LineString',coordinates:drive.spoor.length>1?drive.spoor:[]}});
+  }
+  /* Naar de opslag schrijven blokkeert alles zolang het duurt. Dus alleen als je
+     bijna stilstaat, en nooit vaker dan één keer per minuut. */
+  const traag=drive.laatsteKmu!=null&&drive.laatsteKmu<8;
+  if(traag && nu-(drive.spoorBewaard||0)>60000){
+    drive.spoorBewaard=nu;
+    store.set('rb.spoor',drive.spoor);
+  }
 }
 
 /* Waar pak je de route weer op? Het dichtstbijzijnde punt is niet altijd het
@@ -420,6 +483,7 @@ function vanDeRouteAf(lat,lon){
   pijlZet(((rel+180)%360+360)%360-180);
   map.getSource('terug')?.setData({type:'Feature',properties:{},
     geometry:{type:'LineString',coordinates:[[lon,lat],doel]}});
+  drive.terugAan=true;
 
   const nu=Date.now();
   if(nu-drive.terugGezegd>45000){
@@ -531,18 +595,22 @@ function driveTick(pos){
      van elke gps-hik in de rondte gaan tollen. */
   const kmu=(speed!=null&&speed>=0)?speed*3.6:null;
   if(kmu===null||kmu>=5){
-    if(heading!=null&&!isNaN(heading)) drive.koers=heading;
-    else if(drive.pos&&haversine(drive.pos,[lo,la])>0.008) drive.koers=bearing(drive.pos,[lo,la]);
+    let ruw=null;
+    if(heading!=null&&!isNaN(heading)) ruw=heading;
+    else if(drive.pos&&haversine(drive.pos,[lo,la])>0.008) ruw=bearing(drive.pos,[lo,la]);
+    if(ruw!=null) drive.koers=koersDemp(drive.koers,ruw);
   }
   drive.pos=[lo,la];
+  const duur=meldTempo();
 
-  mijMarker().setLngLat(drive.pos).setRotation(drive.koers).addTo(map);
+  mijMarker().setLngLat(drive.pos).setRotation(drive.koers);
   /* De eerste keer is anders: dan springen we naar je toe en zetten we zoom en
      kanteling. Daarna glijdt hij alleen nog mee. */
-  naviCam(drive.eerste);
+  naviCam(drive.eerste,duur);
   drive.eerste=false;
   spoorBij(lo,la);
-  el('dSpeed').textContent=(speed!=null&&speed>=0?Math.round(speed*3.6):'—');
+  drive.laatsteKmu=kmu;
+  el('dSpeed').textContent=(kmu!=null?Math.round(kmu):'—');
 
   const hier=dichtstbij(drive.shape,la,lo,drive.idx);
   if(hier.off>AF_KM){
@@ -554,7 +622,9 @@ function driveTick(pos){
   /* Weer op de route: de teller voor herberekenen gaat op nul. */
   drive.afSinds=0; drive.geenNet=false;
   drive.idx=hier.i;
-  map.getSource('terug')?.setData(EMPTY);
+  /* Alleen leegmaken als er iets stond. Elke seconde een lege laag verversen is
+     een volledige hertekening voor niets. */
+  if(drive.terugAan){ map.getSource('terug')?.setData(EMPTY); drive.terugAan=false; }
   tekenGedaan(hier.i);
 
   const gereden=drive.cum[hier.i];
@@ -611,6 +681,9 @@ async function startDrive(){
   drive.spoor=[]; drive.terugGezegd=0;
   drive.afSinds=0; drive.herLaatst=0; drive.herBezig=false; drive.geenNet=false;
   drive.eerste=true; drive.noord=false;
+  drive.tempo=0; drive.vorigeMelding=0; drive.terugAan=false;
+  drive.spoorGetekend=0; drive.spoorBewaard=0; drive.laatsteKmu=null;
+  drive.pad=naviPadding();
 
   document.body.classList.add('rijden');
   el('drive').hidden=false;
@@ -646,6 +719,8 @@ function stopDrive(){
   map.resize();
   /* Netjes rechtop en zonder padding achterlaten. */
   map.easeTo({pitch:0,bearing:0,padding:{top:0,bottom:0,left:0,right:0},duration:500});
+  /* Nu je stilstaat mag het schrijven wel: het spoor is te kostbaar om te
+     verliezen als je onderweg terug wil. */
   if(drive.spoor.length>1) store.set('rb.spoor',drive.spoor);
 }
 
@@ -675,7 +750,11 @@ el('dNorth').addEventListener('click',()=>{
 });
 
 /* Draai je je telefoon, dan verandert de hoogte en dus de padding. */
-map.on('resize',()=>{ if(drive.on&&drive.volgen) naviCam(); });
+map.on('resize',()=>{
+  if(!drive.on) return;
+  drive.pad=naviPadding();      /* de hoogte is veranderd, dus opnieuw rekenen */
+  if(drive.volgen) naviCam();
+});
 
 /* Zelf de kaart verschuiven zet het meevolgen uit — anders vecht je met de
    app. Met de knop pak je het weer op. */

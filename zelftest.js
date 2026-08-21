@@ -398,7 +398,41 @@ check('schaalt mee met de hoogte', p1600.top, 640);
 check('ook dan op 70%', ((1600 - p1600.top) / 2 + p1600.top) / 1600, 0.7);
 check('kanteling is 55 graden', NAVI.pitch, 55);
 check('zoom bij het starten is 16.5', NAVI.zoom, 16.5);
-check('elke melding duurt een seconde', NAVI.duur, 1000);
+check('de basisduur is 800 ms', NAVI.duur, 800);
+
+/* De animatie moet net klaar zijn als de volgende gps-melding komt. We meten
+   hoe vaak je telefoon zich meldt en nemen daar 90% van, met een boven- en
+   ondergrens zodat een rare meting niets sloopt. */
+drive.vorigeMelding = 0; drive.tempo = 1000;
+check('bij 1 seconde meldingen: 900 ms', meldTempo(), 900);
+drive.vorigeMelding = 0; drive.tempo = 500;
+check('bij een snelle telefoon: 450 ms', meldTempo(), 450);
+drive.vorigeMelding = 0; drive.tempo = 200;
+check('nooit korter dan 350 ms', meldTempo(), 350);
+drive.vorigeMelding = 0; drive.tempo = 4000;
+check('nooit langer dan 1400 ms', meldTempo(), 1400);
+
+console.log('');
+console.log('--- koersDemp(): de kaart mag niet meewiebelen ---');
+/* De richting van een telefoon springt zomaar tien graden heen en weer. Klein
+   verschil negeren, grote bocht snel volgen. */
+check('een graad ruis: blijft staan', koersDemp(90, 91), 90);
+check('tien graden: volgt voorzichtig', Math.round(koersDemp(90, 100)), 94);
+check('veertig graden is een echte bocht', Math.round(koersDemp(90, 130)), 118);
+check('over noord heen, vooruit', Math.round(koersDemp(350, 10)), 357);
+check('over noord heen, terug', Math.round(koersDemp(10, 350)), 3);
+/* Een echte bocht van 90 graden moet er binnen een paar meldingen zijn. */
+let k = 0, stappen = 0;
+while (Math.abs(k - 90) > 3 && stappen < 20) { k = koersDemp(k, 90); stappen++; }
+console.log('     een bocht van 90 graden is na ' + stappen + ' meldingen binnen 3 graden');
+check('bocht binnen 6 meldingen gevolgd', stappen <= 6, true);
+check('blijft dan ook staan', Math.round(koersDemp(90, 90)), 90);
+
+console.log('');
+console.log('--- het grijze stuk achter je blijft klein ---');
+check('drie kilometer terug', GEDAAN_KM, 3);
+
+
 
 console.log('');
 console.log('--- de afslagvorm en het woord horen bij elkaar ---');

@@ -352,6 +352,47 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
 
+## Vloeiend rijden, versie 44
+
+De rijmodus voelde schokkig. Negen oorzaken gevonden en aangepakt, in volgorde
+van hoe zwaar ze wogen:
+
+1. **`essential:true` ontbrak.** Staat op je telefoon "Verminder beweging" aan,
+   dan zet MapLibre `duration` op nul en springt de kaart bij élke gps-melding.
+   Dit is één woord en kan de hele klacht verklaren
+2. **De animatie duurde precies zo lang als het meldinterval** (1000 ms tegen
+   ~1 s). Komt de melding iets te vroeg, dan wordt de beweging afgebroken; iets
+   te laat en de kaart staat even stil. `meldTempo()` **meet** nu hoe vaak je
+   telefoon zich meldt en neemt daar 90% van, tussen 350 en 1400 ms
+3. **De pijl werd elke seconde uit de kaart gesloopt.** `Marker.addTo()` doet
+   intern eerst `remove()`, dus elke melding opnieuw aanroepen haalde het
+   element uit het scherm en plakte het terug — midden in een beweging. Nu één
+   keer, daarna alleen `setLngLat` en `setRotation`
+4. **De koers wiebelde.** `koersDemp()` negeert verschillen onder 2° en volgt een
+   echte bocht met 70% en ruis met 35%. Een bocht van 90° is na vijf meldingen
+   binnen 3° gevolgd — snel genoeg om niet achter te lopen, rustig genoeg om niet
+   te tollen
+5. **De "terug naar de route"-laag werd elke seconde leeggemaakt**, ook als hij
+   al leeg was. Nu alleen als er iets stond (`drive.terugAan`)
+6. **Je gps-spoor werd elke 1-3 seconden helemaal opnieuw getekend** — na een uur
+   70 KB per keer. Nu eens per 15 seconden
+7. **Het grijze "al gehad"-stuk** werd als hele afgelegde route opnieuw
+   opgebouwd, halverwege een dagrit ruim 100 KB. Nu alleen de laatste
+   `GEDAAN_KM` (3 km) achter je: verder terug zie je toch niet, en het blijft
+   altijd even klein
+8. **Naar de opslag schrijven** blokkeert alles zolang het duurt. Het spoor gaat
+   nu alleen naar de opslag als je bijna stilstaat (onder 8 km/u), hooguit één
+   keer per minuut, en altijd bij het stoppen
+9. **De padding werd elke melding uit de schermhoogte gerekend.** Op een iPhone
+   verandert die hoogte als de adresbalk in- of uitschuift, dus dat gaf
+   minisprongetjes. Nu één keer bij het starten en opnieuw bij draaien
+
+Plus: de schaduw onder de pijl is weg. Die werd bij elk beeldje opnieuw berekend
+terwijl de pijl beweegt; de donkere rand in de vorm doet hetzelfde werk gratis.
+
+**Het tabblad waar je bent heeft nu een vakje om de tekst** in plaats van een
+streepje eronder.
+
 ## De tabbalk bereikbaar, versie 43
 
 Op een iPhone schoof het bodemblad in de volledig-open stand tot **onder het
