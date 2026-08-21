@@ -352,6 +352,28 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
 
+## Automatisch zoomen, versie 45
+
+| Wanneer | Zoom | Waarom |
+|---|---|---|
+| boven 100 km/u | 15,5 | hard rijden vraagt overzicht: verder vooruit kijken |
+| gewoon | 16,5 | de stand waarin je rijdt |
+| binnen 300 m van een afslag | 17,5 | welke van die twee straten is het? |
+
+**Met marge op de grenzen**, en dat is het enige wat ik heb toegevoegd aan de
+opdracht: hij zoomt uit boven 103 km/u en pas weer in onder 97. Bij de afslag
+zoomt hij in op 300 m en pas weer uit na 380 m. Zonder die marge staat de zoom
+heen en weer te springen als je net rond de grens rijdt, en dat is erger dan
+niet automatisch zoomen.
+
+Een afslag gaat vóór snelheid: rijd je 130 en er komt een afslag, dan zoomt hij
+in. De zoom wordt alleen meegestuurd als hij écht verandert (`drive.zoomDoel`),
+anders zit de camera elke melding aan hetzelfde getal te trekken.
+
+Hiervoor is het opzoeken van de volgende afslag in `driveTick()` naar vóór de
+camera verhuisd — de camera moet weten hoe ver de afslag is voordat hij zijn
+zoom kiest.
+
 ## Vloeiend rijden, versie 44
 
 De rijmodus voelde schokkig. Negen oorzaken gevonden en aangepakt, in volgorde

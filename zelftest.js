@@ -413,6 +413,26 @@ drive.vorigeMelding = 0; drive.tempo = 4000;
 check('nooit langer dan 1400 ms', meldTempo(), 1400);
 
 console.log('');
+console.log('--- naviZoom(): automatisch in- en uitzoomen ---');
+check('rustig rijden', naviZoom(60, null, 16.5), 16.5);
+check('hard rijden geeft overzicht', naviZoom(120, null, 16.5), 15.5);
+check('afslag dichtbij geeft detail', naviZoom(60, 0.25, 16.5), 17.5);
+check('een afslag gaat voor snelheid', naviZoom(130, 0.20, 16.5), 17.5);
+/* De marges: er in op de ene grens, er uit op de andere. Zonder dat springt de
+   zoom heen en weer als je net rond 100 km/u rijdt. */
+check('op 100 nog niet uitzoomen', naviZoom(100, null, 16.5), 16.5);
+check('boven 103 wel', naviZoom(104, null, 16.5), 15.5);
+check('eenmaal uitgezoomd blijft 100 zo', naviZoom(100, null, 15.5), 15.5);
+check('onder 97 weer terug', naviZoom(95, null, 15.5), 16.5);
+check('op 350 m nog niet inzoomen', naviZoom(60, 0.35, 16.5), 16.5);
+check('binnen 300 m wel', naviZoom(60, 0.29, 16.5), 17.5);
+check('eenmaal ingezoomd blijft 350 m zo', naviZoom(60, 0.35, 17.5), 17.5);
+check('na 380 m weer terug', naviZoom(60, 0.40, 17.5), 16.5);
+check('geen snelheid bekend', naviZoom(null, null, 16.5), 16.5);
+/* En de drie standen zijn de afgesproken getallen. */
+check('de drie zoomstanden', [ZOOM.snel, ZOOM.gewoon, ZOOM.afslag].join('/'), '15.5/16.5/17.5');
+
+console.log('');
 console.log('--- koersDemp(): de kaart mag niet meewiebelen ---');
 /* De richting van een telefoon springt zomaar tien graden heen en weer. Klein
    verschil negeren, grote bocht snel volgen. */

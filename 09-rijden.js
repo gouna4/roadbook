@@ -185,7 +185,7 @@ const drive={ on:false, watch:null, lock:null, stem:true, gezegd:new Set(),
               spoor:[], spoorRit:false, terugGezegd:0, gedaanIdx:-1,
               afSinds:0, herLaatst:0, herBezig:false, geenNet:false, eerste:true,
               tempo:0, vorigeMelding:0, pad:null, terugAan:false,
-              spoorGetekend:0, spoorBewaard:0, laatsteKmu:null };
+              spoorGetekend:0, spoorBewaard:0, laatsteKmu:null, zoomDoel:0 };
 
 const AF_KM=0.25;   /* meer dan 250 meter naast de lijn heet "van de route af" */
 
@@ -383,7 +383,23 @@ function koersDemp(huidig,nieuw){
   return (huidig+d*factor+360)%360;
 }
 
-function naviCam(eerste,duur){
+/* Automatisch zoomen. Hard rijden vraagt overzicht — je wil verder vooruit
+   kunnen kijken. Een afslag vraagt detail: welke van die twee straten is het?
+
+   De grenzen hebben een marge, anders springt de zoom heen en weer als je net
+   rond 100 km/u rijdt of vlak vóór de 300 meter zit. Welke kant de marge op
+   werkt hangt af van waar hij nú staat. */
+const ZOOM={ snel:15.5, gewoon:16.5, afslag:17.5 };
+function naviZoom(kmu,naarAfslag,vorig){
+  const v=vorig||ZOOM.gewoon;
+  const afGrens = v===ZOOM.afslag ? 0.38 : 0.30;   /* er in op 300 m, er uit op 380 */
+  if(naarAfslag!=null && naarAfslag<afGrens) return ZOOM.afslag;
+  const snelGrens = v===ZOOM.snel ? 97 : 103;      /* er in boven 103, er uit onder 97 */
+  if(kmu!=null && kmu>snelGrens) return ZOOM.snel;
+  return ZOOM.gewoon;
+}
+
+function naviCam(eerste,duur,zoom){
   if(!drive.volgen||!drive.pos) return;
   const opzet={
     center:drive.pos,
@@ -400,7 +416,11 @@ function naviCam(eerste,duur){
        en is er van vloeiend rijden geen sprake. */
     essential:true
   };
-  if(eerste) opzet.zoom=NAVI.zoom;
+  /* Alleen meesturen als de zoom écht verandert; anders zit hij elke melding aan
+     hetzelfde getal te trekken. */
+  if(eerste) opzet.zoom=zoom||NAVI.zoom;
+  else if(zoom&&zoom!==drive.zoomDoel) opzet.zoom=zoom;
+  if(zoom) drive.zoomDoel=zoom;
   map.easeTo(opzet);
 }
 
@@ -604,10 +624,6 @@ function driveTick(pos){
   const duur=meldTempo();
 
   mijMarker().setLngLat(drive.pos).setRotation(drive.koers);
-  /* De eerste keer is anders: dan springen we naar je toe en zetten we zoom en
-     kanteling. Daarna glijdt hij alleen nog mee. */
-  naviCam(drive.eerste,duur);
-  drive.eerste=false;
   spoorBij(lo,la);
   drive.laatsteKmu=kmu;
   el('dSpeed').textContent=(kmu!=null?Math.round(kmu):'—');
@@ -616,6 +632,9 @@ function driveTick(pos){
   if(hier.off>AF_KM){
     vanDeRouteAf(la,lo);
     herberekenMisschien(la,lo,hier.off,speed);
+    /* Van de route af is er geen afslag om op te zoomen; dan geldt je snelheid. */
+    naviCam(drive.eerste,duur,naviZoom(kmu,null,drive.zoomDoel));
+    drive.eerste=false;
     return;
   }
 
@@ -630,11 +649,18 @@ function driveTick(pos){
   const gereden=drive.cum[hier.i];
   const totaal=drive.cum[drive.cum.length-1];
   const over=Math.max(0,totaal-gereden);
+  const volg=drive.man.find(m=>m.km>gereden+0.02);
+  const naar=volg?volg.km-gereden:null;
+
+  /* Nu we weten hoe ver de afslag is, kan de camera zijn zoom kiezen. Daarom
+     staat dit hier en niet bovenaan: dichtbij een afslag wil je inzoomen. */
+  naviCam(drive.eerste,duur,naviZoom(kmu,naar,drive.zoomDoel));
+  drive.eerste=false;
+
   el('dLeft').textContent=over.toFixed(0);
   const restSec=drive.sec?drive.sec*(over/Math.max(0.1,totaal)):0;
   el('dEta').textContent=restSec?new Date(Date.now()+restSec*1000).toTimeString().slice(0,5):'—';
 
-  const volg=drive.man.find(m=>m.km>gereden+0.02);
   if(!volg){
     pijlZet(0);
     el('dDist').textContent=afst(over);
@@ -643,7 +669,6 @@ function driveTick(pos){
     if(over<0.2 && !drive.gezegd.has('eind')){ drive.gezegd.add('eind'); zeg('Je bent er. Goede rit gehad.'); }
     return;
   }
-  const naar=volg.km-gereden;
   pijlZet(volg.hoek||0);
   el('dDist').textContent=afst(naar);
   el('dNext').textContent=richtingWoord(volg.hoek||0);
@@ -683,7 +708,7 @@ async function startDrive(){
   drive.eerste=true; drive.noord=false;
   drive.tempo=0; drive.vorigeMelding=0; drive.terugAan=false;
   drive.spoorGetekend=0; drive.spoorBewaard=0; drive.laatsteKmu=null;
-  drive.pad=naviPadding();
+  drive.pad=naviPadding(); drive.zoomDoel=0;
 
   document.body.classList.add('rijden');
   el('drive').hidden=false;
