@@ -278,19 +278,47 @@ function kant(g){
   return 'links voor je';
 }
 
-/* De pijl draait mee met de bocht: vier graden naar rechts is ook echt een
-   klein beetje naar rechts. Bij omkeren wordt het een aparte vorm, want een
-   omgedraaide pijl leest niemand goed. */
-const PIJL_RECHT='M24 4 L38 26 L28 26 L28 44 L20 44 L20 26 L10 26 Z';
-const PIJL_KEER='M14 44 L14 20 A10 10 0 0 1 34 20 L34 30 L42 30 L30 44 L18 30 L26 30 L26 20 A2 2 0 0 0 22 20 L22 44 Z';
+/* Acht vormen voor acht soorten afslag, zoals op een Garmin: een steel die
+   afbuigt in de richting die je op moet. Een vorm herken je door een vizier
+   sneller dan een woord, en veel sneller dan een gedraaide pijl — die leest
+   verkeerd zodra hij verder dan een kwartslag om staat.
+
+   Getekend in een vak van 48 bij 48, steel begint onderaan in het midden. */
+const PIJLEN={
+  keer:        'M31 44 V26 A7 7 0 0 1 17 26 V33 M11 27 L17 34 L23 27',
+  scherplinks: 'M24 44 V26 L13 33 M18 26 L12 34 L20 37',
+  links:       'M24 44 V23 H13 M19 17 L12 23 L19 29',
+  lichtlinks:  'M24 44 V27 L13 16 M20 15 L12 15 L12 23',
+  rechtdoor:   'M24 44 V14 M16 21 L24 13 L32 21',
+  lichtrechts: 'M24 44 V27 L35 16 M28 15 L36 15 L36 23',
+  rechts:      'M24 44 V23 H35 M29 17 L36 23 L29 29',
+  scherprechts:'M24 44 V26 L35 33 M30 26 L36 34 L28 37'
+};
+
+/* Welke vorm hoort bij deze hoek? Dezelfde grenzen als richtingWoord(), zodat
+   de vorm en het woord elkaar nooit tegenspreken. */
+function pijlSoort(hoek){
+  const a=Math.abs(hoek);
+  if(a>150) return 'keer';
+  if(a<12) return 'rechtdoor';
+  const kant=hoek>0?'rechts':'links';
+  if(a<35) return 'licht'+kant;
+  if(a<105) return kant;
+  return 'scherp'+kant;
+}
+
 function pijlZet(hoek){
   const p=el('dArrowPath');
   if(!p) return;
-  const keer=Math.abs(hoek)>150;
-  p.setAttribute('d', keer?PIJL_KEER:PIJL_RECHT);
-  /* Niet verder dan 135 graden draaien; daarboven wordt het onleesbaar. */
-  const draai=keer?0:Math.max(-135,Math.min(135,hoek));
-  el('dArrow').style.transform=`rotate(${Math.round(draai)}deg)`;
+  p.setAttribute('d', PIJLEN[pijlSoort(hoek)]||PIJLEN.rechtdoor);
+}
+
+/* De straatnaam uit de instructie halen voor de zwarte balk. De routeserver
+   zegt "Sla linksaf naar de Höfener Straße"; jij wil alleen die straat zien. */
+function straatUit(tekst){
+  const s=String(tekst||'').replace(/\.$/,'').trim();
+  const m=s.match(/(?:^|[ ])(?:naar|op|richting)[ ]+(?:de[ ]+|het[ ]+)?(.+)$/i);
+  return (m?m[1]:s).trim();
 }
 
 function mijMarker(){
@@ -354,11 +382,11 @@ function vanDeRouteAf(lat,lon){
   const rel=bearing([lon,lat],doel)-drive.koers;
   const verder=Math.max(0,drive.cum[her.i]-drive.cum[drive.idx]);
 
-  el('dNext').textContent='Terug naar de route';
   el('dDist').textContent=afst(her.af);
+  el('dNext').textContent='Terug naar de route — '+kant(rel);
   el('dThen').textContent = her.vooruit && verder>0.3
-    ? `De route pakt je ${afst(verder)} verderop weer op — ${kant(rel)}`
-    : `Het dichtstbijzijnde punt ligt ${kant(rel)}`;
+    ? `De route pakt je ${afst(verder)} verderop weer op`
+    : 'Rijd terug naar het dichtstbijzijnde punt';
 
   pijlZet(((rel+180)%360+360)%360-180);
   map.getSource('terug')?.setData({type:'Feature',properties:{},
@@ -502,19 +530,19 @@ function driveTick(pos){
   const volg=drive.man.find(m=>m.km>gereden+0.02);
   if(!volg){
     pijlZet(0);
-    el('dNext').textContent=over<0.2?'Je bent er':'Rechtdoor';
     el('dDist').textContent=afst(over);
-    el('dThen').hidden=true;
+    el('dNext').textContent=over<0.2?'Je bent er':'Rechtdoor';
+    el('dThen').textContent=over<0.2?'':'tot het eind van je rit';
     if(over<0.2 && !drive.gezegd.has('eind')){ drive.gezegd.add('eind'); zeg('Je bent er. Goede rit gehad.'); }
     return;
   }
   const naar=volg.km-gereden;
   pijlZet(volg.hoek||0);
-  el('dNext').textContent=volg.tekst.replace(/\.$/,'');
   el('dDist').textContent=afst(naar);
+  el('dNext').textContent=richtingWoord(volg.hoek||0);
   const later=drive.man[drive.man.indexOf(volg)+1];
-  el('dThen').hidden=!later;
-  if(later) el('dThen').textContent='daarna '+richtingWoord(later.hoek||0).toLowerCase();
+  el('dThen').textContent=straatUit(volg.tekst)
+    +(later?' · daarna '+richtingWoord(later.hoek||0).toLowerCase():'');
 
   const id='m'+volg.km.toFixed(3);
   if(naar<0.4 && !drive.gezegd.has(id+'v')){
@@ -553,7 +581,7 @@ async function startDrive(){
   el('dDist').textContent='—';
   el('dThen').hidden=true;
   el('dTrack').classList.remove('on');
-  el('dTrack').textContent='↩';
+  el('dTrack').textContent='↩ Spoor';
   map.resize();
   map.easeTo({zoom:15,pitch:52,duration:600});
 
@@ -582,12 +610,11 @@ function stopDrive(){
   if(drive.spoor.length>1) store.set('rb.spoor',drive.spoor);
 }
 
-el('goDrive').addEventListener('click',startDrive);
 el('sheetDrive').addEventListener('click',startDrive);
 el('dStop').addEventListener('click',stopDrive);
 el('dMute').addEventListener('click',()=>{
   drive.stem=!drive.stem;
-  el('dMute').textContent=drive.stem?'🔊':'🔇';
+  el('dMute').textContent=drive.stem?'🔊 Stem':'🔇 Stil';
   if(!drive.stem) try{ speechSynthesis.cancel(); }catch{}
 });
 
@@ -613,20 +640,20 @@ el('dTrack').addEventListener('click',()=>{
     rijRouteUit(v);
     drive.spoorRit=false;
     el('dTrack').classList.remove('on');
-    el('dTrack').textContent='↩';
+    el('dTrack').textContent='↩ Spoor';
     zeg('Weer op de geplande route.');
     return;
   }
   const s=drive.spoor.length>2?drive.spoor:store.get('rb.spoor',[]);
   if(s.length<3){
-    el('dThen').hidden=false; el('dThen').textContent='geen spoor om over terug te rijden';
+    el('dThen').textContent='geen spoor om over terug te rijden';
     zeg('Er is nog geen spoor om over terug te rijden.');
     return;
   }
   rijRouteUit({shape:[...s].reverse(), sec:0, man:[]});
   drive.spoorRit=true;
   el('dTrack').classList.add('on');
-  el('dTrack').textContent='⤿';
+  el('dTrack').textContent='⤿ Route';
   zeg('Je rijdt nu terug over je eigen spoor.');
 });
 

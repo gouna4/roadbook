@@ -385,6 +385,39 @@ check('5 km recht is te kort om op te knappen',
       saaieStukken(curveProfile(recht(6.0, 50.4, 5))).length, 0);
 
 console.log('');
+console.log('--- de afslagvorm en het woord horen bij elkaar ---');
+/* Vorm en woord komen uit dezelfde grenzen; ze mogen elkaar nooit tegenspreken. */
+const paren = [[0,'rechtdoor','Rechtdoor'], [8,'rechtdoor','Rechtdoor'],
+  [20,'lichtrechts','Licht rechts'], [-20,'lichtlinks','Licht links'],
+  [60,'rechts','Rechts'], [-60,'links','Links'],
+  [120,'scherprechts','Scherp rechts'], [-120,'scherplinks','Scherp links'],
+  [170,'keer','Keer om'], [-170,'keer','Keer om']];
+let mis2 = 0;
+for (const [h, vorm, woord] of paren) {
+  if (pijlSoort(h) !== vorm || richtingWoord(h) !== woord) {
+    console.log('FOUT bij ' + h + ' graden: vorm=' + pijlSoort(h) + ' woord=' + richtingWoord(h));
+    mis2++;
+  }
+}
+check('tien hoeken, vorm en woord kloppen', mis2, 0);
+check('elke vorm bestaat ook echt',
+      paren.every(p => !!PIJLEN[p[1]]), true);
+check('acht verschillende vormen', Object.keys(PIJLEN).length, 8);
+/* Elke vorm moet geldige tekendata zijn: begint met M en heeft alleen letters
+   en getallen die een browser snapt. */
+check('alle vormen zijn geldige tekendata',
+      Object.values(PIJLEN).every(d => /^M[\d\s.,ALHVM-]+$/.test(d)), true);
+
+console.log('');
+console.log('--- straatUit(): de straatnaam uit de instructie ---');
+check('naar de straat', straatUit('Sla linksaf naar de Höfener Straße.'), 'Höfener Straße');
+check('naar zonder lidwoord', straatUit('Ga rechtsaf naar L 246.'), 'L 246');
+check('op de weg', straatUit('Blijf op de B 258'), 'B 258');
+check('richting', straatUit('Neem de afslag richting Monschau'), 'Monschau');
+check('zonder voorzetsel blijft heel', straatUit('Je bent er'), 'Je bent er');
+check('leeg blijft leeg', straatUit(''), '');
+
+console.log('');
 console.log('--- bochtHoek(): hoe scherp is de afslag ---');
 /* Een route die 1 km pal noord gaat en dan 1 km pal oost: bij de hoek is dat
    een bocht van 90 graden naar rechts. Punten van 20 meter, want bochtHoek

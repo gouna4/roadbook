@@ -132,29 +132,14 @@ function initSheet(){
 /* Kaartknoppen achter één menuknop op de telefoon */
 
 /* Snelle plannen-knop op de greep */
-el('sheetGo').addEventListener('click',()=>{
-  if(!el('start').value.trim()||!el('dest').value.trim()){ zetStand('full'); return; }
-  zetStand('peek'); plan();
-});
 
 /* Samenvatting in de balk van het blad */
 /* Het kaartje dat je altijd ziet als het blad dichtgeschoven is: drie grote
    cijfers met een woordje eronder, zoals in elke motornavigatie. Vaste vakjes,
    zodat ze niet verspringen als het getal een cijfer langer wordt. */
-function sheetSamenvatting(){
-  const v=state.variants?.[state.shown];
-  const box=el('sheetInfo');
-  /* Ligt er een route? Dan is rijden wat je wil, niet plannen. De grote knop
-     wisselt dus van rol in plaats van dat er twee naast elkaar staan. */
-  el('grip').classList.toggle('klaar',!!v);
-  el('sheetGo').hidden=!!v;
-  if(!v){ box.innerHTML='<span class="leeg">Plan je rit</span>'; return; }
-  const km=(state.fast.km+v.km).toFixed(0);
-  const tijd=v.imported?'—':fmtTime(state.fast.sec+v.sec);
-  box.innerHTML=`<span class="cij"><b>${km}</b><i>km</i></span>`
-    +`<span class="cij"><b>${tijd}</b><i>rijtijd</i></span>`
-    +`<span class="cij"><b>${v.prof.score}</b><i>bochtig</i></span>`;
-}
+/* Wordt aangeroepen zodra er een route op het scherm komt. */
+function sheetSamenvatting(){ klaarBij(); }
+
 
 let draaiTimer=null;
 function opnieuwMeten(){
@@ -250,49 +235,45 @@ el('hereBtn').addEventListener('click',()=>{
 });
 
 
-/* ================= stap voor stap =================
-   Vier schermen in plaats van één lange sliert: waar ga je heen, wat voor
-   wegen, de rit zelf, en alles wat je maar af en toe nodig hebt.
+/* ================= drie tabbladen =================
+   Plannen, Onderweg, Ritten — en het tandwiel voor alles wat je één keer
+   instelt. Geen genummerde stappen meer: de naam zegt waar je bent, en je
+   springt er rechtstreeks naartoe.
 
-   Je hoeft niet netjes door de stappen te lopen: tik gewoon op de stap die je
-   wil. Dat is belangrijk voor een rit die je vaker rijdt — dan staat alles al
-   goed en wil je meteen naar stap 3. */
-let stap=1;
-
-function stapKlaarTekens(){
-  const waar = !!el('start').value.trim() && !!el('dest').value.trim();
-  const rit = !!state.variants?.[state.shown]?.shape?.length;
-  const zet=(n,ok)=>document.querySelector(`#steps button[data-step="${n}"]`)
-    ?.classList.toggle('klaar',ok);
-  zet(1,waar);
-  zet(3,rit);
+   De zoekbalk over de kaart is de ingang: tikken brengt je naar Plannen met de
+   cursor in het vak "Waar naartoe?". */
+let tab='plan';
+function zetTab(n){
+  tab=n;
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===n));
+  document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on',s.dataset.tab===n));
+  const w=document.querySelector('.tabwrap');
+  if(w) w.scrollTop=0;
+  if(mobiel()&&sheet.stand==='peek') zetStand('half');
+  store.set('rb.tab',n);
 }
+document.querySelectorAll('#tabs button').forEach(b=>
+  b.addEventListener('click',()=>zetTab(b.dataset.tab)));
+/* De knop bij de wegtypes brengt je naar de rest van de wegkeuzes. */
+el('wegMeer').addEventListener('click',()=>zetTab('set'));
+el('zoekBalk').addEventListener('click',()=>{
+  zetTab('plan');
+  el('dest').focus();
+});
 
-function zetStap(n){
-  stap=Math.max(1,Math.min(4,n));
-  document.querySelectorAll('#steps button').forEach(b=>
-    b.classList.toggle('on',+b.dataset.step===stap));
-  document.querySelectorAll('.step').forEach(s=>
-    s.classList.toggle('on',+s.dataset.step===stap));
-  const wrap=document.querySelector('.stepwrap');
-  if(wrap) wrap.scrollTop=0;
-  /* Vanaf stap 3 is plannen de hoofdactie; daarvoor is "verder" dat. */
-  const eind = stap>=3;
-  el('stepNext').hidden = eind;
-  el('go').hidden = !eind;
-  store.set('rb.stap',stap);
-  stapKlaarTekens();
+/* Ligt er een route? Dan komt de groene startknop tevoorschijn en zegt de
+   zoekbalk waar je heen gaat. */
+function klaarBij(){
+  const v=state.variants?.[state.shown];
+  el('sheetDrive').hidden=!v?.shape?.length;
+  const naar=(el('dest').value||'').trim();
+  el('zoekBalk').textContent=naar||'Waar naartoe?';
+  el('zoekBalk').classList.toggle('gevuld',!!naar);
 }
+['start','dest'].forEach(id=>el(id).addEventListener('input',klaarBij));
 
-document.querySelectorAll('#steps button').forEach(b=>
-  b.addEventListener('click',()=>zetStap(+b.dataset.step)));
-el('stepNext').addEventListener('click',()=>zetStap(stap+1));
-['start','dest'].forEach(id=>el(id).addEventListener('input',stapKlaarTekens));
-
-/* Op Plannen drukken brengt je naar stap 3, want daar komt het antwoord. */
-el('go').addEventListener('click',()=>zetStap(3));
-
-zetStap(store.get('rb.stap',1));
+zetTab(store.get('rb.tab','plan'));
+klaarBij();
 
 /* ================= licht of donker =================
    Bij daglicht een licht paneel en de gewone kaart, na zonsondergang donker

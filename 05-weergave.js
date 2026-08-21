@@ -122,8 +122,7 @@ function applyVariant(k){
   el('summary').hidden=false; el('legend').hidden=false; el('exports').hidden=false;
   /* Er ligt een route: dan hoort Route starten binnen handbereik te staan,
      op dezelfde plek waar je net op Plannen drukte. */
-  el('goDrive').hidden=false; el('sheetDrive').hidden=false;
-  if(typeof stapKlaarTekens==='function') stapKlaarTekens();
+  if(typeof klaarBij==='function') klaarBij();
 
   /* bochtigste stukken en tankstops als extra regels in het roadbook */
   const base=state.fast.km, extra=[];

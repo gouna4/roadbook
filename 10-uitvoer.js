@@ -121,8 +121,7 @@ function loadSaved(s){
 function alsWissen(){
   clearMarkers(); runSeq++;
   if(typeof tekenWis==='function') tekenWis();
-  el('goDrive').hidden=true; el('sheetDrive').hidden=true;
-  if(typeof stapKlaarTekens==='function') stapKlaarTekens();
+  if(typeof klaarBij==='function') klaarBij();
   state.shape=[]; state.tourShape=[]; state.pois=[]; state.stays=[];
   state.vias=[]; state.variants={}; state.mids=[]; state.fast={shape:[],km:0,sec:0};
   renderVias();
@@ -132,10 +131,8 @@ function alsWissen(){
   clearAlong(); state.along=null; state.extraRows=[]; state.variants={}; state.shown=null;
   el('roadbook').innerHTML='<p class="empty">Vul vertrek en bestemming in en plan je route. Tik op de kaart om ergens een tussenstop neer te zetten, of sleep de route zelf een andere kant op.</p>';
   setStatus('');
-  el('sheetInfo').textContent='Plan je rit';
 }
 el('clear').addEventListener('click',alsWissen);
-el('sheetClear').addEventListener('click',alsWissen);
 
 
 /* ================= route in je zak =================
