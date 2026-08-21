@@ -121,7 +121,6 @@ function drawOffroad(){
   src.setData({ type:'FeatureCollection', features: offVisible
     ? offRoads.map(w=>({type:'Feature',properties:{id:w.id,name:w.name},
         geometry:{type:'LineString',coordinates:w.geom}})) : [] });
-  el('offShow').classList.toggle('on',offVisible);
 }
 
 function renderOffroad(){
@@ -139,7 +138,6 @@ function renderOffroad(){
     b.addEventListener('click',()=>{
       addVia(`${w.mid[1].toFixed(5)}, ${w.mid[0].toFixed(5)}`);
       el('dirt').value=Math.max(60,+el('dirt').value); el('dirtVal').textContent=el('dirt').value;
-      el('noDirt').checked=false;
       setStatus(`${w.name} als tussenstop gezet en Onverhard omhoog gezet. Plan de route opnieuw.`);
     });
     const z=document.createElement('button'); z.className='text-btn';
@@ -164,7 +162,6 @@ el('offFind').addEventListener('click',async()=>{
   }catch(err){ setStatus(err.message,true); }
   finally{ btn.classList.remove('busy'); btn.disabled=false; }
 });
-el('offShow').addEventListener('click',()=>{ offVisible=!offVisible; drawOffroad(); });
 /* saveSettings() staat in 10-uitvoer.js, dus bij het inladen bestaat de naam
    hier nog niet. Daarom in een pijlfunctie: dan wordt hij pas opgezocht als
    je er echt op klikt, en dat is altijd na het inladen. */
@@ -251,8 +248,7 @@ function mijMarker(){
 
 function naviCam(){
   if(!drive.volgen||!drive.pos) return;
-  map.easeTo({ center:drive.pos, bearing:drive.noord?0:drive.koers,
-    pitch:drive.noord?0:52, duration:900, easing:t=>t });
+  map.easeTo({ center:drive.pos, bearing:drive.koers, pitch:52, duration:900, easing:t=>t });
 }
 
 /* Het stuk dat je al gehad hebt grijs maken, zodat je in één oogopslag ziet
@@ -503,7 +499,7 @@ async function startDrive(){
   el('dTrack').classList.remove('on');
   el('dTrack').textContent='↩ Terug over mijn spoor';
   map.resize();
-  map.easeTo({zoom:15,pitch:drive.noord?0:52,duration:600});
+  map.easeTo({zoom:15,pitch:52,duration:600});
 
   try{ drive.lock=await navigator.wakeLock?.request('screen'); }catch{}
   zeg('Rijmodus aan. Goede rit.');
@@ -530,7 +526,6 @@ function stopDrive(){
   if(drive.spoor.length>1) store.set('rb.spoor',drive.spoor);
 }
 
-el('driveBtn').addEventListener('click',startDrive);
 el('goDrive').addEventListener('click',startDrive);
 el('sheetDrive').addEventListener('click',startDrive);
 el('dStop').addEventListener('click',stopDrive);
@@ -540,14 +535,6 @@ el('dMute').addEventListener('click',()=>{
   if(!drive.stem) try{ speechSynthesis.cancel(); }catch{}
 });
 
-el('dNorth').addEventListener('click',()=>{
-  drive.noord=!drive.noord;
-  el('dNorth').classList.toggle('on',drive.noord);
-  el('dNorth').textContent=drive.noord?'🧭 Noorden boven':'🧭 Meedraaien';
-  drive.volgen=true; el('dRecenter').hidden=true;
-  if(drive.pos) map.easeTo({center:drive.pos,bearing:drive.noord?0:drive.koers,
-    pitch:drive.noord?0:52,duration:600});
-});
 
 el('dRecenter').addEventListener('click',()=>{
   drive.volgen=true; el('dRecenter').hidden=true; naviCam();

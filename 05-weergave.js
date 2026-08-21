@@ -92,12 +92,7 @@ function renderRoadbook(points,pois,stays,cum){
     d.style.animationDelay=(Math.min(i,14)*22)+'ms';
     d.innerHTML=`<div class="km">${r.km.toFixed(0)} km</div><div class="pip"></div>
       <div class="body"><div class="title">${r.title}</div><div class="kind">${r.kind}</div></div>`;
-    if(r.add && el('showPhotos').checked){
-      const box=document.createElement('div');
-      box.className='shot'; box._poi=r.add;
-      d.querySelector('.body').appendChild(box);
-      shotWatcher.observe(box);
-    }
+
     if(r.add){
       const b=document.createElement('button');
       b.className='text-btn add'; b.textContent='+ Als tussenstop';
@@ -112,41 +107,6 @@ function renderRoadbook(points,pois,stays,cum){
 }
 
 /* ================= routes vergelijken ================= */
-function renderAlts(){
-  const box=el('alts'); box.innerHTML='';
-  const keys=Object.keys(state.variants);
-  keys.forEach(k=>{
-    const v=state.variants[k];
-    const b=document.createElement('button');
-    b.className=(k===state.shown?'on':'');
-    b.innerHTML=`<svg viewBox="0 0 40 16" aria-hidden="true" style="color:${v.color}">
-        <path d="M2 11c6 0 8-6 14-6s8 6 14 6c4 0 6-2 8-3" fill="none"
-              stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
-      <span class="nm">${v.label}</span>
-      <span class="fig">${(state.fast.km+v.km).toFixed(0)} km · ${v.prof.score} bocht${v.urban?` · ${v.urban.score} stad`:''}${v.oud!=null?` · ${Math.round(v.oud*100)}% bekend`:''}</span>`;
-    b.addEventListener('click',()=>applyVariant(k));
-    box.appendChild(b);
-  });
-  if(state.pending){
-    const b=document.createElement('button'); b.className='busy';
-    b.innerHTML=`<svg viewBox="0 0 40 16"></svg><span class="nm">Zoeken…</span>
-      <span class="fig">andere route</span>`;
-    box.appendChild(b);
-  }
-  el('altBlock').hidden = keys.length<2 && !state.pending;
-}
-
-function renderAltsMap(){
-  const feats=[];
-  for(const k of Object.keys(state.variants)){
-    if(k===state.shown) continue;
-    feats.push({type:'Feature',properties:{k,col:state.variants[k].color},
-      geometry:{type:'LineString',coordinates:state.variants[k].shape}});
-  }
-  const src=map.getSource('alts');
-  if(src) src.setData({type:'FeatureCollection',features:feats});
-}
-
 function applyVariant(k){
   const v=state.variants[k]; if(!v) return;
   state.shown=k;
@@ -178,7 +138,6 @@ function applyVariant(k){
   }
   state.extraRows=extra;
   renderRoadbook(state.points,state.pois,state.stays,cum);
-  renderAlts(); renderAltsMap();
   if(typeof renderTurns==='function') renderTurns();
   /* Meteen in de opslag, zodat je deze rit ook zonder bereik kunt rijden. */
   if(typeof ritOpslaan==='function') ritOpslaan();

@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=36">
+<link rel="stylesheet" href="stijl.css?v=37">
 </head>
 <body>
 
@@ -34,7 +34,7 @@
 
   <header class="top">
     <h1>Road<span>book</span></h1>
-    <span class="ver" id="verNr">versie 36</span>
+    <span class="ver" id="verNr">versie 37</span>
     <button class="themebtn" id="themeBtn" title="Licht, donker of automatisch">☀</button>
   </header>
 
@@ -78,9 +78,6 @@
       </div>
       <div id="vias"></div>
       <button class="text-btn" id="addVia">+ Tussenstop toevoegen</button>
-      <label class="check" id="manualRow" hidden>
-        <input type="checkbox" id="manualOrder"> Zelf de volgorde bepalen
-      </label>
       <div class="field">
         <label for="dest" id="destLabel">Bestemming</label>
         <input id="dest" placeholder="Winterberg" value="Winterberg">
@@ -93,13 +90,11 @@
     <div class="block">
       <div class="eyebrow">Of laat de kaart het doen</div>
       <p class="hint">
-        Trek met je vinger een vorm over de kaart met de knop <b>✎ Tekenen</b>.
-        Eindig waar je begon en het wordt een rondje.
-      </p>
-      <p class="hint">
-        Wil je precies bepaalde weggetjes rijden? Zoom in en gebruik
-        <b>📍 Punten</b>. Elke tik is een punt waar de route langs moet, en met
-        <b>Hele weg</b> leg je een weg in één tik helemaal vast.
+        Met <b>✎ Zelf bepalen</b> op de kaart bepaal jij de route.
+        <b>Tik</b> voor een punt waar de route langs moet — hoe dichter bij elkaar,
+        hoe strakker hij jouw weg volgt. <b>Veeg</b> een vorm en hij maakt daar een
+        rit van; eindig waar je begon voor een rondje. En met <b>Hele weg</b> aan
+        legt één tik een compleet weggetje vast.
       </p>
       <button class="text-btn" id="gpxOpen">GPX-bestand openen</button>
       <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden>
@@ -152,8 +147,6 @@
         <label class="check"><input type="checkbox" id="noRepeat" checked> Dezelfde weg twee keer rijden</label>
         <label class="check"><input type="checkbox" id="noToll"> Tolwegen</label>
         <label class="check"><input type="checkbox" id="noFerry"> Veerboten</label>
-        <label class="check"><input type="checkbox" id="noDirt"> Onverharde wegen</label>
-        <label class="check"><input type="checkbox" id="noRidden"> Wegen die ik al reed</label>
       </div>
     </div>
 
@@ -173,9 +166,6 @@
       <p class="hint">
         Vul bijv. 60 in om het saaie stuk snel achter je te laten. Dat deel staat blauw gestippeld op de kaart.
       </p>
-      <label class="check">
-        <input type="checkbox" id="checkDist" checked> Waarschuwen als de afstand niet klopt
-      </label>
     </div>
   </section>
 
@@ -194,9 +184,7 @@
     <div class="block">
       <div class="eyebrow">Wat wil je onderweg zien</div>
       <div class="checks">
-        <label class="check"><input type="checkbox" id="findScenic"> Bos en water erbij zoeken <span class="zacht">(kan omrijden geven)</span></label>
         <label class="check"><input type="checkbox" id="findPois" checked> Bezienswaardigheden langs de route</label>
-        <label class="check"><input type="checkbox" id="showPhotos" checked> Foto's van die plekken laten zien</label>
         <label class="check"><input type="checkbox" id="findStays"> Overnachting bij de bestemming</label>
       </div>
     </div>
@@ -221,23 +209,14 @@
       <span class="dash"></span><span class="t">snelweg</span>
     </div>
 
-    <div class="block" id="altBlock" hidden>
-      <div class="eyebrow">Andere routes</div>
-      <div class="alts" id="alts"></div>
-      <p class="hint">Klik een route aan, in het paneel of op de kaart.</p>
-    </div>
-
-    <div class="roadbook" id="roadbook">
+<div class="roadbook" id="roadbook">
       <p class="empty">Vul vertrek en bestemming in en druk op Route plannen. Tik op de kaart om ergens een tussenstop neer te zetten, of sleep de route zelf een andere kant op.</p>
     </div>
 
     <div class="block" id="alongBlock" data-fold data-shut>
       <div class="eyebrow">Onderweg tanken en eten</div>
-      <div class="chips" id="alongChips">
-        <button data-k="fuel"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 15V4a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 10 4v11M2.5 15h9M5 7h4M12 5.5l2 2V12a1.2 1.2 0 0 0 2.4 0V6.5"/></svg>Tanken</button>
-        <button data-k="food"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4.5 2.5v4a1.8 1.8 0 0 0 3.6 0v-4M6.3 6.5V15M12.5 2.5c-1.4 0-2.2 1.6-2.2 3.4s.8 2.9 2.2 2.9V15"/></svg>Eten</button>
-        <button data-k="cafe"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3.5 5h8v4.5a3.5 3.5 0 0 1-3.5 3.5H7a3.5 3.5 0 0 1-3.5-3.5V5zM11.5 6h1.6a1.9 1.9 0 0 1 0 3.8h-1.6M2.5 15.5h10"/></svg>Koffie</button>
-        <button data-k="moto"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M13.5 2.5a3.3 3.3 0 0 0-4.4 4.4l-5 4.6a1.6 1.6 0 0 0 2.2 2.2l4.6-5a3.3 3.3 0 0 0 4.4-4.4l-2 2-1.7-.5-.5-1.7z"/></svg>Motorzaak</button>
+      <div class="chips">
+        <button id="alongAll">Wat is er onderweg?</button>
       </div>
       <div class="rows" id="alongList"></div>
     </div>
@@ -251,17 +230,10 @@
       <div class="eyebrow">Meenemen</div>
       <div class="exports" id="exports" hidden>
         <button id="gpx">GPX opslaan</button>
-        <button id="printBtn">Afdrukken</button>
         <button id="share">Delen</button>
-        <button id="save">Bewaren</button>
       </div>
-      <p class="inline" id="gpxRow">
-        GPX met max <input type="number" id="gpxPts" min="3" max="80" step="1" value="30"> vormpunten
-      </p>
-      <div class="toolrow">
+<div class="toolrow">
         <button id="btnUndo" title="Laatste wijziging terugdraaien">↶ Ongedaan</button>
-        <button id="btnReverse" title="Begin en eind omdraaien">⇄ Omkeren</button>
-        <button id="btnFit" title="Hele route in beeld">⤢ Hele route</button>
       </div>
     </div>
   </section>
@@ -318,7 +290,6 @@
       <p class="hint" id="okEst"></p>
       <div class="chips">
         <button id="okGo" hidden>Binnenhalen</button>
-        <button id="okStop" hidden>Stoppen</button>
       </div>
       <div id="okBar" hidden>
         <div class="okbar"><div id="okBarIn"></div></div>
@@ -329,20 +300,10 @@
       <p class="hint" id="okRuimte"></p>
     </div>
 
-    <div class="block" id="logBlock" data-fold data-shut>
-      <div class="eyebrow">Rittenlogboek</div>
-      <div class="chips">
-        <button id="logAdd">Deze rit is gereden</button>
-      </div>
-      <div id="logTotals" class="hint"></div>
-      <div class="rows" id="logList"></div>
-    </div>
-
-    <div class="block" id="offBlock" data-fold data-shut>
+<div class="block" id="offBlock" data-fold data-shut>
       <div class="eyebrow">Offroad</div>
       <div class="chips">
         <button id="offFind">Zoek onverharde wegen</button>
-        <button id="offShow">Op de kaart</button>
       </div>
       <p class="inline">
         Binnen <input type="number" id="offRadius" min="2" max="60" step="1" value="15"> km van
@@ -359,23 +320,9 @@
       </p>
     </div>
 
-    <div class="block" id="tourBlock" hidden data-fold data-shut>
-      <div class="eyebrow">Bekende routes in de buurt</div>
-      <button class="text-btn" id="findTours">Zoek toeristische routes langs deze rit</button>
-      <div class="rows" id="routeList"></div>
-      <p class="hint">
-        Officiële panorama- en vakantieroutes uit OpenStreetMap. "Aansluiten" zoekt het punt van die route dat het dichtst bij jou ligt.
-      </p>
-    </div>
-
-    <div class="block">
+<div class="block">
       <div class="eyebrow">Uiterlijk</div>
-      <div class="chips" id="themeRow">
-        <button data-thema="auto" class="on">Volgt de zon</button>
-        <button data-thema="licht">Altijd licht</button>
-        <button data-thema="donker">Altijd donker</button>
-      </div>
-      <p class="hint" id="themeHint">
+<p class="hint" id="themeHint">
         Licht bij daglicht, donker na zonsondergang. De app rekent zelf uit wanneer
         de zon op- en ondergaat waar jij op de kaart kijkt — daar is geen internet voor nodig.
       </p>
@@ -398,7 +345,6 @@
   <div class="bar" id="bar">
     <p class="status" id="status"></p>
     <div class="barrow">
-      <button class="bicon" id="stepBack" title="Stap terug">←</button>
       <button class="go" id="stepNext">Verder →</button>
       <button class="go" id="go" hidden>Route plannen</button>
       <button class="go alt" id="goDrive" hidden>▶ Starten</button>
@@ -426,7 +372,6 @@
       <div><span>Aankomst</span><strong id="dEta">—</strong></div>
     </div>
     <div class="dbtns">
-      <button id="dNorth">🧭 Meedraaien</button>
       <button id="dTrack">↩ Terug over mijn spoor</button>
       <button id="dMute">🔊 Stem aan</button>
       <button id="dStop">■ Stoppen</button>
@@ -437,51 +382,34 @@
 <div class="mapwrap">
   <div id="map"></div>
   <div id="mapDim"></div>
-  <button class="toolsbtn" id="toolsBtn" aria-label="Kaartknoppen">▤</button>
-  <button class="penbtn" id="drawMode" title="Trek met je vinger een vorm over de kaart">✎ Tekenen</button>
-  <button class="penbtn punt" id="pinMode" title="Tik de wegen aan die je wil rijden">📍 Punten</button>
+  <button class="penbtn" id="drawMode" title="Tik voor een punt, veeg voor een vorm">✎ Zelf bepalen</button>
   <button class="penbtn terug" id="drawUndo" hidden title="Laatste stap terugdraaien">↶</button>
-  <button class="penbtn wis" id="drawClear" hidden title="Tekening weghalen">✕</button>
-  <div id="drawBanner" hidden></div>
+  <button class="penbtn wis" id="drawClear" hidden title="Weghalen">✕</button>
+  <div class="mapleft">
+    <button class="addmode" id="baseCycle" title="Andere kaart">Kleur</button>
+    <button class="addmode" id="curveToggle">Bochtige wegen</button>
+  </div>
   <div id="pinBar" hidden>
     <div class="pinrij">
-      <button data-soort="punt" class="on">Punt</button>
-      <button data-soort="weg">Hele weg</button>
-      <span id="pinCount">Tik de wegen aan die je wil rijden</span>
+      <button id="pinWeg" title="Tik op een weg en hij wordt helemaal vastgelegd">Hele weg</button>
+      <span id="pinCount">Tik voor een punt, veeg voor een vorm</span>
     </div>
     <p id="pinUitleg">Elke tik zet één punt. Dichter bij elkaar = strakker jouw weg.</p>
     <p id="pinWaarschuw" hidden>Bijna vol — de routeserver neemt ongeveer 45 punten.</p>
   </div>
-  <div id="mapTools">
-    <button class="addmode" id="driveBtn">▶ Rijmodus</button>
-    <button class="addmode" id="addMode">+ Tussenstop plaatsen</button>
-    <div class="layers" id="overlays">
-      <button id="curveToggle">Bochtige wegen</button>
-      <button id="riddenToggle">Al gereden</button>
-    </div>
-    <div class="layers" id="bases" role="group" aria-label="Kaartlaag kiezen">
-      <button data-base="kleur" class="on">Kleur</button>
-      <button data-base="topo">Topo</button>
-      <button data-base="sat">Satelliet</button>
-    </div>
-  </div>
-  <div class="tip" id="tip">
-    <button id="tipClose" aria-label="Sluiten">×</button>
-    <b>Sleep de route</b> met de muis om hem ergens anders langs te laten lopen.
-  </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=36"></script>
-<script src="02-invoer.js?v=36"></script>
-<script src="03-route.js?v=36"></script>
-<script src="04-bibliotheek.js?v=36"></script>
-<script src="05-weergave.js?v=36"></script>
-<script src="06-plannen.js?v=36"></script>
-<script src="07-interface.js?v=36"></script>
-<script src="08-onderweg.js?v=36"></script>
-<script src="09-rijden.js?v=36"></script>
-<script src="10-uitvoer.js?v=36"></script>
-<script src="11-offline.js?v=36"></script>
-<script src="12-opstarten.js?v=36"></script>
+<script src="01-basis.js?v=37"></script>
+<script src="02-invoer.js?v=37"></script>
+<script src="03-route.js?v=37"></script>
+<script src="04-bibliotheek.js?v=37"></script>
+<script src="05-weergave.js?v=37"></script>
+<script src="06-plannen.js?v=37"></script>
+<script src="07-interface.js?v=37"></script>
+<script src="08-onderweg.js?v=37"></script>
+<script src="09-rijden.js?v=37"></script>
+<script src="10-uitvoer.js?v=37"></script>
+<script src="11-offline.js?v=37"></script>
+<script src="12-opstarten.js?v=37"></script>
 </body>
 </html>

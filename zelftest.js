@@ -494,25 +494,21 @@ console.log('=== 4. klopt de interface met de code? ===');
   }
   if (!ontbreekt) console.log("OK   elke el('id') vindt zijn element");
 
-  /* De kaartlaag-knoppen moeten in hun eigen rij staan. Deelden ze een klasse
-     met "Bochtige wegen", dan zette die knop ook de kaart uit — zwart scherm,
-     en je kon het niet meer aanzetten. */
-  const bases = /<div class="layers" id="bases"[\s\S]*?<\/div>/.exec(html);
-  if (!bases) { console.log('FOUT de rij met kaartlagen heeft geen id="bases"'); fouten++; }
-  else {
-    const knoppen = [...bases[0].matchAll(/<button([^>]*)>/g)].map(m => m[1]);
-    const zonder = knoppen.filter(a => !/data-base=/.test(a));
-    const buiten = [...html.matchAll(/<button([^>]*)>/g)]
-      .filter(m => /data-base=/.test(m[1]) && bases[0].indexOf(m[0]) < 0);
-    if (zonder.length) { console.log('FOUT knop in #bases zonder data-base: ' + zonder.length); fouten++; }
-    else if (buiten.length) { console.log('FOUT data-base-knop buiten #bases: ' + buiten.length); fouten++; }
-    else console.log('OK   de kaartlaag-knoppen staan apart');
-    for (const f of BESTANDEN) {
+  /* De kaartlagen zaten in een rij die een klasse deelde met andere knoppen.
+     Een luisteraar op '.layers button' raakte die andere ook: dan werd de kaart
+     zwart en kwam hij niet meer terug. Sinds versie 37 is het één knop die
+     doorklikt, en mag die selector nergens meer voorkomen. */
+  if(!ids.has('baseCycle')){
+    console.log('FOUT de knop om van kaart te wisselen (baseCycle) bestaat niet');
+    fouten++;
+  } else {
+    let mis = 0;
+    for (const f of BESTANDEN)
       if (/querySelectorAll\('\.layers button'\)/.test(fs.readFileSync(f, 'utf8'))) {
-        console.log('FOUT ' + f + " luistert naar '.layers button' — dat raakt ook de overlays");
-        fouten++;
+        console.log('FOUT ' + f + " luistert naar '.layers button' — dat raakt ook andere knoppen");
+        fouten++; mis++;
       }
-    }
+    if (!mis) console.log('OK   van kaart wisselen gaat via een eigen knop');
   }
 
   /* Versienummers die uit elkaar lopen geven een halve oude app. Ze staan op

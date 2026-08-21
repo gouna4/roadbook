@@ -65,7 +65,6 @@ el('depTime').addEventListener('change',()=>{
 /* saveSettings() staat in 10-uitvoer.js, dus bij het inladen bestaat de naam
    hier nog niet. Daarom in een pijlfunctie: dan wordt hij pas opgezocht als
    je er echt op klikt, en dat is altijd na het inladen. */
-el('checkDist').addEventListener('change',()=>saveSettings());
 function loopVeld(){
   const aan=el('loopOn').checked;
   el('loopKm').disabled=!aan;
@@ -155,7 +154,7 @@ function shareData(){
   return { s:el('start').value, d:el('dest').value, v:state.vias, m:tripMode,
            l:level, t:el('depTime').value, k:el('loopKm').value, c:co,
            o:{ nh:el('noHighway').checked, at:el('avoidTowns').checked,
-               nr:el('noRepeat').checked, nd:el('noDirt').checked,
+               nr:el('noRepeat').checked,
                tl:el('noToll').checked, fy:el('noFerry').checked },
            dt:el('dirt').value, sp:el('sprintKm').value, mo:manualOrder };
 }
@@ -184,9 +183,9 @@ function applyShared(b64){
     if(j.sp!=null) el('sprintKm').value=j.sp;
     const o=j.o||{};
     el('noHighway').checked=!!o.nh; el('avoidTowns').checked=!!o.at;
-    el('noRepeat').checked=!!o.nr; el('noDirt').checked=!!o.nd;
+    el('noRepeat').checked=!!o.nr;
     el('noToll').checked=!!o.tl; el('noFerry').checked=!!o.fy;
-    manualOrder=!!j.mo; el('manualOrder').checked=manualOrder;
+    manualOrder=!!j.mo;
     renderVias();
     setStatus('Gedeelde route geopend — even berekenen…');
     plan();
@@ -208,88 +207,4 @@ el('share').addEventListener('click',async()=>{
 
 
 
-
-/* ================= rittenlogboek =================
-   Wat je gereden hebt onthouden, met de lijn erbij. Daarmee kan de app
-   later zien of een nieuwe route over oud terrein gaat. */
-function logAll(){ return store.get('rb.log',[]); }
-function logSave(l){ return store.set('rb.log',l); }
-
-function logRide(naam,shape,km,score){
-  if(!store.ok()){ setStatus('Bewaren werkt alleen op je eigen site.',true); return false; }
-  const kort=simplify(shape,0.05);
-  const item={ id:Date.now(), at:Date.now(), naam:naam.slice(0,60),
-    km:Math.round(km), score, pts:kort };
-  const l=logAll(); l.unshift(item);
-  if(!logSave(l.slice(0,80))){ setStatus('De opslag zit vol. Verwijder een paar ritten.',true); return false; }
-  renderLog(); drawRidden();
-  return true;
-}
-
-function renderLog(){
-  const l=logAll();
-  const box=el('logList'); box.innerHTML='';
-  const perJaar={};
-  l.forEach(r=>{ const j=new Date(r.at).getFullYear(); perJaar[j]=(perJaar[j]||0)+r.km; });
-  const tot=l.reduce((a,b)=>a+b.km,0);
-  el('logTotals').textContent = l.length
-    ? `${l.length} ritten · ${tot} km in totaal · ` +
-      Object.entries(perJaar).sort((a,b)=>b[0]-a[0]).map(([j,k])=>`${j}: ${k} km`).join(' · ')
-    : 'Nog niets gereden. Plan een route en druk op "Deze rit is gereden".';
-  l.forEach(r=>{
-    const d=document.createElement('div'); d.className='r';
-    const wanneer=new Date(r.at).toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'});
-    d.innerHTML=`<div style="min-width:0"><div class="nm">${r.naam}</div>
-      <div class="ds">${wanneer} · ${r.km} km · ${r.score} bocht</div></div>`;
-    const acts=document.createElement('div'); acts.className='acts';
-    const open=document.createElement('button'); open.className='text-btn'; open.textContent='Openen';
-    open.addEventListener('click',()=>useImported(r.pts,r.naam,null));
-    const del=document.createElement('button'); del.className='text-btn';
-    del.style.color='#8D9AA4'; del.textContent='×';
-    del.addEventListener('click',()=>{ logSave(logAll().filter(x=>x.id!==r.id)); renderLog(); drawRidden(); });
-    acts.append(open,del); d.appendChild(acts); box.appendChild(d);
-  });
-}
-
-el('logAdd').addEventListener('click',()=>{
-  const v=state.variants?.[state.shown];
-  if(!v||!state.shape?.length){ setStatus('Plan of open eerst een route.',true); return; }
-  const naam=`${state.points[0]?.name||'?'} → ${state.points[state.points.length-1]?.name||'?'}`;
-  if(logRide(naam,state.shape,state.fast.km+v.km,v.prof.score))
-    setStatus(`"${naam}" in je logboek gezet. Vanaf nu telt hij mee bij "wegen die ik al reed".`);
-});
-
-/* ================= al gereden wegen ================= */
-let riddenOn=false;
-function riddenShapes(){ return logAll().map(r=>r.pts).filter(p=>p&&p.length>3); }
-
-/* Welk deel van deze route heb je al eens gereden? */
-function riddenShare(shape){
-  const oud=riddenShapes();
-  if(!oud.length) return 0;
-  const punten=coarse(shape,Math.max(1,Math.ceil(shape.length/220)));
-  let raak=0;
-  for(const p of punten){
-    let dicht=false;
-    for(const r of oud){
-      for(let i=0;i<r.length;i+=2){ if(haversine(r[i],p)<0.08){ dicht=true; break; } }
-      if(dicht) break;
-    }
-    if(dicht) raak++;
-  }
-  return punten.length?raak/punten.length:0;
-}
-
-function drawRidden(){
-  const src=map.getSource('ridden');
-  if(!src) return;
-  src.setData({ type:'FeatureCollection', features: riddenOn
-    ? riddenShapes().map(p=>({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:p}})) : [] });
-  el('riddenToggle').classList.toggle('on',riddenOn);
-}
-el('riddenToggle').addEventListener('click',()=>{
-  riddenOn=!riddenOn; drawRidden();
-  if(riddenOn && !riddenShapes().length)
-    setStatus('Je logboek is nog leeg — zet eerst een rit op "gereden".');
-});
 

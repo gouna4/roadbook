@@ -53,14 +53,10 @@ function renderLib(){
     const acts=document.createElement('div'); acts.className='acts';
     const open=document.createElement('button'); open.className='text-btn'; open.textContent='Rijden';
     open.addEventListener('click',()=>useImported(r.pts,r.name,r.named));
-    const ger=document.createElement('button'); ger.className='text-btn';
-    ger.style.color='#6B8F71'; ger.textContent='Gereden'; ger.title='In je logboek zetten';
-    ger.addEventListener('click',()=>{ if(logRide(r.name,r.pts,r.km,r.score))
-      setStatus(`"${r.name}" in je logboek gezet.`); });
     const del=document.createElement('button'); del.className='text-btn';
     del.style.color='#8D9AA4'; del.textContent='×'; del.title='Verwijderen';
     del.addEventListener('click',()=>{ libSave(libAll().filter(x=>x.id!==r.id)); renderLib(); drawLib(); });
-    acts.append(open,ger,del); d.appendChild(acts); box.appendChild(d);
+    acts.append(open,del); d.appendChild(acts); box.appendChild(d);
   });
 }
 
@@ -208,7 +204,7 @@ function useImported(pts,name,named){
   el('start').value=eersteNaam;
   el('dest').value=laatsteNaam;
   state.vias=lijst.map(p=>{ PICKED.set(p.name,{name:p.name,lat:p.lat,lon:p.lon}); return p.name; });
-  manualOrder=true; el('manualOrder').checked=true;
+  manualOrder=true;   /* punten die jij aanwijst houden hun volgorde */
   renderVias();
 
   state.points=[
@@ -221,7 +217,6 @@ function useImported(pts,name,named){
   applyVariant('imp');
   map.fitBounds(pts.reduce((bb,c)=>bb.extend(c),new maplibregl.LngLatBounds(pts[0],pts[0])),
     {padding:60,duration:800});
-  el('tourBlock').hidden=false;
   setStatus(`"${name}" geopend: ${km.toFixed(0)} km, bochtigheid ${state.variants.imp.prof.score}`
     +(weg>0?`, ${weg} straatadressen weggelaten`:'')
     +`. ${state.vias.length} punten staan in de lijst — pas ze aan en druk op Route plannen om er je eigen rit van te maken.`);

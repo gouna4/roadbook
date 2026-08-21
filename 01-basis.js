@@ -63,6 +63,8 @@ map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right'
 map.addControl(new maplibregl.GeolocateControl({trackUserLocation:false}),'top-right');
 map.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
 
+const BASE_ORDE=['kleur','topo','sat'];
+const BASE_NAAM={kleur:'Kleur',topo:'Topo',sat:'Satelliet'};
 let baseGround=[], baseLabels=[], origVis={};
 function setBase(kind){
   /* Onbekende waarde? Dan de kleurenkaart. Anders zetten we alle vlakken van de
@@ -77,7 +79,8 @@ function setBase(kind){
     map.setLayoutProperty(id,'visibility', kind==='topo'?'none':origVis[id]); });
   for(const k of Object.keys(BASES)) if(map.getLayer('base-'+k))
     map.setLayoutProperty('base-'+k,'visibility', k===kind?'visible':'none');
-  document.querySelectorAll('#bases button').forEach(b=>b.classList.toggle('on',b.dataset.base===kind));
+  /* Eén knop die doorklikt. Hij laat zien welke kaart je nú hebt. */
+  el('baseCycle').textContent=BASE_NAAM[kind]||'Kleur';
   store.set('rb.base',kind);
 }
 
@@ -92,11 +95,12 @@ map.on('load',()=>{
       maxzoom:cfg.maxzoom,attribution:cfg.attribution});
     map.addLayer({id:'base-'+k,type:'raster',source:'base-'+k,layout:{visibility:'none'}},firstLabel);
   }
-  /* Alleen de knoppen Kleur/Topo/Satelliet. "Bochtige wegen" en "Al gereden"
-     staan in een rij met dezelfde klasse, en die luisterden hier ook naar:
-     dan werd de kaart zwart en kon je het niet meer uitzetten. */
-  document.querySelectorAll('#bases button').forEach(b=>
-    b.addEventListener('click',()=>setBase(b.dataset.base)));
+  /* Doorklikken: kleur -> topo -> satelliet -> kleur. Eén knop in plaats van
+     drie, en geen rij knoppen meer die per ongeluk elkaars werk doet. */
+  el('baseCycle').addEventListener('click',()=>{
+    const nu=store.get('rb.base','kleur');
+    setBase(BASE_ORDE[(BASE_ORDE.indexOf(nu)+1)%BASE_ORDE.length]);
+  });
 
   map.addSource('fast',{type:'geojson',data:EMPTY});
   map.addLayer({id:'fast-case',type:'line',source:'fast',
@@ -105,11 +109,6 @@ map.on('load',()=>{
   map.addLayer({id:'fast-line',type:'line',source:'fast',
     paint:{'line-color':'#3FC4F0','line-width':5,'line-dasharray':[2,1.3]},
     layout:{'line-cap':'butt','line-join':'round'}});
-
-  map.addSource('ridden',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
-  map.addLayer({id:'ridden-line',type:'line',source:'ridden',
-    paint:{'line-color':'#6B8F71','line-width':5,'line-opacity':.5},
-    layout:{'line-cap':'round','line-join':'round'}});
 
   map.addSource('curve',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'curve-line',type:'line',source:'curve',
@@ -127,12 +126,6 @@ map.on('load',()=>{
   map.addSource('lib',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'lib-line',type:'line',source:'lib',
     paint:{'line-color':'#B879E0','line-width':2.5,'line-opacity':.75},
-    layout:{'line-cap':'round','line-join':'round'}});
-
-  map.addSource('alts',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
-  map.addLayer({id:'alts-line',type:'line',source:'alts',
-    paint:{'line-width':3,'line-opacity':.9,
-      'line-color':['match',['get','lv'],1,'#B879E0',2,'#37BFA0',3,'#E0B354',4,'#6FA8DC','#888']},
     layout:{'line-cap':'round','line-join':'round'}});
 
   map.addSource('route',{type:'geojson',data:EMPTY});

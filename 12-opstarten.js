@@ -6,7 +6,7 @@
 el('addVia').addEventListener('click',()=>addVia());
 attachAC(el('start')); attachAC(el('dest'));
 el('dirt').addEventListener('input',e=>{ el('dirtVal').textContent=e.target.value; saveSettings(); });
-['sprintKm','noHighway','avoidTowns','noRepeat','noDirt','noRidden','noToll','noFerry','findScenic','findPois','findStays','showPhotos','loopKm','findCurvy']
+['sprintKm','noHighway','avoidTowns','noRepeat','noToll','noFerry','findPois','findStays','loopKm','findCurvy']
   .forEach(id=>el(id).addEventListener('change',saveSettings));
 ['start','dest'].forEach(id=>{
   el(id).addEventListener('change',saveSettings);
@@ -15,11 +15,8 @@ el('dirt').addEventListener('input',e=>{ el('dirtVal').textContent=e.target.valu
   });
 });
 el('depTime').value=store.get('rb.set',{}).depTime||'09:00';
-el('gpxPts').addEventListener('change',saveSettings);
 updateDestLabel();
 
-el('tipClose').addEventListener('click',()=>{ el('tip').hidden=true; store.set('rb.tip','off'); });
-if(store.get('rb.tip')==='off') el('tip').hidden=true;
 
 const remembered=store.get('rb.set');
 if(remembered){
@@ -40,7 +37,6 @@ ritBlokBij();
 offGebiedenTonen();
 offRuimteTonen();
 renderLib();
-renderLog();
 
 /* Offline werken: alleen als sw.js naast index.html staat. */
 if('serviceWorker' in navigator)

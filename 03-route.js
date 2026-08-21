@@ -32,9 +32,11 @@ async function planRoute(points, mode='tour', lv=level){
         service_factor: towns?1.5:1,
         use_tolls: el('noToll').checked?0:1,
         use_ferry: el('noFerry').checked?0:0.5,
-        use_tracks: el('noDirt').checked?0:dirt,
-        use_trails: el('noDirt').checked?0:dirt,
-        exclude_unpaved: (el('noDirt').checked||dirt<0.05)?1:0,
+        /* De schuif Onverhard zegt alles: op 0 wil je geen zandwegen. Er was
+           ook nog een vinkje "Onverharde wegen" en dat was hetzelfde nog eens. */
+        use_tracks: dirt,
+        use_trails: dirt,
+        exclude_unpaved: dirt<0.05?1:0,
         top_speed:130 };
   /* Een punt dat jij zelf op de kaart hebt aangewezen is geen stop maar een
      vormpunt: daar wil je doorrijden, niet keren, en je wil er geen
@@ -117,13 +119,9 @@ async function planLangeRit(points,lv,notes){
   return { shape, man, km, sec };
 }
 
-/* ================= bos en water =================
-   Niet meer het middelpunt van een bos als tussenstop opdringen — dan moet de
-   router er naartoe en weer terug. We zoeken gebieden die al dicht bij de
-   route liggen, en accepteren er alleen een als de route daardoor nauwelijks
-   langer wordt en nergens omkeert. */
-/* Welk deel van de route rijd je twee keer? Punten die ver uit elkaar liggen
-   in de rit maar vlak bij elkaar op de kaart, dat is dubbel rijden. */
+/* ================= dubbel rijden en doodlopende omwegen =================
+   Welk deel van de route rijd je twee keer? Punten die ver uit elkaar liggen in
+   de rit maar vlak bij elkaar op de kaart, dat is dubbel rijden. */
 function doubleShare(shape){
   const step=Math.max(1,Math.ceil(shape.length/500));
   const s=coarse(shape,step);
@@ -136,6 +134,7 @@ function doubleShare(shape){
   return s.length?dubbel/s.length:0;
 }
 
+/* Een uitstapje dat doodloopt: je komt kort na elkaar op bijna dezelfde plek. */
 function hasSpur(shape){
   const step=Math.max(1,Math.ceil(shape.length/600));
   const s=coarse(shape,step);
@@ -143,37 +142,6 @@ function hasSpur(shape){
     for(let j=i+12;j<Math.min(s.length,i+70);j++)
       if(haversine(s[i],s[j])<0.04) return true;
   return false;
-}
-
-async function scenicCandidates(shape,max=6){
-  const q=`[out:json][timeout:25][bbox:${bboxOf(shape,0.06)}];(
-    way["landuse"="forest"]["name"];
-    way["natural"="wood"]["name"];
-    way["natural"="water"]["name"];
-  );out center 400;`;
-  const j=await overpass(q);
-  const line=coarse(shape), lcum=cumulative(line), total=lcum[lcum.length-1];
-  const seen=new Set(), cands=[];
-  for(const e of (j.elements||[])){
-    const lat=e.lat??e.center?.lat, lon=e.lon??e.center?.lon;
-    if(lat==null||!e.tags?.name||seen.has(e.tags.name)) continue;
-    seen.add(e.tags.name);
-    const a=placeAlong(line,lcum,{lat,lon});
-    if(a.off<0.5||a.off>8) continue;
-    if(a.km<total*0.08||a.km>total*0.92) continue;
-    cands.push({ name:e.tags.name, _scenic:true,
-      _kind:(e.tags.natural==='water'?'Water':'Bos')+' onderweg',
-      _tag:(e.tags.natural==='water'?'Water':'Bos'),
-      lat, lon, off:a.off, atKm:a.km });
-  }
-  cands.sort((a,b)=>a.off-b.off);
-  const out=[];
-  for(const c of cands){
-    if(out.length>=max) break;
-    if(out.some(o=>Math.abs(o.atKm-c.atKm)<25)) continue;
-    out.push(c);
-  }
-  return out;
 }
 
 /* ================= bochten opzoeken =================
@@ -217,8 +185,12 @@ async function bochtCandidates(shape,max=3){
     let i=lcum.findIndex(d=>d>=doel);
     if(i<0) i=line.length-1;
     const mid=line[i];
-    const vak=`${(mid[1]-0.09).toFixed(4)},${(mid[0]-0.14).toFixed(4)},`
-             +`${(mid[1]+0.09).toFixed(4)},${(mid[0]+0.14).toFixed(4)}`;
+    /* Een vak van ruim 15 bij 15 km. Groter hoeft niet — kandidaten verder dan
+       10 km van de route vallen toch af — en het scheelt de helft van de data.
+       Bij 0,09 bij 0,14 graad kwamen er 900 elementen terug, precies de grens,
+       en dan zijn er dus wegen afgekapt die we niet gezien hebben. */
+    const vak=`${(mid[1]-0.07).toFixed(4)},${(mid[0]-0.11).toFixed(4)},`
+             +`${(mid[1]+0.07).toFixed(4)},${(mid[0]+0.11).toFixed(4)}`;
     let j=null;
     try{
       j=await overpass(`[out:json][timeout:30][bbox:${vak}];(
@@ -233,8 +205,12 @@ async function bochtCandidates(shape,max=3){
       if(e.type==='node' && e.tags?.mountain_pass==='yes'){
         const a=placeAlong(line,lcum,{lat:e.lat,lon:e.lon});
         if(a.off>12) continue;
+        /* Een pas vlak langs je route wint altijd. Een pas ver weg moet het
+           afleggen tegen een prachtige weg die er wél naast ligt: een weg komt
+           hooguit aan 300 (bochtigheid 100 over 3 km of meer). */
         kand={ naam:e.tags.name||'Bergpas', lat:e.lat, lon:e.lon,
-               score:100, km:0, off:a.off, atKm:a.km, pas:true, waarde:400 };
+               score:100, km:0, off:a.off, atKm:a.km, pas:true,
+               waarde:420-a.off*25 };
       }else{
         const g=e.geometry;
         if(!g||g.length<5) continue;
@@ -302,145 +278,10 @@ async function findStays(dest,radius=6000){
   }).filter(Boolean).slice(0,8);
 }
 
-/* ================= bekende toeristische routes ================= */
-async function findTourRoutes(shape){
-  const q=`[out:json][timeout:25][bbox:${bboxOf(shape,0.15)}];
-    relation["type"="route"]["route"="road"]["name"];
-    out tags center 120;`;
-  const j=await overpass(q);
-  const line=coarse(shape), lcum=cumulative(line), seen=new Set(), out=[];
-  for(const e of (j.elements||[])){
-    const lat=e.center?.lat, lon=e.center?.lon;
-    if(lat==null||!e.tags?.name||seen.has(e.tags.name)) continue;
-    seen.add(e.tags.name);
-    const off=placeAlong(line,lcum,{lat,lon}).off;
-    if(off>45) continue;
-    out.push({ id:e.id, name:e.tags.name, off });
-  }
-  return out.sort((a,b)=>a.off-b.off).slice(0,12);
-}
-
-async function connectToRoute(id,name,btn){
-  const old=btn.textContent; btn.textContent='Zoeken…'; btn.disabled=true;
-  try{
-    const j=await overpass(`[out:json][timeout:25];rel(${id});out geom;`);
-    const coords=[];
-    for(const m of (j.elements?.[0]?.members||[]))
-      if(m.geometry) for(const g of m.geometry) coords.push([g.lon,g.lat]);
-    if(!coords.length) throw new Error(`${name} heeft geen bruikbare lijn in OpenStreetMap.`);
-    const me=state.points?.[0]||{lat:51,lon:6};
-    let best=coords[0],bd=Infinity;
-    for(const c of coords){ const d=haversine(c,[me.lon,me.lat]); if(d<bd){bd=d;best=c;} }
-    addVia(`${best[1].toFixed(5)}, ${best[0].toFixed(5)}`);
-    setStatus(`Aansluitpunt op ${name} toegevoegd, ${bd.toFixed(0)} km van je vertrekpunt. Plan de route opnieuw.`);
-  }catch(err){ setStatus(err.message,true); }
-  finally{ btn.textContent=old; btn.disabled=false; }
-}
-
-function renderRoutes(list){
-  const box=el('routeList'); box.innerHTML='';
-  if(!list.length){
-    box.innerHTML='<p class="empty">Geen bekende toeristische routes langs deze rit.</p>'; return;
-  }
-  list.forEach(rt=>{
-    const d=document.createElement('div'); d.className='r';
-    d.innerHTML=`<div><div class="nm">${rt.name}</div>
-      <div class="ds">${rt.off<1?'op je route':rt.off.toFixed(0)+' km van je route'}</div></div>`;
-    const b=document.createElement('button'); b.className='text-btn'; b.textContent='Aansluiten';
-    b.addEventListener('click',()=>connectToRoute(rt.id,rt.name,b));
-    d.appendChild(b); box.appendChild(d);
-  });
-}
-el('findTours').addEventListener('click',async()=>{
-  if(!state.tourShape?.length) return;
-  const btn=el('findTours'), old=btn.textContent;
-  btn.textContent='Zoeken…'; btn.disabled=true;
-  try{ renderRoutes(await findTourRoutes(state.tourShape)); }
-  catch(err){ setStatus(err.message,true); }
-  finally{ btn.textContent=old; btn.disabled=false; }
-});
-
-
-/* ================= foto's van Wikimedia Commons =================
-   Gratis en zonder sleutel. Eerst kijken of OSM zelf al een foto noemt,
-   anders zoeken we vrije foto's binnen 500 m van die plek. Ze worden pas
-   opgehaald als je eraan toe scrollt, zodat je bundel niet leegloopt. */
-const photoCache=new Map();
-
-function commonsThumb(file,w=520){
-  const name=String(file)
-    .replace(/^https?:\/\/commons\.wikimedia\.org\/wiki\/File:/i,'')
-    .replace(/^File:/i,'');
-  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(name)}?width=${w}`;
-}
-
-async function photoFor(p){
-  const key=p.name+'|'+p.lat.toFixed(4);
-  if(photoCache.has(key)) return photoCache.get(key);
-  let res=null;
-  try{
-    if(p.image && /commons\.wikimedia\.org\/wiki\/File:/i.test(p.image)){
-      const bare=String(p.image).replace(/^.*\/wiki\/File:/i,'');
-      res={ url:commonsThumb(p.image), credit:'Wikimedia Commons',
-            page:'https://commons.wikimedia.org/wiki/File:'+bare };
-    } else if(p.image && /^https?:/i.test(p.image)){
-      res={ url:p.image, credit:'', page:p.image };
-    } else if(p.image){
-      res={ url:commonsThumb(p.image), credit:'Wikimedia Commons',
-            page:'https://commons.wikimedia.org/wiki/File:'+encodeURIComponent(String(p.image).replace(/^File:/i,'')) };
-    } else {
-      const u=`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*`
-        +`&generator=geosearch&ggscoord=${p.lat.toFixed(6)}%7C${p.lon.toFixed(6)}`
-        +`&ggsradius=500&ggslimit=4&ggsnamespace=6`
-        +`&prop=imageinfo&iiprop=url%7Cextmetadata&iiurlwidth=520`;
-      const ctl=new AbortController();
-      const t=setTimeout(()=>ctl.abort(),9000);
-      const r=await fetch(u,{signal:ctl.signal});
-      clearTimeout(t);
-      if(r.ok){
-        const j=await r.json();
-        const hit=Object.values(j.query?.pages||{}).find(x=>x.imageinfo?.[0]?.thumburl);
-        if(hit){
-          const ii=hit.imageinfo[0];
-          const who=(ii.extmetadata?.Artist?.value||'').replace(/<[^>]*>/g,'').trim().slice(0,40);
-          res={ url:ii.thumburl, credit:(who?who+' · ':'')+'Wikimedia Commons',
-                page:ii.descriptionurl||'' };
-        }
-      }
-    }
-  }catch{}
-  photoCache.set(key,res);
-  return res;
-}
-
-const shotWatcher=new IntersectionObserver(async entries=>{
-  for(const en of entries){
-    if(!en.isIntersecting) continue;
-    const box=en.target;
-    shotWatcher.unobserve(box);
-    const p=box._poi;
-    if(!p) continue;
-    const res=await photoFor(p);
-    if(!res||!box.isConnected){ box.remove(); continue; }
-    const img=document.createElement('img');
-    img.alt=p.name; img.loading='lazy'; img.src=res.url;
-    img.addEventListener('error',()=>box.remove());
-    box.appendChild(img);
-    if(res.credit){
-      const c=document.createElement('div'); c.className='cr';
-      c.innerHTML=res.page
-        ? `<a href="${res.page}" target="_blank" rel="noopener">${res.credit}</a>`
-        : res.credit;
-      box.appendChild(c);
-    }
-  }
-},{ root:document.querySelector('.panel'), rootMargin:'150px' });
-
-
-/* ================= echt andere routes =================
-   Niet dezelfde weg met andere instellingen, maar een andere kant op.
-   We zetten een hulppunt links en rechts van de rechte lijn en laten de
-   router daar langs gaan. Wat te veel op de hoofdroute lijkt valt af. */
+/* ================= hulpjes voor de route =================
+   sideWaypoint verzint een punt naast de rechte lijn tussen begin en eind; dat
+   is hoe een rondje en heen-en-terug hun lus krijgen. placeName vraagt hoe een
+   plek heet, voor het label bij je route. */
 function sideWaypoint(from,to,offKm){
   const cs=Math.cos((from.lat+to.lat)/2*Math.PI/180)||1;
   const ex=(to.lon-from.lon)*111*cs, ey=(to.lat-from.lat)*111;
@@ -448,31 +289,6 @@ function sideWaypoint(from,to,offKm){
   return { lat:(from.lat+to.lat)/2 + (ex/L*offKm)/111,
            lon:(from.lon+to.lon)/2 + (-ey/L*offKm)/(111*cs) };
 }
-
-function overlap(a,b){
-  const A=coarse(a,Math.max(1,Math.ceil(a.length/300)));
-  const B=coarse(b,Math.max(1,Math.ceil(b.length/150)));
-  let near=0;
-  for(const p of B){
-    let m=Infinity;
-    for(const q of A){ const d=haversine(p,q); if(d<m) m=d; }
-    if(m<0.35) near++;
-  }
-  return near/B.length;
-}
-
-function divergePoint(base,alt){
-  const A=coarse(base,Math.max(1,Math.ceil(base.length/300)));
-  const B=coarse(alt,Math.max(1,Math.ceil(alt.length/150)));
-  let best=B[Math.floor(B.length/2)], bd=-1;
-  for(const p of B){
-    let m=Infinity;
-    for(const q of A){ const d=haversine(p,q); if(d<m) m=d; }
-    if(m>bd){ bd=m; best=p; }
-  }
-  return best;
-}
-
 async function placeName(pt){
   try{
     const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),8000);
@@ -485,5 +301,5 @@ async function placeName(pt){
   }catch{ return ''; }
 }
 
+/* De kleur van de route op de kaart. */
 const ALT_COLORS=['#E0B354','#37BFA0','#B879E0','#6FA8DC'];
-

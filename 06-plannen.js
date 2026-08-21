@@ -54,7 +54,7 @@ async function plan(){
 
     /* Even meedenken voordat we de server lastigvallen */
     const luchtCheck=haversine([start.lon,start.lat],[dest.lon,dest.lat]);
-    const letOp=el('checkDist').checked;
+    const letOp=true;   /* waarschuwen als de afstand niet klopt: altijd */
     /* Nooit blokkeren — alleen even zeggen wat je kunt verwachten. */
     if(letOp){
       if(luchtCheck>1200)
@@ -72,8 +72,8 @@ async function plan(){
       catch(err){
         if(err.code===154||err.code===150) return await planLangeRit(punten,lv,notes);
         if(err.code!==442&&err.code!==441) throw err;
-        const was={h:el('noHighway').checked,f:el('noFerry').checked,d:el('noDirt').checked};
-        el('noHighway').checked=false; el('noFerry').checked=false; el('noDirt').checked=false;
+        const was={h:el('noHighway').checked,f:el('noFerry').checked};
+        el('noHighway').checked=false; el('noFerry').checked=false;
         setStatus('Lukte niet — opnieuw met snelwegen en veerboten toegestaan…');
         try{
           let r;
@@ -85,7 +85,7 @@ async function plan(){
           notes.push('Snelwegen en veerboten waren nodig om deze route mogelijk te maken.');
           return r;
         } finally {
-          el('noHighway').checked=was.h; el('noFerry').checked=was.f; el('noDirt').checked=was.d;
+          el('noHighway').checked=was.h; el('noFerry').checked=was.f;
         }
       }
     };
@@ -170,7 +170,6 @@ async function plan(){
     const all0=state.fast.shape.concat(main.shape);
     map.fitBounds(all0.reduce((bb,c)=>bb.extend(c),new maplibregl.LngLatBounds(all0[0],all0[0])),
       {padding:60,duration:800});
-    el('tourBlock').hidden=false;
     btn.disabled=false; btn.textContent='Route plannen';
     saveLast(); renderLib(); showWeather();
 
@@ -180,33 +179,6 @@ async function plan(){
     const dichtbijStad=p=>places.some(c=>haversine([c.lon,c.lat],[p.lon,p.lat])<6);
     if(state.variants.base){
       state.variants.base.urban=urbanScore(main.shape,places);
-      if(el('noRidden').checked) state.variants.base.oud=riddenShare(main.shape);
-      renderAlts();
-    }
-
-    /* 3 — bos en water, alleen als het echt nauwelijks omrijden is */
-    if(el('findScenic').checked && tripMode==='one'){
-      setStatus('Bos en water langs de route zoeken…');
-      let added=0;
-      try{
-        const cands=(await scenicCandidates(main.shape)).filter(c=>!dichtbijStad(c));
-        for(const c of cands){
-          if(!alive()) return;
-          if(added>=2) break;
-          const test=order([...mids,c],main.shape);
-          await sleep(1100);
-          const r=await planRoute([tourStart,...test,dest],'tour',level);
-          if(!alive()) return;
-          /* streng: hooguit 8% omrijden, nergens omkeren, en niet meer stad */
-          const u=urbanScore(r.shape,places);
-          const erger=u&&state.variants.base?.urban && u.score>state.variants.base.urban.score;
-          if(r.km<=main.km*1.08 && !hasSpur(r.shape) && !erger){
-            mids=test; main=r; added++; show();
-            if(state.variants.base) state.variants.base.urban=urbanScore(main.shape,places);
-          }
-        }
-        if(!added) notes.push('Geen bos of water gevonden dat zonder omkeren in je route past.');
-      }catch{ notes.push('Bos en water lukten niet.'); }
     }
 
     /* 3b — bochten zoeken: het saaie stuk inruilen voor iets kronkeligs.
@@ -250,70 +222,8 @@ async function plan(){
     placeName(main.shape[Math.floor(main.shape.length/2)]).then(n=>{
       if(!alive()||!n) return;
       state.baseLabel='via '+n;
-      if(state.variants.base){ state.variants.base.label=state.baseLabel; renderAlts(); }
+      if(state.variants.base) state.variants.base.label=state.baseLabel;
     });
-
-    setStatus('Andere routes zoeken…');
-    const zoekAlternatief = tripMode==='one';
-    const luchtlijn=haversine([tourStart.lon,tourStart.lat],[dest.lon,dest.lat]);
-    const zij=Math.max(10,Math.min(50,luchtlijn*0.2));
-    let found=0;
-    for(const kant of (zoekAlternatief?[zij,-zij]:[])){
-      if(!alive()) return;
-      if(found>=2) break;
-      state.pending=true; renderAlts();
-      try{
-        const wp=sideWaypoint(tourStart,dest,kant);
-        await sleep(1100);
-        const r=await planRoute([tourStart,...order([...mids,wp],main.shape),dest],'tour',level);
-        if(!alive()) return;
-        const lijkt=overlap(main.shape,r.shape);
-        const anders=Object.values(state.variants)
-          .every(v=>overlap(v.shape,r.shape)<0.72);
-        if(lijkt<0.72 && anders && r.km<=main.km*1.55){
-          found++;
-          const key='alt'+found;
-          state.variants[key]={...r, prof:curveProfile(r.shape),
-            color:ALT_COLORS[found], label:'alternatief', urban:urbanScore(r.shape,places),
-            oud: el('noRidden').checked ? riddenShare(r.shape) : undefined};
-          renderAlts(); renderAltsMap();
-          placeName(divergePoint(main.shape,r.shape)).then(n=>{
-            if(!alive()||!state.variants[key]) return;
-            state.variants[key].label = n?'via '+n:'alternatief';
-            renderAlts();
-          });
-        }
-      }catch{}
-      state.pending=false; renderAlts();
-    }
-    if(!found && zoekAlternatief) notes.push('Geen wezenlijk andere route gevonden; alle wegen komen hier op hetzelfde neer.');
-
-    /* Wil je nieuwe wegen? Dan wint de route die je het minst kent. */
-    if(found && zoekAlternatief && el('noRidden').checked && riddenShapes().length){
-      let beste=state.shown, bs=state.variants[state.shown]?.oud ?? 1;
-      for(const [k,v] of Object.entries(state.variants))
-        if(v.oud!=null && v.oud<bs){ bs=v.oud; beste=k; }
-      const nu=state.variants[state.shown]?.oud ?? 0;
-      if(beste!==state.shown && nu-bs>0.15){
-        applyVariant(beste);
-        notes.push(`Je kende ${Math.round(nu*100)}% van de hoofdroute al; deze is nieuwer voor je.`);
-      } else if(nu>0.3){
-        notes.push(`${Math.round(nu*100)}% van deze route heb je al eens gereden.`);
-      }
-    }
-
-    /* De route met de minste stad wint, mits het verschil de moeite waard is. */
-    if(found && zoekAlternatief && places.length){
-      let beste=state.shown, bs=state.variants[state.shown]?.urban?.score ?? 99;
-      for(const [k,v] of Object.entries(state.variants))
-        if(v.urban && v.urban.score<bs){ bs=v.urban.score; beste=k; }
-      const nu=state.variants[state.shown]?.urban?.score ?? 0;
-      if(beste!==state.shown && nu-bs>=3){
-        const wasStad=state.variants[state.shown]?.urban?.hit?.slice(0,3).join(', ');
-        applyVariant(beste);
-        notes.push(`De hoofdroute gaat door ${wasStad}; ik heb de rustigere ${state.variants[beste].label} gekozen.`);
-      }
-    }
 
     /* 4 — bezienswaardigheden en overnachtingen */
     const jobs=[];
@@ -391,26 +301,6 @@ function enableDragShaping(){
     map.on('mousemove',move); map.on('mouseup',up);
   });
 }
-/* Alleen tussenstops plaatsen als je daar bewust om vraagt. Anders stapelen
-   ze zich op bij elke klik en gaat je route overal langs. */
-let addMode=false;
-el('addMode').addEventListener('click',()=>{
-  addMode=!addMode;
-  el('addMode').classList.toggle('on',addMode);
-  map.getCanvas().style.cursor=addMode?'crosshair':'';
-  setStatus(addMode?'Klik op de kaart om een tussenstop te zetten.':'');
-});
-map.on('click',e=>{
-  if(Date.now()-skipClick<400) return;
-  if(teken.aan) return;
-  if(map.getLayer('alts-line') &&
-     map.queryRenderedFeatures(e.point,{layers:['alts-line']}).length) return;
-  if(!addMode||!el('dest').value.trim()) return;
-  addVia(`${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}`);
-  setStatus(`Tussenstop ${state.vias.length} gezet. Plan de route opnieuw, of zet de knop uit.`);
-});
-
-
 /* ================= route tekenen met je vinger =================
    Je trekt een vorm over de kaart; wij leggen daar een handvol punten op en
    laten de routeserver de echte wegen ertussen zoeken. Wat je terugkrijgt
@@ -458,8 +348,8 @@ function tekenWis(){ tekenOnthoud(); teken.punten=[]; teken.bezig=false; tekenLi
 /* Onderweg staat het paneel dicht, dus setStatus() is op de telefoon
    onzichtbaar. Wat je tijdens het tekenen moet weten hoort over de kaart. */
 function tekenZeg(tekst,fout){
-  el('drawBanner').textContent=tekst;
-  el('drawBanner').classList.toggle('err',!!fout);
+  el('pinUitleg').textContent=tekst;
+  el('pinUitleg').classList.toggle('err',!!fout);
   setStatus(tekst,fout);
 }
 
@@ -469,7 +359,7 @@ const TEKEN_GREEP=['dragPan','dragRotate','touchZoomRotate','scrollZoom',
 function tekenModus(aan){
   teken.aan=aan;
   el('drawMode').classList.toggle('on',aan);
-  el('drawBanner').hidden=!aan;
+  el('pinBar').hidden=!aan;
   const vak=map.getCanvasContainer();
   vak.style.cursor=aan?'crosshair':'';
   /* Zonder dit schuift of zoomt de browser zelf mee met je vinger. */
@@ -480,14 +370,13 @@ function tekenModus(aan){
     try{ aan ? map[naam]?.disable() : map[naam]?.enable(); }catch{}
   }
   if(aan){
-    if(addMode){ addMode=false; el('addMode').classList.remove('on'); }
     /* Het kaartmenu dicht. Op de telefoon dekt dat een flink stuk van je
        scherm af, en dan teken je op knoppen in plaats van op de kaart. */
-    el('mapTools').classList.remove('open');
-    el('toolsBtn').classList.remove('on');
-    tekenZeg('Trek een vorm over de kaart. Eindig waar je begon voor een rondje.');
+    /* Punten die jij aanwijst houden hun volgorde. */
+    manualOrder=true;
+    pinBalk();
   }else{
-    el('drawBanner').classList.remove('err');
+    el('pinUitleg').classList.remove('err');
   }
 }
 
@@ -549,6 +438,7 @@ function tekenNeer(ev){
   teken.bezig=true; teken.pid=ev.pointerId;
   try{ ev.currentTarget.setPointerCapture(ev.pointerId); }catch{}
   teken.px=[ev.clientX,ev.clientY];
+  teken.start=[ev.clientX,ev.clientY];
   tekenOnthoud();                              /* de vorige vorm blijft terug te halen */
   teken.punten=[tekenPlek(ev)];
   tekenLijnTonen();
@@ -570,9 +460,18 @@ function tekenOp(ev){
   if(!teken.aan||!teken.bezig) return;
   teken.bezig=false; teken.pid=null;
   try{ ev.currentTarget.releasePointerCapture?.(ev.pointerId); }catch{}
-  /* Na het optillen van je vinger komt er nog een klik langs. Die mag geen
-     tussenstop worden. */
   skipClick=Date.now();
+
+  /* Eén knop, twee bedieningen: nauwelijks bewogen is een tik, dus een punt.
+     Wél bewogen is een veeg, dus een vorm. Dat hoef jij niet te kiezen. */
+  const dx=ev.clientX-(teken.start?teken.start[0]:ev.clientX);
+  const dy=ev.clientY-(teken.start?teken.start[1]:ev.clientY);
+  if(dx*dx+dy*dy<144){
+    teken.punten=[]; tekenLijnTonen();
+    const p=tekenPlek(ev);
+    if(pin.weg) pinHeleWeg(p[1],p[0]); else pinPuntBij(p[1],p[0]);
+    return;
+  }
   tekenUitvoeren();
 }
 
@@ -628,7 +527,7 @@ function tekenUitvoeren(){
   el('start').value=naam(punten[0]);
   el('dest').value=naam(punten[punten.length-1]);
   state.vias=punten.slice(1,-1).map(naam);
-  manualOrder=true; el('manualOrder').checked=true;
+  manualOrder=true;   /* punten die jij aanwijst houden hun volgorde */
   renderVias();
   tekenModus(false);
 
@@ -649,7 +548,9 @@ function tekenUitvoeren(){
 
    En met "Hele weg" hoef je niet te tikken tot je vinger eraf valt: dan vraagt
    de app die ene weg op bij OpenStreetMap en legt hem in één keer vast. */
-const pin={ aan:false, soort:'punt', neer:null, bezig:false };
+/* Eén handmodus: tikken zet punten, vegen maakt een vorm. Met "Hele weg" aan
+   legt één tik een compleet weggetje vast. */
+const pin={ weg:false, bezig:false };
 
 const isCoordNaam=n=>/^-?\d+(?:\.\d+)?,\s*-?\d+(?:\.\d+)?$/.test(String(n||'').trim());
 
@@ -675,54 +576,6 @@ function pinBalk(){
   const n=pinPunten().length;
   el('pinCount').textContent = n ? `${n} ${n===1?'punt':'punten'} aangewezen` : 'Tik de wegen aan die je wil rijden';
   el('pinWaarschuw').hidden = n<40;
-}
-
-function pinModus(aan){
-  pin.aan=aan;
-  el('pinMode').classList.toggle('on',aan);
-  el('pinBar').hidden=!aan;
-  map.getCanvasContainer().style.cursor=aan?'crosshair':'';
-  if(aan){
-    if(teken.aan) tekenModus(false);
-    if(addMode){ addMode=false; el('addMode').classList.remove('on'); }
-    el('mapTools').classList.remove('open');
-    el('toolsBtn').classList.remove('on');
-    /* Je wijst ze in een bepaalde volgorde aan, dus die volgorde houden we aan. */
-    manualOrder=true; el('manualOrder').checked=true;
-    pinBalk();
-  }
-  pinLijnTonen();
-}
-
-el('pinMode').addEventListener('click',()=>pinModus(!pin.aan));
-document.querySelectorAll('#pinBar button[data-soort]').forEach(b=>
-  b.addEventListener('click',()=>{
-    pin.soort=b.dataset.soort;
-    document.querySelectorAll('#pinBar button[data-soort]')
-      .forEach(x=>x.classList.toggle('on',x===b));
-    el('pinUitleg').textContent = pin.soort==='weg'
-      ? 'Tik op een weg: die wordt in één keer helemaal vastgelegd.'
-      : 'Elke tik zet één punt. Dichter bij elkaar = strakker jouw weg.';
-  }));
-
-/* Een tik is een tik en geen sleep: minder dan 8 beeldpunten bewogen en binnen
-   een halve seconde weer los. Zo kun je tussen twee punten gewoon de kaart
-   verschuiven en inzoomen. */
-function pinNeer(ev){
-  if(!pin.aan||pin.bezig) return;
-  pin.neer={ x:ev.clientX, y:ev.clientY, t:Date.now() };
-}
-async function pinOp(ev){
-  if(!pin.aan||!pin.neer||pin.bezig) return;
-  const dx=ev.clientX-pin.neer.x, dy=ev.clientY-pin.neer.y;
-  const snel=Date.now()-pin.neer.t < 600;
-  pin.neer=null;
-  if(dx*dx+dy*dy>64||!snel) return;          /* je was aan het slepen */
-
-  const r=map.getCanvasContainer().getBoundingClientRect();
-  const ll=map.unproject([ev.clientX-r.left, ev.clientY-r.top]);
-  if(pin.soort==='weg') await pinHeleWeg(ll.lat,ll.lng);
-  else pinPuntBij(ll.lat,ll.lng);
 }
 
 function pinPuntBij(lat,lon){
@@ -800,6 +653,3 @@ async function pinHeleWeg(lat,lon){
   }
 }
 
-const pinVak=map.getCanvasContainer();
-pinVak.addEventListener('pointerdown',pinNeer);
-pinVak.addEventListener('pointerup',pinOp);

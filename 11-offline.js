@@ -151,8 +151,10 @@ async function offDownload(urls,meta){
   const totaal=urls.length;
 
   offBalk(0,totaal,0);
-  el('okStop').hidden=false;
-  el('okGo').hidden=true;
+  /* Eén knop: tijdens het binnenhalen heet hij Stoppen. */
+  el('okGo').hidden=false;
+  el('okGo').textContent='Stoppen';
+  el('okGo').dataset.rol='stop';
 
   /* Zes tegelijk: snel genoeg, en niet zo veel dat je verbinding dichtslibt. */
   const rij=urls.slice();
@@ -167,7 +169,8 @@ async function offDownload(urls,meta){
   await Promise.all([1,2,3,4,5,6].map(werker));
 
   offBezig=false;
-  el('okStop').hidden=true;
+  el('okGo').hidden=true;
+  el('okGo').dataset.rol='';
   offBalk(gedaan,totaal,bytes);
 
   if(offStop){
@@ -246,6 +249,8 @@ el('okVak').addEventListener('click',()=>{
 });
 
 el('okGo').addEventListener('click',async()=>{
+  /* Dezelfde knop stopt het ook weer. */
+  if(el('okGo').dataset.rol==='stop'){ offStop=true; return; }
   if(!offWachtend||offBezig) return;
   /* De telefoon vragen dit niet zomaar op te ruimen. Zegt hij nee, dan gaan we
      gewoon door; dan is het alleen minder zeker dat het blijft staan. */
@@ -256,7 +261,6 @@ el('okGo').addEventListener('click',async()=>{
   await offDownload(w.urls,w.meta);
 });
 
-el('okStop').addEventListener('click',()=>{ offStop=true; });
 
 /* ================= wat staat er, en hoeveel ruimte kost het? ================= */
 function offGebiedenTonen(){

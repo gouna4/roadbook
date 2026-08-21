@@ -6,56 +6,64 @@
 let alongMarkers=[];
 function clearAlong(){ alongMarkers.forEach(m=>m.remove()); alongMarkers=[]; }
 
-document.querySelectorAll('#alongChips button').forEach(btn=>{
-  btn.addEventListener('click',async()=>{
-    const kind=btn.dataset.k;
-    if(btn.classList.contains('on')){
-      btn.classList.remove('on'); clearAlong(); state.along=null;
-      el('alongList').innerHTML='';
-      if(state.cum) renderRoadbook(state.points,state.pois,state.stays,state.cum);
-      return;
+/* Eén knop in plaats van vier. Tanken, eten, koffie en motorzaken worden in
+   één keer opgehaald en in één lijst gezet, op kilometer gesorteerd. Bij tanken
+   wegen de stations rond je tankmomenten zwaarder als je een actieradius hebt
+   ingevuld. */
+el('alongAll').addEventListener('click',async()=>{
+  const btn=el('alongAll');
+  if(btn.classList.contains('busy')) return;
+  if(btn.classList.contains('on')){
+    btn.classList.remove('on'); clearAlong(); state.along=null;
+    el('alongList').innerHTML='';
+    if(state.cum) renderRoadbook(state.points,state.pois,state.stays,state.cum);
+    return;
+  }
+  if(!state.tourShape?.length){
+    setStatus('Plan eerst een route, dan zoek ik dit langs je rit.'); return;
+  }
+  clearAlong(); btn.classList.add('busy');
+  try{
+    let alles=[];
+    for(const kind of ['fuel','food','cafe','moto']){
+      try{
+        const lijst=await findAlong(kind,state.tourShape);
+        alles.push(...lijst.map(p=>({...p,_k:kind})));
+      }catch{}
+      await sleep(400);
     }
-    if(!state.tourShape?.length){
-      setStatus('Plan eerst een route, dan zoek ik dit langs je rit.'); return;
+    const tank=+el('tankKm').value||0;
+    if(tank>60&&state.cum){
+      const stops=[]; const total=state.cum[state.cum.length-1];
+      for(let d=tank*0.85; d<total-20; d+=tank*0.85) stops.push(d-state.fast.km);
+      alles=alles.map(p=>p._k==='fuel'
+        ? {...p,_near:Math.min(...stops.map(x=>Math.abs(x-p.atKm)))} : p);
     }
-    document.querySelectorAll('#alongChips button').forEach(b=>b.classList.remove('on'));
-    clearAlong(); btn.classList.add('busy');
-    try{
-      let list=await findAlong(kind,state.tourShape);
-      const cfg=ALONG[kind];
-      /* Bij tanken: als je een actieradius hebt ingevuld, de stations
-         rond je tankmomenten vooraan zetten. */
-      const tank=+el('tankKm').value||0;
-      if(kind==='fuel'&&tank>60){
-        const stops=[]; const total=state.cum[state.cum.length-1];
-        for(let d=tank*0.85; d<total-20; d+=tank*0.85) stops.push(d-state.fast.km);
-        list=list.map(p=>({...p,_near:Math.min(...stops.map(x=>Math.abs(x-p.atKm)))}))
-                 .sort((a,b)=>a._near-b._near);
-      }
-      list=list.slice(0,14).sort((a,b)=>a.atKm-b.atKm);
-      state.along=list.map(p=>({...p,atKm:p.atKm+state.fast.km}));
-      state.along.forEach(p=>{
-        const d=document.createElement('div');
-        d.className='mk poi'; d.style.background=cfg.color;
-        const m=new maplibregl.Marker({element:d}).setLngLat([p.lon,p.lat])
-          .setPopup(new maplibregl.Popup({offset:14,closeButton:false})
-            .setHTML(`<strong>${p.name}</strong><br>${p.kind}${p.open?'<br>'+p.open:''}`))
-          .addTo(map);
-        alongMarkers.push(m);
-      });
-      const box=el('alongList'); box.innerHTML='';
-      if(!state.along.length) box.innerHTML=`<p class="empty">Niets gevonden binnen 2,5 km van je route.</p>`;
-      state.along.forEach(p=>{
-        const d=document.createElement('div'); d.className='r';
-        d.innerHTML=`<div><div class="nm">${p.name}</div>
-          <div class="ds">km ${p.atKm.toFixed(0)} · ${p.off<1?Math.round(p.off*1000)+' m':p.off.toFixed(1)+' km'} van de route</div></div>`;
-        box.appendChild(d);
-      });
-      if(state.cum) renderRoadbook(state.points,state.pois,state.stays,state.cum);
-      btn.classList.add('on');
-    }catch(err){ setStatus('Zoeken lukte niet — de plaatsenserver is druk.',true); }
-    finally{ btn.classList.remove('busy'); }
-  });
+    alles=alles.sort((a,b)=>(a._near??99)-(b._near??99)).slice(0,20)
+               .sort((a,b)=>a.atKm-b.atKm);
+    state.along=alles.map(p=>({...p,atKm:p.atKm+state.fast.km}));
+    state.along.forEach(p=>{
+      const d=document.createElement('div');
+      d.className='mk poi'; d.style.background=ALONG[p._k]?.color||'#6B8F71';
+      alongMarkers.push(new maplibregl.Marker({element:d}).setLngLat([p.lon,p.lat])
+        .setPopup(new maplibregl.Popup({offset:14,closeButton:false})
+          .setHTML(`<strong>${p.name}</strong><br>${p.kind}${p.open?'<br>'+p.open:''}`))
+        .addTo(map));
+    });
+    const box=el('alongList'); box.innerHTML='';
+    if(!state.along.length)
+      box.innerHTML='<p class="empty">Niets gevonden binnen 2,5 km van je route.</p>';
+    state.along.forEach(p=>{
+      const d=document.createElement('div'); d.className='r';
+      d.innerHTML=`<div><div class="nm">${p.name}</div>
+        <div class="ds">km ${p.atKm.toFixed(0)} · ${p.kind} · ${p.off<1?Math.round(p.off*1000)+' m':p.off.toFixed(1)+' km'} van de route</div></div>`;
+      box.appendChild(d);
+    });
+    if(state.cum) renderRoadbook(state.points,state.pois,state.stays,state.cum);
+    btn.classList.add('on');
+    setStatus(state.along.length?`${state.along.length} plekken onderweg gevonden.`:'');
+  }catch(err){ setStatus('Zoeken lukte niet — de plaatsenserver is druk.',true); }
+  finally{ btn.classList.remove('busy'); }
 });
 el('tankKm').addEventListener('change',()=>{
   saveSettings();
@@ -119,16 +127,6 @@ function initSheet(){
 }
 
 /* Kaartknoppen achter één menuknop op de telefoon */
-el('toolsBtn').addEventListener('click',()=>{
-  const t=el('mapTools');
-  const open=t.classList.toggle('open');
-  el('toolsBtn').classList.toggle('on',open);
-});
-map.on('click',()=>{
-  if(mobiel()&&el('mapTools').classList.contains('open')){
-    el('mapTools').classList.remove('open'); el('toolsBtn').classList.remove('on');
-  }
-});
 
 /* Snelle plannen-knop op de greep */
 el('sheetGo').addEventListener('click',()=>{
@@ -206,7 +204,7 @@ function doUndo(){
   if(!s) return;
   el('start').value=s.start; el('dest').value=s.dest;
   state.vias=[...s.vias];
-  manualOrder=s.manual; el('manualOrder').checked=s.manual;
+  manualOrder=s.manual;
   level=s.level;
   document.querySelectorAll('#levels button').forEach(b=>b.classList.toggle('on',+b.dataset.v===level));
   el('levelHint').textContent=LEVELS[level].hint;
@@ -220,22 +218,6 @@ function doUndo(){
 }
 el('btnUndo').addEventListener('click',doUndo);
 el('btnUndo').disabled=true;
-
-/* ================= omkeren en inzoomen ================= */
-el('btnReverse').addEventListener('click',()=>{
-  pushUndo();
-  const a=el('start').value, b=el('dest').value;
-  el('start').value=b; el('dest').value=a;
-  state.vias.reverse();
-  renderVias(); saveSettings();
-  setStatus('Route omgedraaid. Plan hem opnieuw.');
-});
-el('btnFit').addEventListener('click',()=>{
-  const sh=state.shape;
-  if(!sh?.length) return;
-  map.fitBounds(sh.reduce((bb,c)=>bb.extend(c),new maplibregl.LngLatBounds(sh[0],sh[0])),
-    {padding:60,duration:700});
-});
 
 /* ================= vanaf mijn locatie ================= */
 el('hereBtn').addEventListener('click',()=>{
@@ -280,7 +262,6 @@ function zetStap(n){
     s.classList.toggle('on',+s.dataset.step===stap));
   const wrap=document.querySelector('.stepwrap');
   if(wrap) wrap.scrollTop=0;
-  el('stepBack').disabled = stap===1;
   /* Vanaf stap 3 is plannen de hoofdactie; daarvoor is "verder" dat. */
   const eind = stap>=3;
   el('stepNext').hidden = eind;
@@ -292,7 +273,6 @@ function zetStap(n){
 document.querySelectorAll('#steps button').forEach(b=>
   b.addEventListener('click',()=>zetStap(+b.dataset.step)));
 el('stepNext').addEventListener('click',()=>zetStap(stap+1));
-el('stepBack').addEventListener('click',()=>zetStap(stap-1));
 ['start','dest'].forEach(id=>el(id).addEventListener('input',stapKlaarTekens));
 
 /* Op Plannen drukken brengt je naar stap 3, want daar komt het antwoord. */
@@ -357,9 +337,7 @@ function themaBijwerken(){
     : modus==='licht' ? 'Altijd licht — tik voor donker' : 'Altijd donker — tik voor automatisch';
   const m=document.querySelector('meta[name="theme-color"]');
   if(m) m.setAttribute('content', licht?'#EDEAE3':'#14181C');
-  document.querySelectorAll('#themeRow button').forEach(b=>
-    b.classList.toggle('on', b.dataset.thema===modus));
-  if(el('themeHint')) el('themeHint').textContent=THEMA_UITLEG[modus]||THEMA_UITLEG.auto;
+    if(el('themeHint')) el('themeHint').textContent=THEMA_UITLEG[modus]||THEMA_UITLEG.auto;
 }
 
 el('themeBtn').addEventListener('click',()=>{
@@ -367,8 +345,6 @@ el('themeBtn').addEventListener('click',()=>{
   store.set('rb.thema', nu==='auto' ? 'licht' : nu==='licht' ? 'donker' : 'auto');
   themaBijwerken();
 });
-document.querySelectorAll('#themeRow button').forEach(b=>
-  b.addEventListener('click',()=>{ store.set('rb.thema',b.dataset.thema); themaBijwerken(); }));
 
 themaBijwerken();
 /* Elke tien minuten kijken of het al schemert. Ook bij terugkomen in de app,

@@ -98,7 +98,7 @@ function renderVias(){
     if(typeof pushUndo==='function') pushUndo();
     const [x]=state.vias.splice(from,1);
     state.vias.splice(to,0,x);
-    manualOrder=true; el('manualOrder').checked=true;
+    manualOrder=true;   /* punten die jij aanwijst houden hun volgorde */
     renderVias(); saveSettings();
     setStatus(`Punt staat nu op plek ${to+1}. Plan de route opnieuw.`);
   };
@@ -132,7 +132,6 @@ function renderVias(){
     });
     box.appendChild(row);
   });
-  el('manualRow').hidden = n<2;
   updateDestLabel();
 }
 
@@ -145,13 +144,10 @@ function updateDestLabel(){
 function addVia(text=''){ if(typeof pushUndo==='function') pushUndo();
   state.vias.push(text); renderVias(); }
 
+/* Wie bepaalt de volgorde van de tussenstops? Punten die je zelf op de kaart
+   aanwijst houden de orde waarin je ze zette; getypte plaatsnamen sorteert de
+   app langs de route. Daar hoef jij niets voor aan te vinken. */
 let manualOrder=false;
-el('manualOrder').addEventListener('change',e=>{
-  manualOrder=e.target.checked; saveSettings();
-  setStatus(manualOrder
-    ? 'Jij bepaalt nu de volgorde. Gebruik de pijltjes of sleep de bolletjes op de kaart.'
-    : 'De app zet je punten weer op volgorde langs de route.');
-});
 
 /* ================= wegtype-knoppen ================= */
 document.querySelectorAll('#levels button').forEach(b=>{
