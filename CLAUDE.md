@@ -352,6 +352,34 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
 
+## Versie 47: de knop die vastliep
+
+**De ergste fout tot nu toe, want er was geen weg terug: de knop bleef op
+"Bezig…" staan en alleen de app afsluiten hielp.**
+
+`plan()` heeft negen plekken waar hij vroegtijdig stopt met `if(!alive()) return;`
+— dat gebeurt als er een nieuwere berekening is begonnen. De knop werd alleen
+vrijgegeven in de `catch`, dus bij zo'n vroegtijdige stop bleef hij hangen. En
+`Wissen` verhoogt precies die teller (`runSeq++`), waardoor Wissen de knop niet
+losmaakte maar juist definitief vastzette.
+
+Nu staat het vrijgeven in een `finally`, met één voorwaarde: alleen als deze
+berekening nog de huidige is. Is er een nieuwere bezig, dan is die er zelf
+verantwoordelijk voor. En `alsWissen()` zet de knop expliciet terug.
+
+**Les:** een knop die je uitzet moet in een `finally` weer aan. Niet in de
+foutafhandeling, want een vroegtijdige `return` is geen fout.
+
+Verder in deze versie:
+
+- **Het toetsenbord gaat weg als je ergens anders tikt.** Op een telefoon bleef
+  het staan tot je op het vinkje drukte, en dan zie je de halve app niet. Tikken
+  in hetzelfde veld of in de suggestielijst laat het staan, anders kun je geen
+  adres meer kiezen
+- **Een getekend rondje van minder dan 12 km wordt geweigerd.** Dat leverde
+  vertrek en bestemming op dezelfde plek op, zonder tussenstops — daar kan de
+  routeserver niets mee
+
 ## Versie 46: zuinig, QR-code, en twee fouten uit de test
 
 **Zuinig met data** — één schakelaar in het tabblad Onderweg. Zet bochten

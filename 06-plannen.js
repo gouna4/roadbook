@@ -260,7 +260,16 @@ async function plan(){
     setStatus(notes.length?notes.join(' '):'');
   }catch(err){
     setStatus(err.message||'Er ging iets mis. Probeer het opnieuw.',true);
-    btn.disabled=false; btn.textContent='Route plannen';
+  }finally{
+    /* De knop moet áltijd weer vrijkomen. Er zitten negen plekken in deze
+       functie waar we vroegtijdig stoppen omdat er een nieuwere berekening is
+       begonnen — en Wissen verhoogt die teller ook. Zonder dit bleef de knop
+       op "Bezig…" staan en was de app alleen nog met afsluiten aan de praat te
+       krijgen.
+
+       Is er inderdaad een nieuwere berekening bezig, dan laten we de knop met
+       rust: die berekening is er zelf verantwoordelijk voor. */
+    if(run===runSeq){ btn.disabled=false; btn.textContent='Route plannen'; }
   }
 }
 el('go').addEventListener('click',plan);
@@ -521,8 +530,17 @@ function tekenUitvoeren(){
     tekenWis();
     return;
   }
+  /* Een rondje van niks levert vertrek en bestemming op dezelfde plek en geen
+     enkele tussenstop. Daar kan de routeserver niets mee, en jij ook niet. */
+  const rondCheck=haversine(p[0],p[p.length-1])<Math.max(2,lengte*0.12);
+  if(rondCheck && lengte<12){
+    tekenZeg('Een rondje van minder dan 12 km wordt niets. Trek een grotere vorm, '
+      +'of eindig niet bij je startpunt.',true);
+    tekenWis();
+    return;
+  }
   /* Eindig je in de buurt van je begin, dan wilde je een rondje. */
-  const rond=haversine(p[0],p[p.length-1])<Math.max(2,lengte*0.12);
+  const rond=rondCheck;
   const lijn=rond?[...p,p[0]]:p;
   const totaal=cumulative(lijn).slice(-1)[0];
   const punten=tekenPunten(lijn);

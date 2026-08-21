@@ -147,6 +147,25 @@ function addVia(text=''){ if(typeof pushUndo==='function') pushUndo();
 /* Wie bepaalt de volgorde van de tussenstops? Punten die je zelf op de kaart
    aanwijst houden de orde waarin je ze zette; getypte plaatsnamen sorteert de
    app langs de route. Daar hoef jij niets voor aan te vinken. */
+/* Het toetsenbord weg als je ergens anders tikt. Op een telefoon blijft het
+   anders staan tot je op het vinkje van het toetsenbord drukt, en dan zie je de
+   halve app niet. We laten tikken in hetzelfde veld en in de suggestielijst met
+   rust, anders kun je geen adres meer kiezen. */
+document.addEventListener('pointerdown',e=>{
+  const a=document.activeElement;
+  if(!a||!/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
+  if(e.target&&e.target.closest&&e.target.closest('.plek,.field,.ac,.numin,.slider')) return;
+  a.blur();
+},true);
+
+/* Enter sluit het toetsenbord ook, tenzij je nog een suggestie aan het kiezen
+   bent — dan is Enter voor die lijst. */
+['start','dest'].forEach(id=>el(id).addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return;
+  if(document.querySelector('.ac:not([hidden])')) return;
+  el(id).blur();
+}));
+
 /* Een kruisje in het veld om het leeg te maken. Uitgummen met de terugtoets is
    op een telefoon met handschoenen aan geen werk voor een mens. Het kruisje
    verschijnt alleen als er iets staat. */

@@ -120,6 +120,9 @@ function loadSaved(s){
    dicht is, dus daar hoort hij ook te staan. */
 function alsWissen(){
   clearMarkers(); runSeq++;
+  /* runSeq++ zet een lopende berekening stil, dus die geeft de knop niet meer
+     vrij. Dat doen we hier. */
+  el('go').disabled=false; el('go').textContent='Route plannen';
   if(typeof tekenWis==='function') tekenWis();
   if(typeof klaarBij==='function') klaarBij();
   state.shape=[]; state.tourShape=[]; state.pois=[]; state.stays=[];
