@@ -10,7 +10,10 @@ async function loadCurveLayer(){
   const b=map.getBounds();
   const breed=haversine([b.getWest(),b.getSouth()],[b.getEast(),b.getSouth()]);
   const hoog=haversine([b.getWest(),b.getSouth()],[b.getWest(),b.getNorth()]);
-  if(breed*hoog>4500){
+  /* Een telefoon trekt geen duizenden wegen in één keer. 2500 km2 is ruim een
+     gebied van 50 bij 50 km, en dat is genoeg om te zien waar de leuke wegen
+     liggen. */
+  if(breed*hoog>2500){
     /* Op de telefoon staat het paneel dicht, dus setStatus() is onzichtbaar.
        Zeg het over de kaart, anders lijkt de knop stuk. */
     kaartMelding(`Zoom eerst wat in — dit gebied is ${Math.round(breed)}×${Math.round(hoog)} km,`
@@ -23,18 +26,28 @@ async function loadCurveLayer(){
     const bbox=`${b.getSouth().toFixed(4)},${b.getWest().toFixed(4)},${b.getNorth().toFixed(4)},${b.getEast().toFixed(4)}`;
     const q=`[out:json][timeout:35][bbox:${bbox}];
       way["highway"~"^(secondary|tertiary|unclassified|primary)$"]["access"!~"^(no|private)$"];
-      out geom 2500;`;
+      out geom 700;`;
     const j=await overpass(q);
+    const alles=j.elements||[];
     const feats=[];
     let leuk=0;
-    for(const e of (j.elements||[])){
-      const g=e.geometry; if(!g||g.length<4) continue;
-      const co=g.map(p=>[p.lon,p.lat]);
-      const {km,score}=wegBochtigheid(co);
-      if(km<0.4||score<22) continue;
-      if(score>=55) leuk++;
-      feats.push({type:'Feature',properties:{c:score/100,naam:e.tags?.name||e.tags?.ref||'',s:score,km:+km.toFixed(1)},
-        geometry:{type:'LineString',coordinates:co}});
+    /* In hapjes doormeten en tussendoor het scherm laten bijkomen. Alles in één
+       keer doen liet de telefoon seconden lang stilstaan, en dan lijkt de app
+       vastgelopen. */
+    for(let i=0;i<alles.length;i+=120){
+      for(const e of alles.slice(i,i+120)){
+        const g=e.geometry; if(!g||g.length<4) continue;
+        const co=g.map(p=>[p.lon,p.lat]);
+        const {km,score}=wegBochtigheid(co);
+        if(km<0.4||score<22) continue;
+        if(score>=55) leuk++;
+        feats.push({type:'Feature',properties:{c:score/100,naam:e.tags?.name||e.tags?.ref||'',s:score,km:+km.toFixed(1)},
+          geometry:{type:'LineString',coordinates:co}});
+      }
+      if(i+120<alles.length){
+        kaartMelding(`Wegen doormeten… ${Math.round((i+120)/alles.length*100)}%`);
+        await sleep(0);
+      }
     }
     map.getSource('curve').setData({type:'FeatureCollection',features:feats});
     kaartMelding(feats.length

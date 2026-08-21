@@ -151,7 +151,20 @@ function shareData(){
   [el('start').value,el('dest').value,...state.vias].forEach(t=>{
     const p=PICKED.get(t); if(p) co[t]=[+p.lat.toFixed(5),+p.lon.toFixed(5)];
   });
-  return { s:el('start').value, d:el('dest').value, v:state.vias, m:tripMode,
+  /* De uitkomst: de punten waar de route uiteindelijk langs ging, inclusief de
+     bochtige weggetjes en passen die de app zelf gevonden heeft. Wie deze link
+     opent hoeft dus niet opnieuw te zoeken — één routeberekening en klaar.
+
+     Alleen bij een enkele reis: bij een rondje en heen-en-terug zitten er
+     keerpunten in de lijst die als losse tussenstop niet werken.
+
+     Vier decimalen is elf meter, en dat is voor een vormpunt ruim genoeg — het
+     scheelt een kwart van de lengte van de link, en dus van de QR-code. */
+  const w = tripMode==='one'
+    ? (state.mids||[]).filter(p=>p&&p.lat!=null&&!p._isDest)
+        .map(p=>[+p.lat.toFixed(4),+p.lon.toFixed(4)])
+    : [];
+  return { s:el('start').value, d:el('dest').value, v:w.length?[]:state.vias, w, m:tripMode,
            l:level, t:el('depTime').value, k:el('loopKm').value, c:co,
            o:{ at:el('avoidTowns').checked,
                nr:el('noRepeat').checked,
@@ -169,7 +182,16 @@ function applyShared(b64){
     const j=JSON.parse(raw);
     Object.entries(j.c||{}).forEach(([k,v])=>PICKED.set(k,{name:k.split(',')[0],lat:v[0],lon:v[1]}));
     el('start').value=j.s||''; el('dest').value=j.d||'';
-    state.vias=Array.isArray(j.v)?j.v:[];
+    /* Zitten er vormpunten in de link? Dan is het zoekwerk al gedaan. We nemen
+       ze over als tussenstops in de volgorde waarin ze stonden, en zetten het
+       bochten zoeken uit — dat hoeft niet nog eens, en het scheelt 2 MB. */
+    if(Array.isArray(j.w)&&j.w.length){
+      state.vias=j.w.map(c=>`${(+c[0]).toFixed(4)}, ${(+c[1]).toFixed(4)}`);
+      manualOrder=true;
+      el('findCurvy').checked=false;
+    }else{
+      state.vias=Array.isArray(j.v)?j.v:[];
+    }
     level=j.l||3;
     document.querySelectorAll('#levels button').forEach(b=>b.classList.toggle('on',+b.dataset.v===level));
     el('levelHint').textContent=LEVELS[level].hint;
@@ -208,3 +230,72 @@ el('share').addEventListener('click',async()=>{
 
 
 
+
+/* ================= route naar je telefoon =================
+   Plannen doe je fijner op een groot scherm; rijden doe je op de telefoon. Dus
+   maakt de pc een QR-code en scan je die met je camera.
+
+   De truc zit niet in de code maar in wát er in de link staat. De gewone
+   deel-link stuurt je *invoer* mee, en dan doet de telefoon al het werk
+   opnieuw — inclusief de Overpass-vragen voor het bochten zoeken, en dat is
+   ruim 2 MB. Daarom sturen we de *uitkomst* mee: de punten waar de app na al
+   dat zoeken op uitkwam. De telefoon hoeft dan één routeberekening te doen van
+   zo'n 50 KB en krijgt dezelfde route.
+
+   De QR-bibliotheek wordt pas opgehaald als je op de knop drukt, en hij zit
+   niet in de offline-lijst: je staat bij je pc, dus je hebt internet. Lukt het
+   ophalen niet, dan krijg je de link om zelf te versturen. */
+const QR_BRON='https://unpkg.com/qrcode-generator@1.4.4/qrcode.js';
+let qrGeladen=null;
+
+function qrBibliotheek(){
+  if(qrGeladen) return qrGeladen;
+  qrGeladen=new Promise((klaar,mis)=>{
+    /* Via window, want deze naam komt niet uit onze eigen bestanden. */
+    if(typeof window.qrcode==='function') return klaar(window.qrcode);
+    const s=document.createElement('script');
+    s.src=QR_BRON;
+    s.onload=()=>typeof window.qrcode==='function'
+      ? klaar(window.qrcode) : mis(new Error('geen qrcode'));
+    s.onerror=()=>mis(new Error('niet op te halen'));
+    document.head.appendChild(s);
+  });
+  return qrGeladen;
+}
+
+async function naarTelefoon(){
+  if(!state.startPt){ setStatus('Plan eerst een route.',true); return; }
+  const link=makeShareLink();
+  const punten=(shareData().w||[]).length;
+  el('qrBox').hidden=false;
+  el('qrLink').textContent=link;
+  el('qrUitleg').textContent=punten
+    ? `Scan met je telefooncamera. De ${punten} punten van deze route gaan mee, `
+      +`dus je telefoon hoeft alleen de wegen ertussen op te halen — dat is `
+      +`ongeveer 50 KB in plaats van 2 MB.`
+    : 'Scan met je telefooncamera. Je telefoon opent dan precies deze route.';
+  el('qrPlek').innerHTML='<p class="hint">QR-code maken…</p>';
+  try{
+    const maak=await qrBibliotheek();
+    const q=maak(0,'M');
+    q.addData(link);
+    q.make();
+    el('qrPlek').innerHTML=q.createSvgTag(4,2);
+    setStatus(`Klaar om te scannen — ${link.length} tekens, `
+      +`${q.getModuleCount()} bij ${q.getModuleCount()} blokjes.`);
+  }catch(e){
+    el('qrPlek').innerHTML='';
+    setStatus('De QR-bibliotheek is niet op te halen. Gebruik de link eronder: '
+      +'stuur hem naar jezelf via WhatsApp en open hem op je telefoon.',true);
+  }
+}
+
+el('naarTel').addEventListener('click',naarTelefoon);
+el('qrDicht').addEventListener('click',()=>{ el('qrBox').hidden=true; });
+el('qrKopie').addEventListener('click',async()=>{
+  const link=el('qrLink').textContent;
+  try{
+    await navigator.clipboard.writeText(link);
+    setStatus('Link gekopieerd. Stuur hem naar jezelf en open hem op je telefoon.');
+  }catch{ prompt('Kopieer deze link:',link); }
+});

@@ -413,6 +413,17 @@ drive.vorigeMelding = 0; drive.tempo = 4000;
 check('nooit langer dan 1400 ms', meldTempo(), 1400);
 
 console.log('');
+console.log('--- zelf aangewezen route: geen snelwegaanloop ---');
+/* Zijn alle tussenstops coördinaten, dan heb je de route zelf getekend of
+   aangewezen. Dan slaat de app de snelwegaanloop over. */
+const zelf = v => v.length > 1 && v.every(isCoordNaam);
+check('getekende route', zelf(['50.70111, 6.25306', '50.60000, 6.10000']), true);
+check('met een plaatsnaam erbij', zelf(['50.70111, 6.25306', 'Adenau']), false);
+check('alleen plaatsnamen', zelf(['Adenau', 'Monschau']), false);
+check('één punt is niet getekend', zelf(['50.70111, 6.25306']), false);
+check('geen tussenstops', zelf([]), false);
+
+console.log('');
 console.log('--- naviZoom(): automatisch in- en uitzoomen ---');
 check('rustig rijden', naviZoom(60, null, 16.5), 16.5);
 check('hard rijden geeft overzicht', naviZoom(120, null, 16.5), 15.5);

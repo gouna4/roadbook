@@ -352,6 +352,48 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
 
+## Versie 46: zuinig, QR-code, en twee fouten uit de test
+
+**Zuinig met data** — één schakelaar in het tabblad Onderweg. Zet bochten
+opzoeken en bezienswaardigheden stil, samen zo'n 2 MB per rit. De vinkjes
+blijven staan zoals jij ze had maar doen even niets, en je ziet dat ook
+(`.kleed`). De route zelf en de kaart werken gewoon.
+
+**Route naar je telefoon** — knop `Naar mijn telefoon` maakt een QR-code die je
+met je telefooncamera scant. De winst zit niet in de QR maar in wát erin staat:
+
+| | tekens in de link |
+|---|---|
+| oude manier (de *invoer* meesturen) | 935 |
+| nieuwe manier (de *uitkomst* meesturen) | **508** |
+
+De deel-link stuurde je invoer mee, waardoor de telefoon **al het werk opnieuw
+deed** — inclusief de Overpass-vragen voor het bochten zoeken, ruim 2 MB. Nu
+gaan de punten mee waar de route uiteindelijk langs ging (`w` in de payload,
+vier decimalen = elf meter, ruim genoeg voor een vormpunt). De telefoon doet één
+routeberekening van ~50 KB en zet `findCurvy` uit, want dat zoekwerk is al
+gedaan. Alleen bij enkele reis: bij een rondje zitten er keerpunten in de lijst
+die als losse tussenstop niet werken.
+
+De QR-bibliotheek (`qrcode-generator`, MIT, 57 KB) wordt **pas opgehaald als je
+op de knop drukt** en staat niet in de offline-lijst — je zit bij je pc, dus je
+hebt internet. Lukt het ophalen niet, dan krijg je de link met een kopieerknop.
+Verwijs ernaar via `window.qrcode`, anders klaagt de naamcontrole over een naam
+die niet uit onze eigen bestanden komt.
+
+**Twee fouten uit de test op versie 45:**
+
+1. **Een getekende route bleef op "bezig" staan.** De statusregel verklapte het:
+   *"Snelweg-aanloop van 50 km uitzetten…"*. Met een snelwegaanloop ingesteld
+   berekent de app eerst een aparte route naar het einde van die aanloop. Bij een
+   route die je zelf hebt getekend is dat onzin — je hebt net aangewezen waar je
+   heen wil. Zijn alle tussenstops coördinaten, dan wordt de aanloop nu
+   overgeslagen en zegt hij dat ook
+2. **De bochtenknop leek de app te laten crashen.** Hij haalde tot 2500 wegen op
+   en meette die in één keer door; de telefoon stond dan seconden stil. Nu:
+   hoogstens 700 wegen, een gebied van maximaal 2500 km², en het doormeten gaat
+   in hapjes van 120 met de voortgang over de kaart
+
 ## Automatisch zoomen, versie 45
 
 | Wanneer | Zoom | Waarom |

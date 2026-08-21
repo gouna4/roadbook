@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=45">
+<link rel="stylesheet" href="stijl.css?v=46">
 </head>
 <body>
 
@@ -30,7 +30,7 @@
     <button data-tab="plan" class="on">Plannen</button>
     <button data-tab="weg">Onderweg</button>
     <button data-tab="rit">Ritten</button>
-    <span class="ver" id="verNr">v45</span>
+    <span class="ver" id="verNr">v46</span>
     <button data-tab="set" class="sliders" aria-label="Instellingen" title="Instellingen">⚙</button>
   </nav>
 
@@ -114,6 +114,16 @@
       <div class="exports" id="exports" hidden>
         <button id="gpx">GPX opslaan</button>
         <button id="share">Delen</button>
+        <button id="naarTel">Naar mijn telefoon</button>
+      </div>
+      <div id="qrBox" hidden>
+        <p class="hint" id="qrUitleg"></p>
+        <div id="qrPlek"></div>
+        <p class="qrlink" id="qrLink"></p>
+        <div class="chips">
+          <button id="qrKopie">Kopieer de link</button>
+          <button id="qrDicht">Sluiten</button>
+        </div>
       </div>
       <div class="toolrow">
         <button id="btnUndo" title="Laatste wijziging terugdraaien">↶ Ongedaan</button>
@@ -141,6 +151,14 @@
         <label class="check"><input type="checkbox" id="findPois" checked> Bezienswaardigheden</label>
         <label class="check"><input type="checkbox" id="findStays"> Overnachting bij de bestemming</label>
       </div>
+      <label class="check zuinig">
+        <input type="checkbox" id="zuinig"> <b>Zuinig met data</b>
+      </label>
+      <p class="hint" id="zuinigHint">
+        Eén schakelaar voor als je in het buitenland zit: hij zet het opzoeken van
+        bochten en bezienswaardigheden uit. Dat is samen zo'n 2 MB per rit. De
+        route zelf en de kaart blijven gewoon werken.
+      </p>
       <p class="hint">
         Bochten opzoeken kijkt waar je route saai wordt, meet de wegen in de buurt
         door en stuurt je langs de bochtigste. Bergpassen gaan voor. Kost een halve
@@ -384,17 +402,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=45"></script>
-<script src="02-invoer.js?v=45"></script>
-<script src="03-route.js?v=45"></script>
-<script src="04-bibliotheek.js?v=45"></script>
-<script src="05-weergave.js?v=45"></script>
-<script src="06-plannen.js?v=45"></script>
-<script src="07-interface.js?v=45"></script>
-<script src="08-onderweg.js?v=45"></script>
-<script src="09-rijden.js?v=45"></script>
-<script src="10-uitvoer.js?v=45"></script>
-<script src="11-offline.js?v=45"></script>
-<script src="12-opstarten.js?v=45"></script>
+<script src="01-basis.js?v=46"></script>
+<script src="02-invoer.js?v=46"></script>
+<script src="03-route.js?v=46"></script>
+<script src="04-bibliotheek.js?v=46"></script>
+<script src="05-weergave.js?v=46"></script>
+<script src="06-plannen.js?v=46"></script>
+<script src="07-interface.js?v=46"></script>
+<script src="08-onderweg.js?v=46"></script>
+<script src="09-rijden.js?v=46"></script>
+<script src="10-uitvoer.js?v=46"></script>
+<script src="11-offline.js?v=46"></script>
+<script src="12-opstarten.js?v=46"></script>
 </body>
 </html>

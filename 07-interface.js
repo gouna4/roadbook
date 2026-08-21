@@ -261,6 +261,24 @@ el('zoekBalk').addEventListener('click',()=>{
   el('dest').focus();
 });
 
+/* Zuinig met data: één schakelaar in plaats van drie vinkjes waar je over moet
+   nadenken. De vinkjes blijven staan zoals jij ze had, maar ze doen even niets
+   en je ziet dat ook. */
+function zuinigBij(){
+  const aan=el('zuinig').checked;
+  ['findCurvy','findPois','findStays'].forEach(id=>{
+    el(id).disabled=aan;
+    el(id).closest('label')?.classList.toggle('kleed',aan);
+  });
+  el('zuinigHint').textContent=aan
+    ? 'Zuinig staat aan: bochten opzoeken en bezienswaardigheden liggen stil. '
+      +'De route zelf en de kaart werken gewoon.'
+    : "Eén schakelaar voor als je in het buitenland zit: hij zet het opzoeken van "
+      +"bochten en bezienswaardigheden uit. Dat is samen zo'n 2 MB per rit.";
+}
+el('zuinig').addEventListener('change',()=>{ zuinigBij(); saveSettings(); });
+zuinigBij();
+
 /* Vegen om van tabblad te wisselen. Op een iPhone ligt de tabbalk in de
    volledig-open stand vlak onder het camera-eilandje, en dan is hij lastig te
    raken. Met een veeg naar links of rechts kom je er altijd.

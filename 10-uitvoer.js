@@ -50,7 +50,7 @@ function settings(){
     findPois:el('findPois').checked, findStays:el('findStays').checked,
     tankKm:el('tankKm').value, tripMode, loopKm:el('loopKm').value,
     depTime:el('depTime').value, loopOn:el('loopOn').checked,
-    findCurvy:el('findCurvy').checked,
+    findCurvy:el('findCurvy').checked, zuinig:el('zuinig').checked,
     offRadius:el('offRadius').value, offWhere:el('offWhere').value };
 }
 function applySettings(s){
@@ -73,7 +73,7 @@ function applySettings(s){
     updateDestLabel();
     el('terugHint').hidden = tripMode!=='one';
   }
-  ['avoidTowns','noRepeat','noToll','noFerry','findPois','findStays','findCurvy']
+  ['avoidTowns','noRepeat','noToll','noFerry','findPois','findStays','findCurvy','zuinig']
     .forEach(k=>{ if(s[k]!=null) el(k).checked=!!s[k]; });
 }
 function saveSettings(){ store.set('rb.set',{...settings(),start:el('start').value,dest:el('dest').value,vias:state.vias}); }

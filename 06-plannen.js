@@ -25,7 +25,15 @@ async function plan(){
 
     /* snelweg-aanloop */
     state.fast={shape:[],km:0,sec:0}; let handover=null;
-    const sprint=+el('sprintKm').value||0;
+    /* Heb je de route zelf op de kaart aangewezen of getekend? Dan zijn alle
+       tussenstops coördinaten en weet je precies waar je heen wil. Een
+       snelwegaanloop eroverheen leggen is dan onzin: het kost een extra
+       berekening, het duurt langer voor je je route ziet, en hij haalt je van
+       de weg die je net zelf hebt uitgekozen. */
+    const zelfBepaald = state.vias.length>1 && state.vias.every(isCoordNaam);
+    const sprint = zelfBepaald ? 0 : (+el('sprintKm').value||0);
+    if(zelfBepaald && (+el('sprintKm').value||0)>0)
+      notes.push('De snelwegaanloop is overgeslagen: je hebt de route zelf aangewezen.');
     if(sprint>0){
       setStatus(`Snelweg-aanloop van ${sprint} km uitzetten…`);
       try{
@@ -185,7 +193,7 @@ async function plan(){
     /* 3b — bochten zoeken: het saaie stuk inruilen voor iets kronkeligs.
        Alleen bij een enkele reis: bij een rondje en heen-en-terug zijn de
        keerpunten al ingepast en zou een extra punt die opzet omgooien. */
-    if(el('findCurvy').checked && tripMode==='one'){
+    if(el('findCurvy').checked && !el('zuinig').checked && tripMode==='one'){
       setStatus('Bochtige wegen zoeken bij de saaie stukken…');
       let beter=0;
       try{
@@ -228,7 +236,7 @@ async function plan(){
 
     /* 4 — bezienswaardigheden en overnachtingen */
     const jobs=[];
-    if(el('findPois').checked) jobs.push(findPois(state.tourShape).then(list=>{
+    if(el('findPois').checked && !el('zuinig').checked) jobs.push(findPois(state.tourShape).then(list=>{
       if(!alive()) return;
       const seen=new Set();
       let p=list.filter(x=>{const k=x.name+Math.round(x.lat*300);return seen.has(k)?false:(seen.add(k),true);});
@@ -237,7 +245,7 @@ async function plan(){
       state.pois=p;
     }).catch(()=>notes.push('Bezienswaardigheden lukten niet.')));
 
-    if(el('findStays').checked) jobs.push(findStays(dest).then(list=>{
+    if(el('findStays').checked && !el('zuinig').checked) jobs.push(findStays(dest).then(list=>{
       if(!alive()) return;
       list.forEach(s=>marker(s,'stay','',`<strong>${s.name}</strong><br>${s.kind}`));
       state.stays=list;

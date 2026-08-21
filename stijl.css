@@ -403,6 +403,21 @@
   .cijfers .acc strong{color:var(--brass)}
   .cijfers > div[hidden]{display:none}
 
+  /* Zuinig met data staat los van de vinkjes erboven, dus met een streepje
+     ertussen. */
+  .check.zuinig{margin-top:10px;padding-top:10px;border-top:1px solid var(--hair)}
+  .kleed{opacity:.45}
+
+  /* De QR-code om een route naar je telefoon te sturen. */
+  #qrBox{margin-top:12px;padding:14px;background:var(--panel-2);
+    border:1px solid var(--hair);border-radius:12px}
+  #qrBox[hidden]{display:none}
+  #qrPlek{background:#FFF;border-radius:8px;padding:10px;display:grid;
+    place-items:center;margin:10px 0}
+  #qrPlek svg{width:100%;max-width:260px;height:auto;display:block}
+  .qrlink{font-family:var(--mono);font-size:10.5px;color:var(--muted);
+    word-break:break-all;line-height:1.4;margin-bottom:10px}
+
   /* De ingang: waar wil je heen. Ligt over de kaart, linksboven. */
   .zoekbalk{position:absolute;left:12px;top:calc(12px + env(safe-area-inset-top));
     right:78px;z-index:5;text-align:left;background:var(--glas);
