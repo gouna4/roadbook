@@ -23,7 +23,6 @@ const FLAG_END=`<svg viewBox="0 0 28 28" aria-hidden="true">
     <rect x="20.75" y="8.834" width="2.875" height="2.666"/>
   </g></svg>`;
 
-function viaCount(){ return state.vias.filter(v=>String(v).trim()).length; }
 
 /* Doortellen vanaf je vertrekpunt: 1 = vertrek, dan jouw punten, dan de
    bestemming. Wat de app zelf toevoegt krijgt geen cijfer maar een tekstje,

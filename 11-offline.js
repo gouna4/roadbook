@@ -146,6 +146,7 @@ async function offMeten(sleutels,patroon){
 async function offDownload(urls,meta){
   if(offBezig) return;
   offBezig=true; offStop=false;
+  try{
   const kast=await caches.open(OFF_KAST);
   let gedaan=0, mislukt=0, bytes=0;
   const totaal=urls.length;
@@ -186,6 +187,12 @@ async function offDownload(urls,meta){
   }
   offGebiedenTonen();
   offRuimteTonen();
+  }finally{
+    /* Ook als het openen van de kast mislukt moet deze vlag omlaag, anders kun
+       je nooit meer een gebied binnenhalen zonder de app te herstarten. */
+    offBezig=false;
+    el('okGo').dataset.rol='';
+  }
 }
 
 function offBalk(gedaan,totaal,bytes){

@@ -352,6 +352,38 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
 
+## Versie 48: de app doorgespit
+
+Op verzoek de hele app nagelopen met de compiler én met eigen speurwerk. Vier
+echte fouten, allemaal uit dezelfde hoek: **dingen die er stil uit zijn gevallen
+bij een verbouwing.**
+
+1. **"GPX opslaan" deed niets.** De knop stond er, maar de luisteraar was in
+   versie 37 meegesleept toen Afdrukken en Bewaren eruit gingen — mijn
+   zoek-en-vervang pakte te veel. Teruggehaald uit `versies/versie-36/`, met het
+   aantal vormpunten vast op 30 in plaats van als instelling
+2. **"Hele weg" deed niets.** Die knop is nooit aangesloten: de plakactie waarmee
+   ik hem toevoegde had niet gepakt en dat viel niet op, want een tik zette dan
+   gewoon één punt
+3. **`offBezig` kwam niet altijd vrij.** Mislukt het openen van de kast, dan kon
+   je nooit meer een gebied binnenhalen zonder de app te herstarten. Nu in een
+   `finally`, net als de plannen-knop in versie 47
+4. **Dode code weg:** `printRoadbook()` (60 regels afdruk-opmaak) en
+   `viaCount()`, plus zeven id's die na de verbouwingen niets meer deden
+
+Wat de compiler wél zag maar geen fout was: `vertrek < new Date()-3600000`
+vergelijkt een datum met een getal. Werkt, maar nu netjes `+vertrek < Date.now()`.
+
+**Twee nieuwe controles in `zelftest.js`**, want dit is precies de soort fout die
+er drie keer is doorgeglipt:
+
+- **elke knop heeft een luisteraar** — een knop die niemand opvangt doet niets,
+  en dat merk je pas als je hem nodig hebt
+- **geen losse id's** — een naam in de interface waar niets meer naar wijst is een
+  overblijfsel; niet fout, maar het is de plek waar de volgende fout zich
+  verstopt. `kaartBlock` en `offBlock` mogen blijven: daarop wordt bewaard of ze
+  open of dicht stonden
+
 ## Versie 47: de knop die vastliep
 
 **De ergste fout tot nu toe, want er was geen weg terug: de knop bleef op

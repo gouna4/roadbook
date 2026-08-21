@@ -730,6 +730,46 @@ console.log('=== 4. klopt de interface met de code? ===');
     } else console.log('OK   de suggestielijst kan zich ophangen aan .' + klasse);
   }
 
+  /* ---------- dode knoppen ----------
+     Een knop die in de interface staat maar waar niemand naar luistert doet
+     niets, en dat merk je pas als je hem nodig hebt. Zo was "GPX opslaan" bij de
+     grote opruiming meegesleept en "Hele weg" nooit aangesloten: de knoppen
+     stonden er, er gebeurde niets. */
+  const jsAlles = BESTANDEN.map(f => fs.readFileSync(f, 'utf8')).join('\n');
+  /* Een naam kan op drie manieren gebruikt worden: als el('naam'), binnen een
+     langere selector als '#naam button', of in de opmaak als #naam. */
+  const noemt = naam => jsAlles.indexOf("'" + naam + "'") >= 0
+                     || jsAlles.indexOf('"' + naam + '"') >= 0
+                     || jsAlles.indexOf('#' + naam) >= 0;
+  const dood = [], naamloos = [];
+  for (const k of html.matchAll(/<button([^>]*)>/g)) {
+    const attr = k[1];
+    const id = /id="([^"]+)"/.exec(attr);
+    const heeftData = /data-[\w-]+=/.test(attr);
+    if (!id) { if (!heeftData) naamloos.push(attr.trim().slice(0, 44)); continue; }
+    if (!noemt(id[1])) dood.push(id[1]);
+  }
+  if (dood.length) {
+    console.log('FOUT knoppen waar niemand naar luistert: ' + dood.join(', '));
+    fouten++;
+  } else console.log('OK   elke knop heeft een luisteraar');
+  if (naamloos.length) {
+    console.log('FOUT knop zonder id en zonder data-: ' + naamloos.join(' | '));
+    fouten++;
+  }
+
+  /* ---------- restjes ----------
+     Een id in de interface waar niets meer naar wijst is een overblijfsel van
+     een verbouwing. Niet fout, maar het is de plek waar de volgende fout zich
+     verstopt. Daarom een waarschuwing en geen fout. */
+  const losse = [...new Set([...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]))]
+        /* kaartBlock en offBlock houden hun naam nodig: daarop wordt bewaard of
+       ze open of dicht stonden. */
+    .filter(id => !['verNr','map','kaartBlock','offBlock'].includes(id) && !noemt(id)
+                  && css.indexOf('#' + id) < 0);
+  if (losse.length) console.log('LET OP  id-s die niets meer doen: ' + losse.join(', '));
+  else console.log('OK   geen losse id-s');
+
   /* Versienummers die uit elkaar lopen geven een halve oude app. Ze staan op
      vier plekken en moeten alle vier gelijk zijn: de kop van index.html, achter
      elke bestandsnaam die index.html opvraagt, de cachenaam in sw.js, en de V

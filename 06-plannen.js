@@ -399,6 +399,17 @@ function tekenModus(aan){
 }
 
 el('drawMode').addEventListener('click',()=>tekenModus(!teken.aan));
+/* De knop "Hele weg". Stond in de balk maar was nooit aangesloten, dus een tik
+   zette altijd één punt. Gevonden door na te gaan of elke knop in de interface
+   ook een luisteraar heeft. */
+el('pinWeg').addEventListener('click',()=>{
+  pin.weg=!pin.weg;
+  el('pinWeg').classList.toggle('on',pin.weg);
+  tekenZeg(pin.weg
+    ? 'Tik op een weg: die wordt in één keer helemaal vastgelegd.'
+    : 'Tik voor één punt, veeg voor een vorm.');
+});
+
 el('drawClear').addEventListener('click',()=>{
   /* Staan er aangewezen punten? Dan zijn die aan de beurt: die ben je net aan
      het zetten, dus die wil je als eerste kwijt. */

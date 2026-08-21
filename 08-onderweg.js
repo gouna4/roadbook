@@ -27,7 +27,8 @@ async function showWeather(){
   const totaal=state.fast.sec+v.sec;
   const [uu,mm]=(el('depTime').value||'09:00').split(':').map(Number);
   const vertrek=new Date(); vertrek.setHours(uu,mm,0,0);
-  if(vertrek<new Date()-3600000) vertrek.setDate(vertrek.getDate()+1);
+  /* Ligt je vertrektijd meer dan een uur in het verleden? Dan bedoel je morgen. */
+  if(+vertrek < Date.now()-3600000) vertrek.setDate(vertrek.getDate()+1);
   const tijden=[vertrek, new Date(+vertrek+totaal*500), new Date(+vertrek+totaal*1000)];
   try{
     const u=`https://api.open-meteo.com/v1/forecast`

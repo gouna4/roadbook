@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=47">
+<link rel="stylesheet" href="stijl.css?v=48">
 </head>
 <body>
 
@@ -30,7 +30,7 @@
     <button data-tab="plan" class="on">Plannen</button>
     <button data-tab="weg">Onderweg</button>
     <button data-tab="rit">Ritten</button>
-    <span class="ver" id="verNr">v47</span>
+    <span class="ver" id="verNr">v48</span>
     <button data-tab="set" class="sliders" aria-label="Instellingen" title="Instellingen">⚙</button>
   </nav>
 
@@ -60,7 +60,6 @@
       <p class="hint" id="terugHint">
         Weer thuis eindigen? Kies <b>Heen en terug</b> of <b>Rondje</b> bij ⚙.
       </p>
-      <p class="hint" id="startLabel" hidden>Vertrek</p>
       <p class="hint" id="destLabel" hidden>Bestemming</p>
     </div>
 
@@ -109,7 +108,7 @@
       <div class="eyebrow">Afslagen</div>
       <div class="rows" id="turnList"></div>
     </div>
-    <div class="block" id="exportBlock">
+    <div class="block">
       <div class="eyebrow">Meenemen</div>
       <div class="exports" id="exports" hidden>
         <button id="gpx">GPX opslaan</button>
@@ -166,7 +165,7 @@
       </p>
     </div>
 
-    <div class="block" id="alongBlock">
+    <div class="block">
       <div class="eyebrow">Tanken, eten en koffie</div>
       <div class="chips">
         <button id="alongAll">Wat is er onderweg?</button>
@@ -213,7 +212,6 @@
     </div>
 
     <div class="block" id="savedBlock" hidden></div>
-    <div class="block" id="libBlock" hidden></div>
   </section>
 
   <!-- ============ Instellingen ============ -->
@@ -239,7 +237,7 @@
       </div>
     </div>
 
-    <div class="block" id="wegBlock">
+    <div class="block">
       <div class="eyebrow">Vermijden</div>
       <div class="checks">
         <label class="check"><input type="checkbox" id="avoidTowns" checked> Dorpskernen en woonwijken</label>
@@ -338,7 +336,7 @@
   <!-- Groen blok: de afslag als vorm, de afstand groot, en wat je moet doen.
        Volle kleur en niet doorzichtig, want dit moet in de zon leesbaar zijn. -->
   <div class="dtop">
-    <div class="dpijl" id="dArrow">
+    <div class="dpijl">
       <svg viewBox="0 0 48 48" aria-hidden="true">
         <path id="dArrowPath" d="M24 44 V14 M16 21 L24 13 L32 21" fill="none"
               stroke="currentColor" stroke-width="5.5"
@@ -402,17 +400,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=47"></script>
-<script src="02-invoer.js?v=47"></script>
-<script src="03-route.js?v=47"></script>
-<script src="04-bibliotheek.js?v=47"></script>
-<script src="05-weergave.js?v=47"></script>
-<script src="06-plannen.js?v=47"></script>
-<script src="07-interface.js?v=47"></script>
-<script src="08-onderweg.js?v=47"></script>
-<script src="09-rijden.js?v=47"></script>
-<script src="10-uitvoer.js?v=47"></script>
-<script src="11-offline.js?v=47"></script>
-<script src="12-opstarten.js?v=47"></script>
+<script src="01-basis.js?v=48"></script>
+<script src="02-invoer.js?v=48"></script>
+<script src="03-route.js?v=48"></script>
+<script src="04-bibliotheek.js?v=48"></script>
+<script src="05-weergave.js?v=48"></script>
+<script src="06-plannen.js?v=48"></script>
+<script src="07-interface.js?v=48"></script>
+<script src="08-onderweg.js?v=48"></script>
+<script src="09-rijden.js?v=48"></script>
+<script src="10-uitvoer.js?v=48"></script>
+<script src="11-offline.js?v=48"></script>
+<script src="12-opstarten.js?v=48"></script>
 </body>
 </html>

@@ -1,45 +1,57 @@
 /* Roadbook — 10-uitvoer.js
-   Roadbook afdrukken, GPX uitvoeren en routes bewaren. */
+   GPX uitvoeren, routes bewaren en de route in je zak. */
 
-/* ================= roadbook afdrukken ================= */
-function printRoadbook(){
-  const v=state.variants?.[state.shown];
-  if(!v){ setStatus('Plan eerst een route.',true); return; }
-  const rijen=[...el('roadbook').querySelectorAll('.stop')].map(d=>({
-    km:d.querySelector('.km')?.textContent||'',
-    t:d.querySelector('.title')?.textContent||'',
-    k:d.querySelector('.kind')?.textContent||''
-  }));
-  const afslagen=(v.man||[]).map((m,i)=>({i,t:m.instruction||'',l:m.length||0}));
-  let km=state.fast.km;
-  const afsRijen=afslagen.map(a=>{ const r=`${km.toFixed(0)} km|${a.t}`; km+=a.l; return r; });
-  const naam=`${state.points[0]?.name||''} → ${state.points[state.points.length-1]?.name||''}`;
-  const w=window.open('','_blank');
-  if(!w){ setStatus('Sta pop-ups toe om af te drukken.',true); return; }
-  w.document.write(`<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8">
-  <title>${naam}</title><style>
-    @page{margin:14mm}
-    body{font:12px/1.45 -apple-system,system-ui,sans-serif;color:#111}
-    h1{font-size:19px;margin:0 0 3px}
-    .sub{color:#666;margin-bottom:14px;font-size:12px}
-    h2{font-size:13px;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.08em;color:#444}
-    table{width:100%;border-collapse:collapse}
-    td{padding:4px 6px;border-bottom:1px solid #e5e5e5;vertical-align:top}
-    td.km{width:62px;color:#a06b12;font-variant-numeric:tabular-nums;white-space:nowrap}
-    td.sm{color:#666;font-size:11px}
-    tr{break-inside:avoid}
-  </style></head><body>
-  <h1>${naam}</h1>
-  <div class="sub">${(state.fast.km+v.km).toFixed(0)} km · bochtigheid ${v.prof.score}/100${v.sec?` · ${fmtTime(state.fast.sec+v.sec)}`:''}</div>
-  <h2>Roadbook</h2><table>${rijen.map(r=>
-    `<tr><td class="km">${r.km}</td><td><b>${r.t}</b><div class="sm">${r.k}</div></td></tr>`).join('')}</table>
-  ${afsRijen.length?`<h2>Afslagen</h2><table>${afsRijen.map(r=>{
-    const [a,b]=r.split('|');
-    return `<tr><td class="km">${a}</td><td>${b}</td></tr>`;}).join('')}</table>`:''}
-  </body></html>`);
-  w.document.close();
-  setTimeout(()=>{ w.focus(); w.print(); },400);
-}
+/* ================= GPX opslaan =================
+   Voor je TomTom, je Garmin of een vriend. Deze knop was in versie 37 per
+   ongeluk meegesleept toen Afdrukken en Bewaren eruit gingen: de knop stond er
+   nog, maar er luisterde niemand meer. Gevonden door te controleren of elke
+   knop in de interface ook een luisteraar heeft. */
+el('gpx').addEventListener('click',()=>{
+  if(!state.shape.length) return;
+  const esc=s=>String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]));
+  const naam=`${state.points[0].name} – ${state.points[state.points.length-1].name}`;
+  /* TomTom en Garmin slikken een beperkt aantal vormpunten; 30 is een veilig
+     getal dat overal werkt. Stond eerst als instelling in de interface, maar
+     daar draaide niemand aan. */
+  const max=30;
+
+  /* TomTom en Garmin slikken maar een beperkt aantal vormpunten. Jouw eigen
+     stops houden we altijd; de rest vullen we aan met punten van de lijn,
+     netjes verdeeld, zodat het toestel je route niet herberekent naar de snelweg. */
+  const cum=cumulative(state.shape), totaal=cum[cum.length-1];
+  const vast=state.points.map(p=>({lat:p.lat,lon:p.lon,name:p.name,
+    km:placeAlong(coarse(state.shape),cumulative(coarse(state.shape)),p).km}));
+  const extra=Math.max(0,max-vast.length);
+  const vul=[];
+  for(let i=1;i<=extra;i++){
+    const doel=totaal*i/(extra+1);
+    let k=cum.findIndex(d=>d>=doel); if(k<0) k=state.shape.length-1;
+    if(vast.some(p=>Math.abs(p.km-doel)<totaal/(max*2))) continue;
+    vul.push({lat:state.shape[k][1],lon:state.shape[k][0],name:'',km:doel});
+  }
+  const punten=[...vast,...vul].sort((a,b)=>a.km-b.km);
+
+  const step=Math.max(1,Math.ceil(state.shape.length/2000));
+  const trk=state.shape.filter((_,i)=>i%step===0||i===state.shape.length-1)
+    .map(c=>`<trkpt lat="${c[1].toFixed(6)}" lon="${c[0].toFixed(6)}"/>`).join('');
+  const rte=punten.map((p,i)=>
+    `<rtept lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}"><name>${esc(p.name||('Punt '+(i+1)))}</name></rtept>`).join('');
+  const wpt=[...state.pois,...state.stays,...(state.along||[])].map(p=>
+    `<wpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}"><name>${esc(p.name)}</name><desc>${esc(p.kind||'')}</desc></wpt>`).join('');
+  const gpx=`<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Roadbook" xmlns="http://www.topografix.com/GPX/1/1">
+<metadata><name>${esc(naam)}</name></metadata>
+${wpt}
+<rte><name>${esc(naam)}</name>${rte}</rte>
+<trk><name>${esc(naam)}</name><trkseg>${trk}</trkseg></trk>
+</gpx>`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([gpx],{type:'application/gpx+xml'}));
+  a.download=naam.replace(/[^\w\s–-]/g,'').replace(/\s+/g,'_')+'.gpx';
+  a.click(); URL.revokeObjectURL(a.href);
+  setStatus(`GPX opgeslagen met ${punten.length} vormpunten en ${(state.pois.length+state.stays.length)} plaatsen.`);
+});
+
 
 /* ================= bewaren ================= */
 function settings(){
