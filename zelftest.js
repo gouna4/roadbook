@@ -385,6 +385,22 @@ check('5 km recht is te kort om op te knappen',
       saaieStukken(curveProfile(recht(6.0, 50.4, 5))).length, 0);
 
 console.log('');
+console.log('--- naviPadding(): de chevron op 70% naar beneden ---');
+/* De kaart centreert in wat er overblijft na de padding, dus het middelpunt
+   schuift de helft van de padding naar beneden. Voor 70% is dat 40% erbij. */
+const p800 = naviPadding(800);
+console.log('     bij 800 px hoog: ' + JSON.stringify(p800));
+check('40% van de hoogte erbij', p800.top, 320);
+check('onder niets erbij', p800.bottom, 0);
+check('middelpunt komt op 70%', ((800 - p800.top) / 2 + p800.top) / 800, 0.7);
+const p1600 = naviPadding(1600);
+check('schaalt mee met de hoogte', p1600.top, 640);
+check('ook dan op 70%', ((1600 - p1600.top) / 2 + p1600.top) / 1600, 0.7);
+check('kanteling is 55 graden', NAVI.pitch, 55);
+check('zoom bij het starten is 16.5', NAVI.zoom, 16.5);
+check('elke melding duurt een seconde', NAVI.duur, 1000);
+
+console.log('');
 console.log('--- de afslagvorm en het woord horen bij elkaar ---');
 /* Vorm en woord komen uit dezelfde grenzen; ze mogen elkaar nooit tegenspreken. */
 const paren = [[0,'rechtdoor','Rechtdoor'], [8,'rechtdoor','Rechtdoor'],
@@ -623,6 +639,31 @@ console.log('=== 4. klopt de interface met de code? ===');
     for (const d of dubbel) console.log('FOUT selector bevat twee keer "' + d[1] + '"');
     fouten += dubbel.length;
   } else console.log('OK   geen selector die zichzelf herhaalt');
+
+  /* De suggestielijst bij het adresveld hangt zich met position:absolute op aan
+     het vak eromheen. Heeft dat vak geen position:relative, dan komt de lijst
+     ergens buiten beeld en lijkt het alsof de app geen adressen meer vindt.
+     Precies wat er in versie 40 gebeurde. */
+  const acOuders = [];
+  for (const f of BESTANDEN) {
+    const code = fs.readFileSync(f, 'utf8');
+    if (/\.className\s*=\s*'ac'/.test(code)) acOuders.push(f);
+  }
+  if (acOuders.length) {
+    /* welk vak zit er om het invoerveld heen in de html? */
+    const omVeld = /<(?:div|label) class="([\w-]+)"[^>]*>\s*<span class="vlag/.exec(html);
+    const klasse = omVeld ? omVeld[1] : null;
+    const heeftRel = klasse &&
+      new RegExp('\.' + klasse + '\{[^}]*position:relative').test(css);
+    if (!klasse) {
+      console.log('FOUT het vak om het adresveld is niet te vinden');
+      fouten++;
+    } else if (!heeftRel) {
+      console.log('FOUT .' + klasse + ' heeft geen position:relative — '
+        + 'de suggestielijst komt dan buiten beeld');
+      fouten++;
+    } else console.log('OK   de suggestielijst kan zich ophangen aan .' + klasse);
+  }
 
   /* Versienummers die uit elkaar lopen geven een halve oude app. Ze staan op
      vier plekken en moeten alle vier gelijk zijn: de kop van index.html, achter

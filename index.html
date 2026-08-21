@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=40">
+<link rel="stylesheet" href="stijl.css?v=42">
 </head>
 <body>
 
@@ -30,6 +30,7 @@
     <button data-tab="plan" class="on">Plannen</button>
     <button data-tab="weg">Onderweg</button>
     <button data-tab="rit">Ritten</button>
+    <span class="ver" id="verNr">versie 42</span>
     <button data-tab="set" class="sliders" aria-label="Instellingen" title="Instellingen">⚙</button>
   </nav>
 
@@ -38,17 +39,22 @@
   <!-- ============ Plannen ============ -->
   <section class="tab on" data-tab="plan">
     <div class="plekken">
-      <label class="plek" for="start">
+      <div class="plek">
         <span class="vlag start">⚑</span>
         <input id="start" placeholder="Vanaf waar?" value="Belfeld">
-      </label>
+        <button class="veldknop" id="hereBtn" aria-label="Mijn locatie gebruiken"
+                title="Vertrek vanaf waar ik nu ben">◎</button>
+        <button class="veldknop wis" id="startWis" hidden aria-label="Leegmaken"
+                title="Dit veld leegmaken">✕</button>
+      </div>
       <div id="vias"></div>
-      <label class="plek" for="dest">
+      <div class="plek">
         <span class="vlag eind">⚑</span>
         <input id="dest" placeholder="Waar naartoe?" value="Winterberg">
-      </label>
+        <button class="veldknop wis" id="destWis" hidden aria-label="Leegmaken"
+                title="Dit veld leegmaken">✕</button>
+      </div>
       <div class="plekrij">
-        <button class="text-btn" id="hereBtn">📍 Vanaf mijn locatie</button>
         <button class="text-btn" id="addVia">+ Tussenstop</button>
       </div>
       <p class="hint" id="terugHint">
@@ -295,7 +301,7 @@
     </div>
 
     <p class="foot">
-      Roadbook <span id="verNr">versie 40</span> ·
+      Roadbook ·
       Kaart: <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> ·
       Topo: <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA) ·
       Satelliet: Esri World Imagery ·
@@ -328,7 +334,13 @@
   </div>
   <div class="dstraat" id="dThen"></div>
   <div class="dmid">
-    <button class="dpill" id="dRecenter" hidden>◎ Terug naar mij</button>
+    <!-- Rechtsboven, onder het groene blok: aanhaken en meedraaien/noord. -->
+    <div class="dside">
+      <button class="dround" id="dRecenter" hidden aria-label="Weer meevolgen"
+              title="Je hebt de kaart zelf verschoven — tik om weer mee te volgen">◎</button>
+      <button class="dround" id="dNorth" aria-label="Meedraaien of noorden boven"
+              title="Draait met je mee — tik voor noorden boven">◈</button>
+    </div>
   </div>
   <div class="dbottom">
     <div class="dcijfers">
@@ -372,17 +384,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=40"></script>
-<script src="02-invoer.js?v=40"></script>
-<script src="03-route.js?v=40"></script>
-<script src="04-bibliotheek.js?v=40"></script>
-<script src="05-weergave.js?v=40"></script>
-<script src="06-plannen.js?v=40"></script>
-<script src="07-interface.js?v=40"></script>
-<script src="08-onderweg.js?v=40"></script>
-<script src="09-rijden.js?v=40"></script>
-<script src="10-uitvoer.js?v=40"></script>
-<script src="11-offline.js?v=40"></script>
-<script src="12-opstarten.js?v=40"></script>
+<script src="01-basis.js?v=42"></script>
+<script src="02-invoer.js?v=42"></script>
+<script src="03-route.js?v=42"></script>
+<script src="04-bibliotheek.js?v=42"></script>
+<script src="05-weergave.js?v=42"></script>
+<script src="06-plannen.js?v=42"></script>
+<script src="07-interface.js?v=42"></script>
+<script src="08-onderweg.js?v=42"></script>
+<script src="09-rijden.js?v=42"></script>
+<script src="10-uitvoer.js?v=42"></script>
+<script src="11-offline.js?v=42"></script>
+<script src="12-opstarten.js?v=42"></script>
 </body>
 </html>

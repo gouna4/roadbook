@@ -352,6 +352,52 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
 
+## De adresvelden, versie 42
+
+- **◎ in het vertrekveld** pakt je huidige locatie. Stond eerst als tekstregel
+  onder de velden; nu een knopje in het veld zelf, waar je het zoekt
+- **✕ aan het eind van een veld** maakt het leeg. Uitgummen met de terugtoets is
+  met handschoenen aan geen werk voor een mens. Het kruisje komt alleen als er
+  iets staat
+- **De suggestielijst was stuk** en dat was mijn fout in versie 40. `attachAC()`
+  hangt de lijst met `position:absolute` op aan het vak om het invoerveld. Het
+  oude vak (`.field`) had `position:relative`, het nieuwe (`.plek`) niet — dus
+  kwam de lijst ergens buiten beeld en leek het alsof de app geen adressen meer
+  vond. Bovendien was `.plek` een `<label>`, en een aanklikbare lijst in een
+  label is vragen om moeilijkheden; het is nu een `<div>`.
+
+`zelftest.js` controleert dit nu: hij zoekt het vak om het adresveld op en kijkt
+of het `position:relative` heeft. Nagerekend door de fout er tijdelijk weer in te
+zetten — dan slaat hij aan.
+
+## De camera in de rijmodus, versie 41
+
+Gebouwd naar een opdracht van de eigenaar, met zijn cijfers.
+
+- **Bij Start**: `easeTo` naar je positie, zoom 16,5, kanteling 55°, kaart
+  gedraaid op je rijrichting. Alleen die eerste keer zet hij zoom en kanteling;
+  daarna blijft het bij meeglijden
+- **Elke gps-melding**: `easeTo` met `duration:1000` en lineaire beweging, zodat
+  het glijdt in plaats van springt
+- **Je staat op 70% naar beneden, via map padding** en niet via een verschoven
+  middelpunt. De kaart centreert in wat er overblijft ná de padding, dus het
+  middelpunt schuift de helft van de padding naar beneden: voor 70% moet er
+  bovenaan 40% van de hoogte bij. `naviPadding(hoogte)` staat apart zodat het
+  na te rekenen is, en wordt opnieuw gezet als je je telefoon draait
+- **Richting**: eerst `coords.heading`, anders de hoek tussen je vorige en je
+  huidige plek. **Onder 5 km/u draait de kaart niet mee** — dan sta je te
+  wachten en zou hij van elke gps-hik in de rondte tollen
+- **Jij bent een chevron** (lichtblauw met donkere rand), meedraaiend en
+  meegekanteld met de kaart
+- **Twee ronde knoppen rechtsboven**: opnieuw aanhaken als je zelf de kaart hebt
+  verschoven, en wisselen tussen meedraaien en noorden boven
+
+**Nog te doen:** de automatische zoom (15,5 boven 100 km/u, 16,5 normaal, 17,5
+binnen 300 m van een afslag).
+
+Het versienummer staat in de **tabbalk** en dus altijd in beeld. Het stond in
+versie 40 alleen onderaan bij ⚙ en was daar niet te vinden.
+
 ## Uiterlijk sinds versie 40
 
 Gebouwd naar een schets van de eigenaar. Drie tabbladen met een woord en een

@@ -147,6 +147,25 @@ function addVia(text=''){ if(typeof pushUndo==='function') pushUndo();
 /* Wie bepaalt de volgorde van de tussenstops? Punten die je zelf op de kaart
    aanwijst houden de orde waarin je ze zette; getypte plaatsnamen sorteert de
    app langs de route. Daar hoef jij niets voor aan te vinken. */
+/* Een kruisje in het veld om het leeg te maken. Uitgummen met de terugtoets is
+   op een telefoon met handschoenen aan geen werk voor een mens. Het kruisje
+   verschijnt alleen als er iets staat. */
+function wisKnopBij(veld,knop){
+  el(knop).hidden = !el(veld).value.trim();
+}
+[['start','startWis'],['dest','destWis']].forEach(([veld,knop])=>{
+  el(veld).addEventListener('input',()=>wisKnopBij(veld,knop));
+  el(knop).addEventListener('click',()=>{
+    el(veld).value='';
+    wisKnopBij(veld,knop);
+    el(veld).focus();
+    /* De rest van de app moet weten dat het veld leeg is. */
+    el(veld).dispatchEvent(new Event('input',{bubbles:true}));
+    saveSettings();
+  });
+  wisKnopBij(veld,knop);
+});
+
 let manualOrder=false;
 
 /* ================= wegtype-knoppen ================= */

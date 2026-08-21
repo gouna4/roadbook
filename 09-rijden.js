@@ -183,7 +183,7 @@ const drive={ on:false, watch:null, lock:null, stem:true, gezegd:new Set(),
               shape:null, cum:null, man:null, sec:0,
               volgen:true, noord:false, koers:0, pos:null, idx:0, mij:null,
               spoor:[], spoorRit:false, terugGezegd:0, gedaanIdx:-1,
-              afSinds:0, herLaatst:0, herBezig:false, geenNet:false };
+              afSinds:0, herLaatst:0, herBezig:false, geenNet:false, eerste:true };
 
 const AF_KM=0.25;   /* meer dan 250 meter naast de lijn heet "van de route af" */
 
@@ -325,15 +325,44 @@ function mijMarker(){
   if(drive.mij) return drive.mij;
   const d=document.createElement('div');
   d.className='mk mij';
-  d.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 2 L20 21 L12 16.5 L4 21 Z"'
-    +' fill="#FF5A1F" stroke="#0B0E11" stroke-width="1.4"/></svg>';
+  /* Een chevron, geen stip: aan de vorm zie je meteen welke kant je op staat.
+     Hij draait en kantelt mee met de kaart. */
+  d.innerHTML='<svg viewBox="0 0 40 40" aria-hidden="true">'
+    +'<path d="M20 3 L34 34 L20 26.5 L6 34 Z" fill="#4FC8F5"'
+    +' stroke="#07131A" stroke-width="2.6" stroke-linejoin="round"/></svg>';
   drive.mij=new maplibregl.Marker({element:d,rotationAlignment:'map',pitchAlignment:'map'});
   return drive.mij;
 }
 
-function naviCam(){
+/* ================= de camera in de rijmodus =================
+   Gekanteld meekijken over je schouder, zoals elke navigatie. Je staat niet in
+   het midden maar op 70% naar beneden, zodat je vooruit ziet wat er aankomt in
+   plaats van wat je net gehad hebt. */
+const NAVI={ zoom:16.5, pitch:55, duur:1000, laag:0.70 };
+
+/* De kaart centreert in wat er overblijft ná de padding. Willen we het
+   middelpunt op 70% van de hoogte, dan moet er bovenaan 40% bij: het
+   middelpunt schuift de helft van de padding naar beneden.
+   Apart gezet zodat het na te rekenen is. */
+function naviPadding(hoogte){
+  const h=hoogte||map.getContainer().clientHeight||600;
+  return { top:Math.round(h*(NAVI.laag-0.5)*2), bottom:0, left:0, right:0 };
+}
+
+function naviCam(eerste){
   if(!drive.volgen||!drive.pos) return;
-  map.easeTo({ center:drive.pos, bearing:drive.koers, pitch:52, duration:900, easing:t=>t });
+  const opzet={
+    center:drive.pos,
+    bearing:drive.noord?0:drive.koers,
+    pitch:drive.noord?0:NAVI.pitch,
+    padding:naviPadding(),
+    /* Lineair en één seconde lang: dan glijdt de kaart mee in plaats van bij
+       elke gps-melding een sprongetje te maken. */
+    duration:eerste?900:NAVI.duur,
+    easing:t=>t
+  };
+  if(eerste) opzet.zoom=NAVI.zoom;
+  map.easeTo(opzet);
 }
 
 /* Het stuk dat je al gehad hebt grijs maken, zodat je in één oogopslag ziet
@@ -495,15 +524,23 @@ function driveTick(pos){
   if(!drive.on) return;
   const {latitude:la,longitude:lo,speed,heading}=pos.coords;
 
-  /* Koers: van de telefoon als hij die weet, anders zelf uitrekenen uit je
-     vorige plek. Stilstaand weet niemand welke kant je op kijkt, dan houden
-     we de laatste koers vast. */
-  if(heading!=null && !isNaN(heading) && (speed==null||speed>1.5)) drive.koers=heading;
-  else if(drive.pos && haversine(drive.pos,[lo,la])>0.012) drive.koers=bearing(drive.pos,[lo,la]);
+  /* Welke kant kijk je op? Eerst wat je telefoon zelf zegt; weet hij het niet,
+     dan de hoek tussen je vorige en je huidige plek.
+
+     Onder 5 km/u draaien we niet meer: dan sta je te wachten, en zou de kaart
+     van elke gps-hik in de rondte gaan tollen. */
+  const kmu=(speed!=null&&speed>=0)?speed*3.6:null;
+  if(kmu===null||kmu>=5){
+    if(heading!=null&&!isNaN(heading)) drive.koers=heading;
+    else if(drive.pos&&haversine(drive.pos,[lo,la])>0.008) drive.koers=bearing(drive.pos,[lo,la]);
+  }
   drive.pos=[lo,la];
 
   mijMarker().setLngLat(drive.pos).setRotation(drive.koers).addTo(map);
-  naviCam();
+  /* De eerste keer is anders: dan springen we naar je toe en zetten we zoom en
+     kanteling. Daarna glijdt hij alleen nog mee. */
+  naviCam(drive.eerste);
+  drive.eerste=false;
   spoorBij(lo,la);
   el('dSpeed').textContent=(speed!=null&&speed>=0?Math.round(speed*3.6):'—');
 
@@ -573,6 +610,7 @@ async function startDrive(){
   drive.on=true; drive.pos=null; drive.volgen=true; drive.spoorRit=false;
   drive.spoor=[]; drive.terugGezegd=0;
   drive.afSinds=0; drive.herLaatst=0; drive.herBezig=false; drive.geenNet=false;
+  drive.eerste=true; drive.noord=false;
 
   document.body.classList.add('rijden');
   el('drive').hidden=false;
@@ -583,7 +621,7 @@ async function startDrive(){
   el('dTrack').classList.remove('on');
   el('dTrack').textContent='↩ Spoor';
   map.resize();
-  map.easeTo({zoom:15,pitch:52,duration:600});
+
 
   try{ drive.lock=await navigator.wakeLock?.request('screen'); }catch{}
   zeg('Rijmodus aan. Goede rit.');
@@ -606,7 +644,8 @@ function stopDrive(){
   document.body.classList.remove('rijden');
   el('drive').hidden=true;
   map.resize();
-  map.easeTo({pitch:0,bearing:0,duration:500});
+  /* Netjes rechtop en zonder padding achterlaten. */
+  map.easeTo({pitch:0,bearing:0,padding:{top:0,bottom:0,left:0,right:0},duration:500});
   if(drive.spoor.length>1) store.set('rb.spoor',drive.spoor);
 }
 
@@ -620,8 +659,23 @@ el('dMute').addEventListener('click',()=>{
 
 
 el('dRecenter').addEventListener('click',()=>{
-  drive.volgen=true; el('dRecenter').hidden=true; naviCam();
+  drive.volgen=true; el('dRecenter').hidden=true; naviCam(true);
 });
+
+/* Meedraaien of noorden boven. Meedraaien is de stand waarin je rijdt; noorden
+   boven is handig als je even wil zien hoe de rit in het landschap ligt. */
+el('dNorth').addEventListener('click',()=>{
+  drive.noord=!drive.noord;
+  el('dNorth').classList.toggle('on',drive.noord);
+  el('dNorth').textContent=drive.noord?'N':'◈';
+  el('dNorth').title=drive.noord?'Noorden boven — tik om mee te draaien'
+                                :'Draait met je mee — tik voor noorden boven';
+  drive.volgen=true; el('dRecenter').hidden=true;
+  naviCam(true);
+});
+
+/* Draai je je telefoon, dan verandert de hoogte en dus de padding. */
+map.on('resize',()=>{ if(drive.on&&drive.volgen) naviCam(); });
 
 /* Zelf de kaart verschuiven zet het meevolgen uit — anders vecht je met de
    app. Met de knop pak je het weer op. */
