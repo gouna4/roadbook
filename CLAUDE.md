@@ -144,7 +144,8 @@ stil). Sleutels: `rb.set` instellingen, `rb.last` laatste rit, `rb.routes`
 bewaarde routes, `rb.lib` GPX-bibliotheek, `rb.log` rittenlogboek,
 `rb.fold.*` open/dicht van de blokken, `rb.sheet` stand van het bodemblad,
 `rb.rit` de route in je zak (lijn plus afslagen, om zonder bereik te rijden),
-`rb.spoor` je eigen gps-spoor van de laatste rit, `rb.stap` welke stap open stond, `rb.thema`
+`rb.spoor` je eigen gps-spoor van de laatste rit, `rb.stap` welke stap open stond, `rb.zoom` welke zoomstand je koos in de
+rijmodus, `rb.thema`
 licht/donker/automatisch, `rb.gebieden` welke
 kaartgebieden je hebt binnengehaald (de kaartstukjes zelf zitten in de Cache
 `roadbook-offline-v1`, niet in localStorage).
@@ -222,6 +223,14 @@ draait met je koers mee en staat gekanteld, met je eigen pijl erin. Instructie
 boven, snelheid en aankomst onder. Zelf de kaart verschuiven zet het meevolgen
 uit, met een knop pak je het weer op. Verder:
 
+- **Op de route geplakt** — je gps-plek wordt op de lijn geprojecteerd
+  (`opDeRoute()`), dus de pijl staat op de weg en je kilometerstand klopt. Die
+  stand kan alleen vooruit (`kmVooruit()`)
+- **Vloeiend** — de camera wordt per beeldje gezet (`naviBeeld()`), niet met een
+  animatie per gps-melding; die werd altijd door de volgende afgebroken
+- **De afslag in stappen omgeroepen** — 1 km, 400 m, 150 m, nu (`AF_STAPPEN`)
+- **Vier zoomstanden** onder één knop rechtsboven (`Z_STANDEN`): AUTO · DICHT ·
+  RUIM · VER. Je keuze blijft staan (`rb.zoom`)
 - **Van de route af** — pijl, afstand en gewone taal ("400 m, links achter je"),
   met een stippellijn naar het punt waar je weer instapt. `herintrede()` kiest
   liever een punt verderop dan terugrijden, zolang dat niet veel verder is
@@ -352,6 +361,80 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
 
+## Versie 49: een weekend gereden, vier klachten
+
+De eigenaar heeft er een weekend mee gereden. Vier dingen, en ze hingen alle
+vier aan elkaar: **de app wist niet precies genoeg waar je was, en de camera
+sprong in plaats van te glijden.**
+
+1. **De pijl stond naast de weg.** Een telefoon weet je plek tot op vijf à
+   twintig meter, en dat is naast het asfalt. `opDeRoute()` plakt je nu op de
+   route: niet op het dichtstbijzijnde vormpunt maar op het dichtstbijzijnde
+   *stukje lijn*, de projectie. Dat is nauwkeurig tot op de meter
+2. **De afslag kwam te laat.** Twee oorzaken. Ten eerste dezelfde: op een
+   bochtige weg kan het dichtstbijzijnde vórmpunt dat van vóór de haarspeld
+   zijn, en dan denkt de app dat je nog niet zo ver bent. Met de projectie
+   klopt je kilometerstand, en `kmVooruit()` zorgt dat hij nooit meer
+   terugvalt — een terugval van minder dan een kilometer is ruis, meer betekent
+   dat je echt van de route af bent. Ten tweede: er was **één** melding, op 400
+   meter. Bij 100 km/u ben je er dan in veertien seconden. Nu vier meldingen:
+   **op 1 km, op 400 m, op 150 m en "nu"** (`AF_STAPPEN`). Duikt een afslag pas
+   dichtbij op, dan worden de gemiste stappen stil overgeslagen — drie
+   meldingen achter elkaar is geschreeuw
+3. **Het schokte nog steeds, ook met "verminder beweging" uit.** In versie 44
+   was de animatieduur al bijgeregeld, maar het bleef één animatie per
+   gps-melding, en die werd door de volgende onderbroken. Dat is de fout zelf.
+   Nu doet hij het zoals een navigatie: `naviBeeld()` draait op
+   `requestAnimationFrame` en rekent **elk beeldje** uit waar je tussen je
+   vorige en je huidige plek zou moeten zitten. De kaart gaat er met `jumpTo`
+   direct op staan. Er is dus geen animatie meer die onderbroken kan worden.
+   Staat alles stil, dan slaat de lus zichzelf over (`drive.stil`) — geen zestig
+   hertekeningen per seconde bij een stoplicht
+4. **Je zag te weinig van de weg waar je op zat.** Twee dingen tegelijk:
+
+   - **de zoom stond te dicht op je.** Er waren drie vaste standen (16,5 / 15,5
+     / 17,5). Nu schuift hij mee met je snelheid: `ZOOM` is een tabel
+     (0→16,2 · 60→15,6 · 90→15,1 · 120→14,7 · 160→14,4) waartussen wordt
+     doorgerekend. Bij 60 km/u zie je ongeveer een kilometer weg vóór je, bij
+     120 ongeveer twee. Vlak voor een afslag (binnen 350 m) toch weer 16,2,
+     want dan wil je zien welke van die twee straten het is
+   - **je stond te hoog op het scherm.** Je hoort op 72% naar beneden te staan,
+     maar dan wel van de **vrije strook kaart** — tussen het groene blok
+     bovenaan en het paneel onderaan, niet van het hele scherm. Dat wordt nu
+     gemeten (`vlakHoogte()`), want op een iPhone is dat groene blok hoger dan
+     op een kleine Android, en met een vast getal verdwijnt je pijl achter het
+     paneel
+
+   De marges op de zoomgrenzen uit versie 45 zijn weg, en dat mag: de zoom
+   schuift er nu naartoe in plaats van erop te springen, dus er kan niets meer
+   heen en weer wippen. Daarmee vervalt de tabel onder *Automatisch zoomen,
+   versie 45*.
+
+**En een knop met vier standen** (`Z_STANDEN`), rechtsboven onder de andere
+twee: **AUTO · DICHT · RUIM · VER**. Automatisch rekenen is goed zolang je op je
+snelheid kunt varen, maar niet altijd — in een dorp met veel kruispunten wil je
+dichterbij, en op een onbekende bergweg juist ver uitgezoomd. Dat is een keuze
+van de rijder en geen som die de app moet raden. Kies je een vaste stand, dan is
+die ook echt vast: dan zoomt hij ook bij een afslag niet meer in, want dat is de
+bedoeling van zelf kiezen. De stand wordt gezegd als je hem indrukt — met een
+helm op wil je niet naar een knopje hoeven kijken — en blijft bewaard in
+`rb.zoom`. Er staat een **woord** op de knop en geen icoon: aan "VER" zie je wat
+er staat, aan een vergrootglas met een streepje niet.
+
+Verder: **`maximumAge` staat op 0**. Hij stond op 2000, en dan mag je telefoon
+je met een antwoord van twee seconden oud afschepen — op 100 km/u is dat 55
+meter mis. Precies genoeg om een afslag te missen.
+
+**Nieuw rekenwerk, dus nieuwe controles in `zelftest.js`:** `opDeRoute()` (50 m
+naast een rechte weg geeft 50 m en de goede kilometer), `kmVooruit()` (999 m
+terug is ruis, 1,3 km terug is echt), `koersTussen()` (draaien langs de korte
+kant, ook over het noorden heen), en `naviPadding()` en `naviZoom()` opnieuw
+nagerekend.
+
+**Les:** een animatie per melding kán niet vloeiend worden, hoe goed je de duur
+ook afregelt — de volgende melding breekt hem altijd af. Wil je vloeiend, dan
+reken je per beeldje.
+
 ## Versie 48: de app doorgespit
 
 Op verzoek de hele app nagelopen met de compiler én met eigen speurwerk. Vier
@@ -454,7 +537,7 @@ die niet uit onze eigen bestanden komt.
    hoogstens 700 wegen, een gebied van maximaal 2500 km², en het doormeten gaat
    in hapjes van 120 met de voortgang over de kaart
 
-## Automatisch zoomen, versie 45
+## Automatisch zoomen, versie 45 — vervangen in versie 49
 
 | Wanneer | Zoom | Waarom |
 |---|---|---|

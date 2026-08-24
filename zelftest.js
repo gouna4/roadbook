@@ -385,20 +385,27 @@ check('5 km recht is te kort om op te knappen',
       saaieStukken(curveProfile(recht(6.0, 50.4, 5))).length, 0);
 
 console.log('');
-console.log('--- naviPadding(): de chevron op 70% naar beneden ---');
-/* De kaart centreert in wat er overblijft na de padding, dus het middelpunt
-   schuift de helft van de padding naar beneden. Voor 70% is dat 40% erbij. */
-const p800 = naviPadding(800);
-console.log('     bij 800 px hoog: ' + JSON.stringify(p800));
-check('40% van de hoogte erbij', p800.top, 320);
-check('onder niets erbij', p800.bottom, 0);
-check('middelpunt komt op 70%', ((800 - p800.top) / 2 + p800.top) / 800, 0.7);
-const p1600 = naviPadding(1600);
-check('schaalt mee met de hoogte', p1600.top, 640);
-check('ook dan op 70%', ((1600 - p1600.top) / 2 + p1600.top) / 1600, 0.7);
+console.log('--- naviPadding(): waar je op het scherm staat ---');
+/* Je hoort op 72% van de **vrije strook kaart** te staan, dus tussen het groene
+   blok bovenaan en het paneel onderaan. Rekende hij met het hele scherm, dan
+   verdween de pijl achter het paneel. Hoogte 800, boven 160, onder 150. */
+const p800 = naviPadding(800, 160, 150);
+console.log('     800 px hoog, blok 160, paneel 150: ' + JSON.stringify(p800));
+const mid800 = p800.top + (800 - p800.top - p800.bottom) / 2;
+check('het middelpunt ligt op 72% van de strook',
+      Math.round((mid800 - 160) / (800 - 160 - 150) * 100) / 100, 0.72);
+check('onderaan blijft het paneel vrij', p800.bottom, 150);
+/* Zonder blokken eromheen is het simpelweg 72% van het scherm. */
+const pKaal = naviPadding(800, 0, 0);
+check('zonder blokken: 72% van het scherm',
+      Math.round((pKaal.top + (800 - pKaal.top) / 2) / 800 * 100) / 100, 0.72);
+check('schaalt mee met de hoogte',
+      naviPadding(1600, 0, 0).top, pKaal.top * 2);
+/* Een klein scherm met grote blokken mag niet omslaan in onzin. */
+const pKlein = naviPadding(500, 220, 200);
+check('padding blijft binnen het scherm', pKlein.top < 440 && pKlein.top >= 0, true);
 check('kanteling is 55 graden', NAVI.pitch, 55);
-check('zoom bij het starten is 16.5', NAVI.zoom, 16.5);
-check('de basisduur is 800 ms', NAVI.duur, 800);
+check('je staat op 72% van de strook', NAVI.laag, 0.72);
 
 /* De animatie moet net klaar zijn als de volgende gps-melding komt. We meten
    hoe vaak je telefoon zich meldt en nemen daar 90% van, met een boven- en
@@ -424,24 +431,49 @@ check('één punt is niet getekend', zelf(['50.70111, 6.25306']), false);
 check('geen tussenstops', zelf([]), false);
 
 console.log('');
-console.log('--- naviZoom(): automatisch in- en uitzoomen ---');
-check('rustig rijden', naviZoom(60, null, 16.5), 16.5);
-check('hard rijden geeft overzicht', naviZoom(120, null, 16.5), 15.5);
-check('afslag dichtbij geeft detail', naviZoom(60, 0.25, 16.5), 17.5);
-check('een afslag gaat voor snelheid', naviZoom(130, 0.20, 16.5), 17.5);
-/* De marges: er in op de ene grens, er uit op de andere. Zonder dat springt de
-   zoom heen en weer als je net rond 100 km/u rijdt. */
-check('op 100 nog niet uitzoomen', naviZoom(100, null, 16.5), 16.5);
-check('boven 103 wel', naviZoom(104, null, 16.5), 15.5);
-check('eenmaal uitgezoomd blijft 100 zo', naviZoom(100, null, 15.5), 15.5);
-check('onder 97 weer terug', naviZoom(95, null, 15.5), 16.5);
-check('op 350 m nog niet inzoomen', naviZoom(60, 0.35, 16.5), 16.5);
-check('binnen 300 m wel', naviZoom(60, 0.29, 16.5), 17.5);
-check('eenmaal ingezoomd blijft 350 m zo', naviZoom(60, 0.35, 17.5), 17.5);
-check('na 380 m weer terug', naviZoom(60, 0.40, 17.5), 16.5);
-check('geen snelheid bekend', naviZoom(null, null, 16.5), 16.5);
-/* En de drie standen zijn de afgesproken getallen. */
-check('de drie zoomstanden', [ZOOM.snel, ZOOM.gewoon, ZOOM.afslag].join('/'), '15.5/16.5/17.5');
+console.log('--- naviZoom(): meeschuiven met je snelheid ---');
+/* Niet drie vaste standen meer maar een doorlopende lijn: bij hard rijden zie
+   je verder vooruit. De camera schuift ernaartoe (zie naviBeeld), dus marges
+   op de grenzen zijn niet meer nodig — daar kan niets meer heen en weer
+   springen. */
+check('stilstaan geeft detail', naviZoom(0, null), 16.2);
+check('60 km/u', naviZoom(60, null), 15.6);
+check('90 km/u', naviZoom(90, null), 15.1);
+check('120 km/u', naviZoom(120, null), 14.7);
+check('boven de tabel blijft het bij het laagste', naviZoom(200, null), 14.4);
+/* Tussen twee tabelpunten hoort hij netjes te interpoleren. */
+check('75 km/u zit er tussenin', naviZoom(75, null), 15.35);
+check('elke stap harder is verder uitgezoomd',
+      naviZoom(40) > naviZoom(70) && naviZoom(70) > naviZoom(110), true);
+/* Vlak voor een afslag toch dichterbij: welke van die twee straten is het? */
+check('afslag dichtbij geeft detail', naviZoom(120, 0.2), 16.2);
+check('een afslag gaat voor snelheid', naviZoom(160, 0.1), 16.2);
+check('op 400 m nog niet', naviZoom(120, 0.4), 14.7);
+check('geen snelheid bekend: rustige stand', naviZoom(null, null), naviZoom(40, null));
+console.log('');
+console.log('--- vier zoomstanden onder een knop ---');
+check('er zijn vier standen', Z_STANDEN.length, 4);
+check('de eerste is automatisch', Z_STANDEN[0].zoom, null);
+check('de andere drie hebben een vaste zoom',
+      Z_STANDEN.slice(1).every(s => s.zoom > 12 && s.zoom < 19), true);
+/* Dicht → ruim → ver moet ook echt verder uitgezoomd zijn, anders zegt het
+   woord op de knop iets anders dan de kaart doet. */
+check('dicht is dichterbij dan ruim', Z_STANDEN[1].zoom > Z_STANDEN[2].zoom, true);
+check('ruim is dichterbij dan ver', Z_STANDEN[2].zoom > Z_STANDEN[3].zoom, true);
+check('elke stand heeft een woord en uitleg',
+      Z_STANDEN.every(s => s.kort && s.uitleg && s.stem), true);
+check('de knop houdt vier letters', Z_STANDEN.every(s => s.kort.length <= 5), true);
+/* Doortikken loopt rond: na de laatste weer de eerste. */
+check('doortikken van 0 naar 1', zoomStandZet(1).kort, 'DICHT');
+check('en van 3 naar 0 (rondje)', zoomStandZet(4).kort, 'AUTO');
+check('achteruit werkt ook', zoomStandZet(-1).kort, 'VER');
+/* Een vaste stand gaat vóór de automatische som — dat is de hele bedoeling
+   van zelf kiezen, ook vlak voor een afslag. */
+const doel = (stand, kmu, naar) => Z_STANDEN[stand].zoom || naviZoom(kmu, naar);
+check('automatisch rekent mee met je snelheid', doel(0, 120, null), 14.7);
+check('een vaste stand negeert je snelheid', doel(1, 120, null), 16.6);
+check('en negeert ook de afslag', doel(3, 60, 0.1), 14.6);
+zoomStandZet(0);
 
 console.log('');
 console.log('--- koersDemp(): de kaart mag niet meewiebelen ---');
@@ -458,6 +490,53 @@ while (Math.abs(k - 90) > 3 && stappen < 20) { k = koersDemp(k, 90); stappen++; 
 console.log('     een bocht van 90 graden is na ' + stappen + ' meldingen binnen 3 graden');
 check('bocht binnen 6 meldingen gevolgd', stappen <= 6, true);
 check('blijft dan ook staan', Math.round(koersDemp(90, 90)), 90);
+console.log('');
+console.log('--- opDeRoute(): je plek op de route plakken ---');
+/* Een rechte weg van 10 km naar het oosten, met een vormpunt elke 100 m. Ga
+   ergens naast die weg staan: hij hoort je op de weg te zetten, en te zeggen
+   hoeveel kilometer je dan bent. Niet op het dichtstbijzijnde vormpunt maar op
+   het dichtstbijzijnde stukje lijn — dat is nauwkeurig tot op de meter. */
+const rw = recht(6.0, 50.4, 10);
+const rwCum = cumulative(rw);
+/* 50 meter naar het noorden, halverwege tussen twee vormpunten. */
+const naast = [(rw[30][0] + rw[31][0]) / 2, 50.4 + 0.00045];
+const op = opDeRoute(rw, rwCum, naast[1], naast[0], 0);
+console.log('     50 m ernaast: ' + JSON.stringify(op));
+check('hij ziet dat je 50 m ernaast zit', Math.round(op.off * 1000), 50);
+check('en zet je precies op de weg', Math.abs(op.punt[1] - 50.4) < 1e-9, true);
+check('de kilometerstand klopt op 5 m', Math.abs(op.km - 3.05) < 0.005, true);
+/* Precies óp de route: dan is de afstand nul. */
+const opLijn = opDeRoute(rw, rwCum, rw[70][1], rw[70][0], 60);
+check('precies op de route: nul meter ernaast', Math.round(opLijn.off * 1000), 0);
+check('en op de goede kilometer', Math.abs(opLijn.km - rwCum[70]) < 1e-9, true);
+/* Ver van de route: hij zoekt de hele route af in plaats van alleen het
+   venster rond waar je net was. Anders raak je hem kwijt na een verkeerde
+   afslag en klopt je hele kilometerstand niet meer. */
+const ver = opDeRoute(rw, rwCum, 50.4, rw[90][0], 0);
+check('ver vooruit wordt toch gevonden', Math.round(ver.km), 9);
+check('een route van één punt geeft niets', opDeRoute([[6, 50]], [0], 50, 6, 0), null);
+
+console.log('');
+console.log('--- kmVooruit(): je kilometerstand mag niet terugvallen ---');
+/* In een haarspeldbocht kan het dichtstbijzijnde stukje lijn even dat van
+   vóór de bocht zijn. Zonder deze rem valt je stand terug en komt de
+   afslagmelding te laat. */
+check('vooruit is altijd goed', kmVooruit(12.4, 12.1), 12.4);
+check('de eerste keer telt gewoon', kmVooruit(3.0, null), 3.0);
+check('een klein sprongetje terug wordt genegeerd', kmVooruit(12.0, 12.3), 12.3);
+check('999 m terug nog steeds', kmVooruit(11.31, 12.3), 12.3);
+check('meer dan een kilometer terug is echt', kmVooruit(11.0, 12.3), 11.0);
+check('gelijk blijft gelijk', kmVooruit(12.3, 12.3), 12.3);
+
+console.log('');
+console.log('--- koersTussen(): draaien langs de korte kant ---');
+check('halverwege', koersTussen(0, 90, 0.5), 45);
+check('aan het begin', koersTussen(10, 80, 0), 10);
+check('aan het eind', koersTussen(10, 80, 1), 80);
+check('over het noorden heen', koersTussen(350, 10, 0.5), 0);
+check('en terug over het noorden', koersTussen(10, 350, 0.5), 0);
+check('nooit de lange kant om', Math.round(koersTussen(0, 270, 0.5)), 315);
+
 
 console.log('');
 console.log('--- het grijze stuk achter je blijft klein ---');

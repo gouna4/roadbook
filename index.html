@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=48">
+<link rel="stylesheet" href="stijl.css?v=49">
 </head>
 <body>
 
@@ -30,7 +30,7 @@
     <button data-tab="plan" class="on">Plannen</button>
     <button data-tab="weg">Onderweg</button>
     <button data-tab="rit">Ritten</button>
-    <span class="ver" id="verNr">v48</span>
+    <span class="ver" id="verNr">v49</span>
     <button data-tab="set" class="sliders" aria-label="Instellingen" title="Instellingen">⚙</button>
   </nav>
 
@@ -356,6 +356,9 @@
               title="Je hebt de kaart zelf verschoven — tik om weer mee te volgen">◎</button>
       <button class="dround" id="dNorth" aria-label="Meedraaien of noorden boven"
               title="Draait met je mee — tik voor noorden boven">◈</button>
+      <!-- Doortikken door vier zoomstanden. Automatisch is de eerste. -->
+      <button class="dround" id="dZoom" aria-label="Zoomstand"
+              title="Zoom: automatisch — tik voor een vaste stand">AUTO</button>
     </div>
   </div>
   <div class="dbottom">
@@ -400,17 +403,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=48"></script>
-<script src="02-invoer.js?v=48"></script>
-<script src="03-route.js?v=48"></script>
-<script src="04-bibliotheek.js?v=48"></script>
-<script src="05-weergave.js?v=48"></script>
-<script src="06-plannen.js?v=48"></script>
-<script src="07-interface.js?v=48"></script>
-<script src="08-onderweg.js?v=48"></script>
-<script src="09-rijden.js?v=48"></script>
-<script src="10-uitvoer.js?v=48"></script>
-<script src="11-offline.js?v=48"></script>
-<script src="12-opstarten.js?v=48"></script>
+<script src="01-basis.js?v=49"></script>
+<script src="02-invoer.js?v=49"></script>
+<script src="03-route.js?v=49"></script>
+<script src="04-bibliotheek.js?v=49"></script>
+<script src="05-weergave.js?v=49"></script>
+<script src="06-plannen.js?v=49"></script>
+<script src="07-interface.js?v=49"></script>
+<script src="08-onderweg.js?v=49"></script>
+<script src="09-rijden.js?v=49"></script>
+<script src="10-uitvoer.js?v=49"></script>
+<script src="11-offline.js?v=49"></script>
+<script src="12-opstarten.js?v=49"></script>
 </body>
 </html>

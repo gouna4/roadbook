@@ -200,6 +200,8 @@ const drive={ on:false, watch:null, lock:null, stem:true, gezegd:new Set(),
               tempo:0, vorigeMelding:0, pad:null, terugAan:false,
               spoorGetekend:0, spoorBewaard:0, laatsteKmu:null, zoomDoel:0 };
 
+/* Op welke afstanden een afslag wordt omgeroepen, van ver naar dichtbij. */
+const AF_STAPPEN=[[1.0,'Over 1 kilometer'],[0.4,'Over 400 meter'],[0.15,'Over 150 meter']];
 const AF_KM=0.25;   /* meer dan 250 meter naast de lijn heet "van de route af" */
 
 function zeg(tekst){
@@ -353,25 +355,106 @@ function mijMarker(){
   return drive.mij;
 }
 
-/* ================= de camera in de rijmodus =================
-   Gekanteld meekijken over je schouder, zoals elke navigatie. Je staat niet in
-   het midden maar op 70% naar beneden, zodat je vooruit ziet wat er aankomt in
-   plaats van wat je net gehad hebt. */
-const NAVI={ zoom:16.5, pitch:55, duur:800, laag:0.70 };
+/* ================= de camera, beeldje voor beeldje =================
+   Eerst startte elke gps-melding een animatie van bijna een seconde. De
+   volgende melding onderbrak die, en dat zag je als een schok — elke seconde
+   opnieuw.
 
-/* De kaart centreert in wat er overblijft ná de padding. Willen we het
-   middelpunt op 70% van de hoogte, dan moet er bovenaan 40% bij: het
-   middelpunt schuift de helft van de padding naar beneden.
-   Apart gezet zodat het na te rekenen is. */
-function naviPadding(hoogte){
+   Nu doen we het zoals een navigatie: we onthouden waar je was en waar je nu
+   bent, en rekenen **elk beeldje** uit waar je daartussenin zou moeten zitten.
+   De kaart wordt met jumpTo direct op die plek gezet. Zestig keer per seconde,
+   zonder animatie die onderbroken kan worden. */
+const NAVI={ zoom:15.6, pitch:55, laag:0.72 };
+
+/* Waar je op het scherm staat. Niet halverwege: dan is de helft van je scherm
+   de weg die je al gehad hebt. Je hoort onderin te staan, met de weg die komt
+   voor je.
+
+   Het gaat om je plek in de **vrije strook kaart** — dus tussen het groene blok
+   bovenaan en het paneel onderaan, niet in het hele scherm. Dat wordt gemeten
+   en niet geschat: op een iPhone is het groene blok hoger dan op een kleine
+   Android, en met een vast getal zou je pijl achter het paneel verdwijnen.
+
+   MapLibre centreert in wat er overblijft ná de padding, dus het middelpunt
+   ligt op pad.top + (hoogte - pad.top - pad.bottom) / 2. Dat gelijkstellen aan
+   de plek waar je wil staan geeft de formule hieronder. */
+function vlakHoogte(kies){
+  try{ return document.querySelector(kies)?.offsetHeight||0; }catch{ return 0; }
+}
+function naviPadding(hoogte,boven,onder){
   const h=hoogte||map.getContainer().clientHeight||600;
-  return { top:Math.round(h*(NAVI.laag-0.5)*2), bottom:0, left:0, right:0 };
+  const b=boven!=null?boven:vlakHoogte('.dtop')+vlakHoogte('.dstraat');
+  const o=onder!=null?onder:vlakHoogte('.dbottom');
+  const band=Math.max(80,h-b-o);
+  const doel=b+band*NAVI.laag;
+  const top=Math.max(0,Math.min(h-60,Math.round(2*doel-h+o)));
+  return { top, bottom:Math.round(o), left:0, right:0 };
 }
 
-/* Hoe vaak meldt je telefoon zich echt? Dat verschilt per toestel, dus we meten
-   het. De animatie moet net kláár zijn als de volgende melding komt: duurt hij
-   langer, dan wordt hij afgebroken; duurt hij korter, dan staat de kaart even
-   stil. Beide zie je als een schok. */
+/* Automatisch zoomen, zoals een navigatie het doet: niet drie vaste standen
+   maar meeschuivend met je snelheid. Hard rijden vraagt overzicht — je wil de
+   bocht die komt al kunnen zien, niet pas als je erin zit. Langzaam rijden
+   vraagt detail.
+
+   Er zit geen marge meer op de grenzen, want dat is niet meer nodig: de camera
+   schuift naar deze zoom toe in plaats van er op te springen. Zie naviBeeld().
+
+   De getallen: bij 60 km/u zie je ongeveer een kilometer weg vóór je, bij
+   120 ongeveer twee. Dat is de afstand waarop je een bocht wil aanzien komen. */
+const ZOOM=[[0,16.2],[30,16.0],[60,15.6],[90,15.1],[120,14.7],[160,14.4]];
+function naviZoom(kmu,naarAfslag){
+  const v=Math.max(0,Math.min(160,(kmu!=null&&!isNaN(kmu))?kmu:40));
+  let z=ZOOM[ZOOM.length-1][1];
+  for(let i=1;i<ZOOM.length;i++){
+    if(v<=ZOOM[i][0]){
+      const v0=ZOOM[i-1][0], z0=ZOOM[i-1][1], v1=ZOOM[i][0], z1=ZOOM[i][1];
+      z=z0+(z1-z0)*(v-v0)/(v1-v0);
+      break;
+    }
+  }
+  /* Vlak voor een afslag toch dichterbij: welke van die twee straten is het? */
+  if(naarAfslag!=null && naarAfslag<0.35) z=Math.max(z,16.2);
+  return Math.round(z*100)/100;
+}
+
+/* Vier standen, door te tikken met de knop rechtsboven. Automatisch is goed
+   zolang je op je snelheid kunt varen, maar niet altijd: in een dorp met veel
+   kruispunten wil je dichterbij, en op een onbekende bergweg wil je juist ver
+   uitgezoomd om de bochten te zien aankomen. Dat is een keuze van de rijder en
+   geen som die de app moet raden.
+
+   Kies je een vaste stand, dan is die ook echt vast — dan zoomt hij ook niet
+   meer in bij een afslag. Dat is de bedoeling van zelf kiezen. */
+const Z_STANDEN=[
+  {kort:'AUTO', zoom:null, uitleg:'Automatisch — schuift mee met je snelheid',
+   stem:'Zoom automatisch'},
+  {kort:'DICHT',zoom:16.6, uitleg:'Dichtbij — voor kruispunten en door dorpen',
+   stem:'Dichtbij'},
+  {kort:'RUIM', zoom:15.6, uitleg:'Ruim — de gewone stand',
+   stem:'Ruim'},
+  {kort:'VER',  zoom:14.6, uitleg:'Ver — overzicht, je ziet de bochten aankomen',
+   stem:'Ver'}
+];
+function zoomStandZet(i){
+  drive.stand=(((i|0)%Z_STANDEN.length)+Z_STANDEN.length)%Z_STANDEN.length;
+  const s=Z_STANDEN[drive.stand];
+  const b=el('dZoom');
+  if(b){
+    b.textContent=s.kort;
+    b.title='Zoom: '+s.uitleg.toLowerCase()+' — tik voor de volgende stand';
+    b.classList.toggle('on',drive.stand>0);
+  }
+  store.set('rb.zoom',drive.stand);
+  /* De beeldjeslus mag zichzelf overslaan als er niets beweegt; nu is er weer
+     iets te doen, dus wakker maken. */
+  drive.stil=false;
+  return s;
+}
+
+/* Hoe vaak meldt je telefoon zich echt? Dat verschilt per toestel, dus we
+   meten het. De beeldjeslus schuift je in precies die tijd van je vorige naar
+   je huidige plek: meet hij te kort, dan staat de kaart tussen twee meldingen
+   stil; te lang, en hij loopt achter. Beide zie je als een schok. */
 function meldTempo(){
   const nu=Date.now();
   if(drive.vorigeMelding){
@@ -391,55 +474,73 @@ function koersDemp(huidig,nieuw){
   let d=nieuw-huidig;
   while(d>180) d-=360;
   while(d<-180) d+=360;
-  if(Math.abs(d)<2) return huidig;            /* ruis */
-  const factor=Math.abs(d)>25?0.7:0.35;        /* echte bocht volgen we snel */
+  if(Math.abs(d)<2) return huidig;
+  const factor=Math.abs(d)>25?0.7:0.35;
   return (huidig+d*factor+360)%360;
 }
 
-/* Automatisch zoomen. Hard rijden vraagt overzicht — je wil verder vooruit
-   kunnen kijken. Een afslag vraagt detail: welke van die twee straten is het?
-
-   De grenzen hebben een marge, anders springt de zoom heen en weer als je net
-   rond 100 km/u rijdt of vlak vóór de 300 meter zit. Welke kant de marge op
-   werkt hangt af van waar hij nú staat. */
-const ZOOM={ snel:15.5, gewoon:16.5, afslag:17.5 };
-function naviZoom(kmu,naarAfslag,vorig){
-  const v=vorig||ZOOM.gewoon;
-  const afGrens = v===ZOOM.afslag ? 0.38 : 0.30;   /* er in op 300 m, er uit op 380 */
-  if(naarAfslag!=null && naarAfslag<afGrens) return ZOOM.afslag;
-  const snelGrens = v===ZOOM.snel ? 97 : 103;      /* er in boven 103, er uit onder 97 */
-  if(kmu!=null && kmu>snelGrens) return ZOOM.snel;
-  return ZOOM.gewoon;
+/* Tussen twee hoeken door draaien langs de korte kant. */
+function koersTussen(van,naar,f){
+  let d=naar-van;
+  while(d>180) d-=360;
+  while(d<-180) d+=360;
+  return (van+d*f+360)%360;
 }
 
-function naviCam(eerste,duur,zoom){
-  if(!drive.volgen||!drive.pos) return;
-  const opzet={
+/* Waar zou je nu moeten zijn? We schuiven van de vorige naar de huidige plek in
+   de tijd die je telefoon er gemiddeld over doet. Is die tijd voorbij en is er
+   nog geen nieuwe melding, dan blijven we staan waar we zijn — doorschieten op
+   een gok is erger dan even stil. */
+function naviBeeld(){
+  if(!drive.on) return;
+  /* Zijn we er en staat de zoom stil, dan hoeft er niets meer getekend te
+     worden tot de volgende gps-melding. Bij een stoplicht scheelt dat zestig
+     hertekeningen per seconde, en dus accu. */
+  if(drive.van && drive.naar && !drive.stil){
+    const dt=drive.tempo||1000;
+    const f=Math.max(0,Math.min(1,(Date.now()-drive.naarTijd)/dt));
+    const lon=drive.van[0]+(drive.naar[0]-drive.van[0])*f;
+    const lat=drive.van[1]+(drive.naar[1]-drive.van[1])*f;
+    const koers=koersTussen(drive.koersVan,drive.koers,f);
+    /* De chevron wijst altijd in je rijrichting, of de kaart nu meedraait of
+       op noorden staat: hij draait mee met de kaart, dus de hoek is in beide
+       gevallen simpelweg je koers. Hij loopt ook door als je zelf de kaart
+       hebt verschoven — dan wil je juist zien waar je bent. */
+    if(drive.mij) drive.mij.setLngLat([lon,lat]).setRotation(koers);
+    if(drive.volgen){
+      /* De zoom schuift er naartoe in plaats van te springen: ongeveer een
+         halve seconde om er te zijn. Daarom heeft naviZoom() geen marges op
+         zijn grenzen nodig — er kan niets heen en weer springen. */
+      if(drive.zoomDoel){
+        const dz=drive.zoomDoel-drive.zoomNu;
+        drive.zoomNu += Math.abs(dz)<0.004 ? dz : dz*0.08;
+      }
+      map.jumpTo({
+        center:[lon,lat],
+        zoom:drive.zoomNu||NAVI.zoom,
+        bearing:drive.noord?0:koers,
+        pitch:drive.noord?0:NAVI.pitch,
+        padding:drive.pad||naviPadding()
+      });
+    }
+    if(f>=1 && (!drive.volgen || Math.abs((drive.zoomNu||0)-(drive.zoomDoel||0))<0.004))
+      drive.stil=true;
+  }
+  drive.beeld=requestAnimationFrame(naviBeeld);
+}
+
+/* Bij het starten en na een handmatige ingreep: in één keer goed gaan staan. */
+function naviZet(zoom){
+  if(!drive.pos) return;
+  map.jumpTo({
     center:drive.pos,
+    zoom:zoom||NAVI.zoom,
     bearing:drive.noord?0:drive.koers,
     pitch:drive.noord?0:NAVI.pitch,
-    /* Eén keer uitgerekend en bewaard. Elke melding opnieuw uit de schermhoogte
-       rekenen gaf minisprongetjes, want op een iPhone verandert die hoogte als
-       de adresbalk in- of uitschuift. */
-    padding:drive.pad||naviPadding(),
-    duration:eerste?900:(duur||NAVI.duur),
-    easing:t=>t,
-    /* Zonder dit gooit MapLibre de animatie helemaal weg als op je telefoon
-       "Verminder beweging" aanstaat — dan springt de kaart bij elke melding
-       en is er van vloeiend rijden geen sprake. */
-    essential:true
-  };
-  /* Alleen meesturen als de zoom écht verandert; anders zit hij elke melding aan
-     hetzelfde getal te trekken. */
-  if(eerste) opzet.zoom=zoom||NAVI.zoom;
-  else if(zoom&&zoom!==drive.zoomDoel) opzet.zoom=zoom;
-  if(zoom) drive.zoomDoel=zoom;
-  map.easeTo(opzet);
+    padding:drive.pad||naviPadding()
+  });
 }
 
-/* Het stuk dat je al gehad hebt grijs maken, zodat je in één oogopslag ziet
-   welke kant je op moet. Alleen bijwerken als je echt opgeschoten bent: elke
-   seconde een lijn van duizenden punten hertekenen kost accu voor niets. */
 /* Het stuk dat je al gehad hebt grijs maken. We tekenen alleen de laatste paar
    kilometer achter je, niet de hele afgelegde route: verder terug zie je toch
    niet, en de hele lijn opnieuw opbouwen was halverwege een dagrit ruim 100 KB
@@ -583,7 +684,7 @@ async function herbereken(lat,lon){
     drive.cum=plak.cum;
     drive.man=plak.man;
     drive.sec=(r.sec||0)+drive.sec*Math.max(0,1-plak.vanaf/Math.max(0.1,plak.oudTotaal));
-    drive.idx=0; drive.gedaanIdx=-1; drive.gezegd.clear();
+    drive.idx=0; drive.gedaanIdx=-1; drive.gezegd.clear(); drive.km=null;
     drive.herLaatst=Date.now(); drive.afSinds=0; drive.geenNet=false;
     map.getSource('terug')?.setData(EMPTY);
 
@@ -627,48 +728,66 @@ function driveTick(pos){
      Onder 5 km/u draaien we niet meer: dan sta je te wachten, en zou de kaart
      van elke gps-hik in de rondte gaan tollen. */
   const kmu=(speed!=null&&speed>=0)?speed*3.6:null;
+  drive.koersVan=drive.koers;
   if(kmu===null||kmu>=5){
     let ruw=null;
     if(heading!=null&&!isNaN(heading)) ruw=heading;
-    else if(drive.pos&&haversine(drive.pos,[lo,la])>0.008) ruw=bearing(drive.pos,[lo,la]);
+    else if(drive.ruw&&haversine(drive.ruw,[lo,la])>0.008) ruw=bearing(drive.ruw,[lo,la]);
     if(ruw!=null) drive.koers=koersDemp(drive.koers,ruw);
   }
-  drive.pos=[lo,la];
-  const duur=meldTempo();
+  drive.ruw=[lo,la];
+  meldTempo();
 
-  mijMarker().setLngLat(drive.pos).setRotation(drive.koers);
+  /* Je positie op de route plakken. Je telefoon zit altijd een paar meter
+     naast de weg; zonder dit staat de pijl naast de weg én is de afstand tot
+     de afslag verkeerd. */
+  const op=opDeRoute(drive.shape,drive.cum,la,lo,drive.idx);
+  const opRoute = op && op.off<=AF_KM;
+  drive.pos = opRoute ? op.punt : [lo,la];
+
+  /* Waar de kaart naartoe glijdt: van waar we net waren naar waar je nu bent.
+     De lus per beeldje rekent daartussen uit waar je op dit moment zit. */
+  drive.van = drive.naar || drive.pos;
+  drive.naar = drive.pos;
+  drive.naarTijd = Date.now();
+  drive.stil = false;   /* er is weer iets te bewegen */
+  mijMarker();   /* n keer aangemaakt; daarna beweegt naviBeeld() hem */
+
   spoorBij(lo,la);
   drive.laatsteKmu=kmu;
   el('dSpeed').textContent=(kmu!=null?Math.round(kmu):'—');
 
-  const hier=dichtstbij(drive.shape,la,lo,drive.idx);
-  if(hier.off>AF_KM){
+  if(!opRoute){
     vanDeRouteAf(la,lo);
-    herberekenMisschien(la,lo,hier.off,speed);
+    herberekenMisschien(la,lo,op?op.off:9,speed);
     /* Van de route af is er geen afslag om op te zoomen; dan geldt je snelheid. */
-    naviCam(drive.eerste,duur,naviZoom(kmu,null,drive.zoomDoel));
-    drive.eerste=false;
+    drive.zoomDoel=Z_STANDEN[drive.stand||0].zoom||naviZoom(kmu,null);
+    if(drive.eerste){ naviZet(drive.zoomDoel); drive.zoomNu=drive.zoomDoel; drive.eerste=false; }
     return;
   }
 
   /* Weer op de route: de teller voor herberekenen gaat op nul. */
   drive.afSinds=0; drive.geenNet=false;
-  drive.idx=hier.i;
+  drive.idx=op.i;
   /* Alleen leegmaken als er iets stond. Elke seconde een lege laag verversen is
      een volledige hertekening voor niets. */
   if(drive.terugAan){ map.getSource('terug')?.setData(EMPTY); drive.terugAan=false; }
-  tekenGedaan(hier.i);
+  tekenGedaan(op.i);
 
-  const gereden=drive.cum[hier.i];
+  /* Je kilometerstand mag alleen vooruit. Zonder dat kan een haarspeld je stand
+     laten terugvallen, en dan komt de afslagmelding te laat. */
+  drive.km=kmVooruit(op.km,drive.km);
+  const gereden=drive.km;
   const totaal=drive.cum[drive.cum.length-1];
   const over=Math.max(0,totaal-gereden);
   const volg=drive.man.find(m=>m.km>gereden+0.02);
   const naar=volg?volg.km-gereden:null;
 
   /* Nu we weten hoe ver de afslag is, kan de camera zijn zoom kiezen. Daarom
-     staat dit hier en niet bovenaan: dichtbij een afslag wil je inzoomen. */
-  naviCam(drive.eerste,duur,naviZoom(kmu,naar,drive.zoomDoel));
-  drive.eerste=false;
+     staat dit hier en niet bovenaan: dichtbij een afslag wil je inzoomen.
+     Het bewegen zelf doet naviBeeld(), zestig keer per seconde. */
+  drive.zoomDoel=Z_STANDEN[drive.stand||0].zoom||naviZoom(kmu,naar);
+  if(drive.eerste){ drive.zoomNu=drive.zoomDoel; naviZet(drive.zoomDoel); drive.eerste=false; }
 
   el('dLeft').textContent=over.toFixed(0);
   const restSec=drive.sec?drive.sec*(over/Math.max(0.1,totaal)):0;
@@ -689,12 +808,21 @@ function driveTick(pos){
   el('dThen').textContent=straatUit(volg.tekst)
     +(later?' · daarna '+richtingWoord(later.hoek||0).toLowerCase():'');
 
+  /* De afslag in stappen aankondigen. Eerst was er n melding op 400 meter, en
+     die kwam op een provinciale weg te laat: bij 100 km/u ben je er in veertien
+     seconden, en dan moet je nog van rijstrook wisselen. Nu op een kilometer,
+     op 400, op 150 en als je erbij bent.
+
+     Duikt een afslag pas dichtbij op omdat er net herberekend is, dan slaan we
+     de gemiste stappen stil over: drie meldingen achter elkaar is geschreeuw. */
   const id='m'+volg.km.toFixed(3);
-  if(naar<0.4 && !drive.gezegd.has(id+'v')){
-    drive.gezegd.add(id+'v');
-    zeg(`Over ${Math.round(naar*1000/50)*50} meter, ${volg.tekst}`);
+  let stap=-1;
+  for(let q=0;q<AF_STAPPEN.length;q++) if(naar<AF_STAPPEN[q][0]) stap=q;
+  if(stap>=0 && !drive.gezegd.has(id+'s'+stap)){
+    for(let q=0;q<=stap;q++) drive.gezegd.add(id+'s'+q);
+    zeg(AF_STAPPEN[stap][1]+', '+volg.tekst);
   }
-  if(naar<0.06 && !drive.gezegd.has(id+'n')){
+  if(naar<0.05 && !drive.gezegd.has(id+'n')){
     drive.gezegd.add(id+'n');
     zeg('Nu '+volg.tekst);
   }
@@ -708,6 +836,9 @@ function rijRouteUit(v){
   drive.sec=v.sec||0;
   drive.man=afslagen(v,drive.cum,v.shape);
   drive.idx=0; drive.gedaanIdx=-1; drive.gezegd.clear();
+  /* Een andere route betekent een andere kilometerstand; de rem op teruglopen
+     moet dus opnieuw beginnen, anders blijft hij op de oude stand hangen. */
+  drive.km=null;
 }
 
 async function startDrive(){
@@ -721,7 +852,13 @@ async function startDrive(){
   drive.eerste=true; drive.noord=false;
   drive.tempo=0; drive.vorigeMelding=0; drive.terugAan=false;
   drive.spoorGetekend=0; drive.spoorBewaard=0; drive.laatsteKmu=null;
-  drive.pad=naviPadding(); drive.zoomDoel=0;
+  const beginStand=zoomStandZet(store.get('rb.zoom',0));
+  drive.zoomDoel=beginStand.zoom||NAVI.zoom; drive.zoomNu=drive.zoomDoel;
+  drive.van=null; drive.naar=null; drive.naarTijd=0; drive.ruw=null; drive.stil=false;
+  drive.koersVan=drive.koers||0; drive.km=null;
+  /* De lus die de kaart beweegt. En laat de gps zich niet met een oud antwoord
+     afmaken: op 100 km/u is twee seconden oud al 55 meter mis. */
+  if(!drive.beeld) drive.beeld=requestAnimationFrame(naviBeeld);
 
   document.body.classList.add('rijden');
   el('drive').hidden=false;
@@ -732,6 +869,9 @@ async function startDrive(){
   el('dTrack').classList.remove('on');
   el('dTrack').textContent='↩ Spoor';
   map.resize();
+  /* Pas hier de padding rekenen: het groene blok en het paneel worden gemeten,
+     en zolang de cockpit nog verborgen is zijn ze nul hoog. */
+  drive.pad=naviPadding();
 
 
   try{ drive.lock=await navigator.wakeLock?.request('screen'); }catch{}
@@ -739,11 +879,12 @@ async function startDrive(){
   drive.watch=navigator.geolocation.watchPosition(driveTick,
     ()=>{ el('dNext').textContent='Geen gps-signaal';
           el('dThen').textContent='Even wachten — onder een dak vindt hij de satellieten niet'; },
-    {enableHighAccuracy:true,maximumAge:2000,timeout:15000});
+    {enableHighAccuracy:true,maximumAge:0,timeout:15000});
 }
 
 function stopDrive(){
   drive.on=false;
+  if(drive.beeld){ cancelAnimationFrame(drive.beeld); drive.beeld=0; }
   if(drive.watch!=null) navigator.geolocation.clearWatch(drive.watch);
   drive.watch=null;
   try{ drive.lock?.release(); }catch{}
@@ -772,7 +913,7 @@ el('dMute').addEventListener('click',()=>{
 
 
 el('dRecenter').addEventListener('click',()=>{
-  drive.volgen=true; el('dRecenter').hidden=true; naviCam(true);
+  drive.volgen=true; el('dRecenter').hidden=true; naviZet(drive.zoomNu);
 });
 
 /* Meedraaien of noorden boven. Meedraaien is de stand waarin je rijdt; noorden
@@ -784,14 +925,20 @@ el('dNorth').addEventListener('click',()=>{
   el('dNorth').title=drive.noord?'Noorden boven — tik om mee te draaien'
                                 :'Draait met je mee — tik voor noorden boven';
   drive.volgen=true; el('dRecenter').hidden=true;
-  naviCam(true);
+  naviZet(drive.zoomNu);
+});
+
+/* Doortikken door de vier zoomstanden. Er wordt ook gezegd welke het is: met
+   een helm op en handschoenen aan wil je niet naar een knopje hoeven kijken. */
+el('dZoom').addEventListener('click',()=>{
+  const s=zoomStandZet((drive.stand||0)+1);
+  zeg(s.stem);
 });
 
 /* Draai je je telefoon, dan verandert de hoogte en dus de padding. */
 map.on('resize',()=>{
   if(!drive.on) return;
   drive.pad=naviPadding();      /* de hoogte is veranderd, dus opnieuw rekenen */
-  if(drive.volgen) naviCam();
 });
 
 /* Zelf de kaart verschuiven zet het meevolgen uit — anders vecht je met de

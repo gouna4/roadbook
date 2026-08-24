@@ -462,6 +462,11 @@
     box-shadow:0 3px 12px var(--schaduw)}
   .dround[hidden]{display:none}
   .dround.on{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
+  /* De zoomstand is een woord, geen icoon: aan ‘VER’ zie je meteen wat er
+     staat, aan een vergrootglas met een streepje niet. Vier letters moeten in
+     een rondje van 52 px passen, dus kleiner en wat strakker gespatieerd. */
+  #dZoom{font-family:var(--display);font-size:10.5px;font-weight:700;
+    letter-spacing:.03em}
 
 
   .dbottom{background:var(--panel);border-top:1px solid var(--hair);

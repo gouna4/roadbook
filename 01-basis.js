@@ -270,6 +270,60 @@ function bearing(a,b){
         -Math.sin(a[1]*Math.PI/180)*Math.cos(b[1]*Math.PI/180)*Math.cos((b[0]-a[0])*Math.PI/180);
   return (Math.atan2(y,x)*180/Math.PI+360)%360;
 }
+/* ================= je plek op de route =================
+   Een telefoon weet je positie tot op vijf à twintig meter. Dat is naast de
+   weg. Elke navigatie plakt je daarom op de route, en dat doen wij nu ook:
+   niet op het dichtstbijzijnde vormpunt, maar op het dichtstbijzijnde *stukje
+   lijn* — de projectie. Dat is nauwkeurig tot op de meter.
+
+   Dat lost twee dingen in één keer op. De pijl komt op de weg te staan. En je
+   kilometerstand op de route wordt kloppend, waardoor de afstand tot de afslag
+   klopt. Dat laatste ging op bochtige wegen mis: het dichtstbijzijnde vormpunt
+   kan bij een haarspeld één van vóór de bocht zijn, en dan denkt de app dat je
+   nog niet zo ver bent en meldt hij de afslag te laat. */
+function opDeRoute(shape,cum,lat,lon,vanaf){
+  if(!shape||shape.length<2) return null;
+  /* Een venster rond waar je net was: goedkoop, en het voorkomt dat een stuk
+     route dat later weer langs hier komt je positie wegkaapt. */
+  const van=Math.max(0,(vanaf|0)-40);
+  const tot=Math.min(shape.length-1,(vanaf|0)+400);
+  let best=null;
+  for(let i=van;i<tot;i++){
+    const a={lon:shape[i][0],lat:shape[i][1]};
+    const b={lon:shape[i+1][0],lat:shape[i+1][1]};
+    const r=progressAlong(a,b,{lat,lon});
+    const t=Math.max(0,Math.min(1,r.t));
+    const px=a.lon+(b.lon-a.lon)*t, py=a.lat+(b.lat-a.lat)*t;
+    const off=haversine([px,py],[lon,lat]);
+    if(!best||off<best.off)
+      best={ i, off, punt:[px,py], km:cum[i]+(cum[i+1]-cum[i])*t };
+  }
+  /* Niets gevonden in het venster? Dan de hele route afzoeken — je bent kwijt. */
+  if(!best||best.off>0.5){
+    for(let i=0;i<shape.length-1;i++){
+      const a={lon:shape[i][0],lat:shape[i][1]};
+      const b={lon:shape[i+1][0],lat:shape[i+1][1]};
+      const r=progressAlong(a,b,{lat,lon});
+      const t=Math.max(0,Math.min(1,r.t));
+      const px=a.lon+(b.lon-a.lon)*t, py=a.lat+(b.lat-a.lat)*t;
+      const off=haversine([px,py],[lon,lat]);
+      if(!best||off<best.off)
+        best={ i, off, punt:[px,py], km:cum[i]+(cum[i+1]-cum[i])*t };
+    }
+  }
+  return best;
+}
+
+/* Je kilometerstand mag alleen vooruit. Zonder dit kan een haarspeld of een weg
+   die terugkomt je stand laten terugvallen, en dan komt de afslagmelding te
+   laat. Een flinke terugval betekent dat je echt van de route af bent; dan
+   accepteren we hem wel. */
+function kmVooruit(nieuw,oud){
+  if(oud==null) return nieuw;
+  if(nieuw>=oud) return nieuw;
+  return (oud-nieuw)>1.0 ? nieuw : oud;
+}
+
 /* Hoe bochtig is één weg? Graden draaiing per kilometer, omgerekend naar een
    cijfer van 0 tot 100. Wordt gebruikt voor de bochtigheidskaart én om bij het
    plannen bochtige wegen op te zoeken. */
