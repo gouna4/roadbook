@@ -569,6 +569,16 @@
     .griphandle{width:42px;height:4px;border-radius:2px;background:var(--hair);margin:0 auto 9px}
     .grip{order:-1}
 
+    /* Het resultaatkaartje op de greep. Dit is wat je ziet zodra er een route
+       ligt: de vier cijfers en de startknop, zonder dat je iets hoeft te
+       schuiven. De hoogte hiervan wordt gemeten en in --dicht gezet, want een
+       vast getal klopt niet als er een cijfer bijkomt. */
+    .gripkaart{margin-top:2px}
+    .gripkaart[hidden]{display:none}
+    .gripcijfers{padding:0;cursor:pointer}
+    .gripcijfers strong{font-size:16px}
+    .gripkaart .doe{width:100%;margin:10px 0 0;padding:15px}
+
     .masthead{padding-top:12px}
     .check{padding:3px 0}
     .check input{width:19px;height:19px}
@@ -595,6 +605,9 @@
       justify-content:flex-start;gap:12px;background:var(--panel);
     }
     .griphandle{width:4px;height:42px;margin:0}
+    /* Liggend is de greep een smalle strook naast de lade; daar past het
+       resultaatkaartje niet in. Het staat dan gewoon in het paneel zelf. */
+    .gripkaart{display:none}
   }
 
 

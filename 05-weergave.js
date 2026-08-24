@@ -112,7 +112,7 @@ function applyVariant(k){
   state.tourShape=v.shape;
   state.shape=state.fast.shape.length?state.fast.shape.concat(v.shape):v.shape;
   const cum=cumulative(state.shape); state.cum=cum;
-  map.getSource('route').setData(v.prof.fc);
+  zetBron('route',v.prof.fc);
   el('sumKm').textContent=(state.fast.km+v.km).toFixed(0)+' km';
   el('sumTime').textContent = v.imported ? '—' : fmtTime(state.fast.sec+v.sec);
   el('sumEta').textContent = aankomst(state.fast.sec+v.sec, v.imported);

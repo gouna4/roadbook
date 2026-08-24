@@ -84,7 +84,7 @@ er ook niet in.
 | Waarvoor | Dienst | Let op |
 |---|---|---|
 | Routes | Valhalla via FOSSGIS, `valhalla1.openstreetmap.de` | 1 aanroep per seconde. `motorcycle` costing. Weigert ritten boven ~2000 km, daarom `planLangeRit()` |
-| Kaarttegels | OpenFreeMap (`liberty`-stijl) | geen limiet, geen registratie; vooruit binnenhalen mag hier wél |
+| Kaarttegels | OpenFreeMap (`liberty`-stijl) | geen limiet, geen registratie; vooruit binnenhalen mag hier wél. De stijl en `/planet` gaan in `sw.js` **eerst naar het netwerk** (`isStijl()`): daar staat een datum in die verloopt |
 | Luchtfoto's | Esri World Imagery | niet vooruit binnenhalen |
 | Hoogtekaart | OpenTopoMap | tot zoomniveau 17; niet vooruit binnenhalen |
 | Plaatsen zoeken | Overpass API, drie servers als reserve | vaak druk, altijd via `overpass()` |
@@ -161,6 +161,11 @@ kaartgebieden je hebt binnengehaald (de kaartstukjes zelf zitten in de Cache
 - Kleuren en lettertypes komen uit de CSS-variabelen bovenin. Niet zomaar
   nieuwe kleuren verzinnen.
 - Elementen worden opgehaald met `el('id')`.
+- **Lijnen op de kaart zetten gaat via `zetBron(id,data)`**, nooit rechtstreeks
+  met `map.getSource(id).setData(...)`. De lagen bestaan pas als de kaartstijl
+  binnen is, en die komt van een gratis server. `zetBron` onthoudt het en zet het
+  zodra het kan; rechtstreeks doen betekent dat het plannen eruit klapt als de
+  kaart traag is. `zelftest.js` controleert dit.
 - **Elk eigen bestand wordt opgevraagd met `?v=<versie>` erachter.** GitHub laat
   de browser bestanden tien minuten bewaren. Zonder dat nummer krijg je bij een
   nieuwe `index.html` een oude `stijl.css` of een oud `.js`-bestand terug: een
@@ -361,7 +366,12 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
 
-## Versie 49: een weekend gereden, vier klachten
+## Versie 50: een weekend gereden, vier klachten
+
+*Onderweg is dit één keer als 49 op de telefoon getest. Die had de zwarte kaart
+hieronder; 50 is dezelfde versie met die fouten eruit. Het nummer is opgehoogd
+omdat een telefoon die 49 al had gezien anders de oude uit zijn geheugen haalt.*
+
 
 De eigenaar heeft er een weekend mee gereden. Vier dingen, en ze hingen alle
 vier aan elkaar: **de app wist niet precies genoeg waar je was, en de camera
@@ -434,6 +444,99 @@ nagerekend.
 **Les:** een animatie per melding kán niet vloeiend worden, hoe goed je de duur
 ook afregelt — de volgende melding breekt hem altijd af. Wil je vloeiend, dan
 reken je per beeldje.
+
+### Plannen en dan rijden: het blad schuift zelf dicht
+
+Klacht van de eigenaar: *"als ik plan route druk moet de instelling ingeklapt
+worden en dat ik dan de route zie, er na zou er een knop moeten komen waar ik
+start route kan drukken. Nu moet ik best veel moeite doen om alles weg te
+sliden."* Terecht, en het is ook precies hoe elke navigatie het doet: je zegt
+waar je heen wil, de kaart neemt het over, en er staat nog één ding op je scherm
+dat groen is.
+
+- **Na het plannen schuift het blad zichzelf dicht** (`naarKaart()`), zodat je de
+  route ziet. Alleen staand: liggend is het paneel een lade náást de kaart, en
+  dichtschuiven zou daar juist de startknop wegnemen
+- **Op de greep staat nu het resultaat**: afstand, rijtijd, aankomst en
+  bochtigheid, met daaronder de groene **▶ Route starten**. Dat is wat je ziet
+  als het blad dicht is, in élk tabblad. De cijfers worden overgenomen van het
+  paneel, zodat er nooit twee verschillende getallen kunnen staan
+- **Op de cijfers tikken opent het paneel weer.** Tikken is minder werk dan
+  slepen, zeker met handschoenen aan
+- **De hoogte van dat kaartje wordt gemeten, niet geschat** (`metenDicht()` zet
+  `--dicht`). Met een vast getal zou de startknop half afgesneden worden zodra
+  er een cijfer bij komt
+- **De route wordt ingepast mét ruimte voor het blad** (`kaartRuimte()`). Anders
+  ligt de onderste helft van je rit achter het paneel — je ziet hem dan wel,
+  maar niet
+
+**En een fout die daarbij boven kwam:** `initSheet()` meldde zijn luisteraars
+opnieuw aan én zette de bewaarde stand terug bij elke resize. Op een iPhone is
+het in- of uitschuiven van de adresbalk een resize. Het blad klapte dus midden
+in je werk terug open, en dat voelde als een app met een eigen wil. De
+luisteraars gaan er nu één keer op, en bij een resize blijft de stand staan waar
+hij stond.
+
+Wat er wél is overwogen maar niet gedaan, om het aantal knoppen niet weer te
+laten groeien: een ⤢-knop om de hele route opnieuw in beeld te halen (in versie
+37 juist weggehaald), een "via …"-regel met de belangrijkste weg, en de
+alternatieve routes als grijze lijnen met een tikbaar label. Die laatste is
+alleen zinnig als er weer meerdere routes berekend worden, en dat kost twee
+extra aanvragen per rit.
+
+### De zwarte kaart, en waarom die het plannen meesleurde
+
+Bij het testen van 49 (de tussenversie) kwam er een zwarte kaart met de melding *"undefined is not
+an object (evaluating 'map.getSource('fast').setData')"*. Dat waren twee fouten
+die elkaar versterkten, en geen van de twee zat in het nieuwe rijwerk.
+
+**Fout één: alle eigen lagen bestonden alleen als de kaartstijl was binnengekomen.**
+De stijl komt van OpenFreeMap — gratis, geen sleutel, en dus soms even weg. Kwam
+hij niet, dan draaide `map.on('load')` nooit, bestond er geen enkele laag, en
+klapte `plan()` eruit op de eerste regel die een lijn wilde tekenen. Je zag een
+zwarte kaart, een Engelse foutmelding, en géén route — terwijl de route zelf
+niets met de kaart te maken heeft. Precies wat harde randvoorwaarde 3 verbiedt.
+
+Nu gaat **elke** lijn via `zetBron(id,data)`. Die onthoudt wat er getekend moet
+worden en zet het zodra de laag bestaat; `bronnenBijwerken()` haalt de achterstand
+op zodra de kaart er is. Dus: de route wordt berekend en getoond, ook als het
+plaatje eronder er nog niet is, en hij verschijnt zodra dat wel zo is.
+`zelftest.js` controleert nu dat geen enkel bestand nog rechtstreeks
+`map.getSource(...).setData(...)` doet.
+
+Verder is de opbouw van de kaart uit de luisteraar gehaald en een functie
+geworden (`kaartOpbouwen()`), zodat hij **opnieuw** kan. Duurt het langer dan
+acht seconden, dan zegt de app in gewone taal dat de kaart nog laadt en zet hij
+de stijl opnieuw — drie keer, en daarna eerlijk dat het niet lukt. Klaagt de
+kaart zelf al eerder, dan wacht hij die acht seconden niet uit. `kaartOpbouwen()`
+begint met `if(map.getSource('fast')) return;` — dat is de rem tegen twee keer
+opbouwen, want `addSource` met een naam die al bestaat geeft een fout.
+
+**Fout twee, en dit is de gemene: de service worker bewaarde de stijl.**
+`isTile()` liet alles van `tiles.openfreemap.org` eerst uit de kast komen, en
+daar horen de stijl (`/styles/liberty`) en het adressenlijstje (`/planet`) ook
+bij. Twee kleine bestanden, maar:
+
+- in dat adressenlijstje staat een **datum**, en OpenFreeMap vervangt die elke
+  paar weken en gooit de oude weg. Een bewaarde kopie wijst dan naar tegels die
+  niet meer bestaan → een kaart die niets tekent
+- is de kopie half binnengekomen, dan is hij stuk en blijft hij stuk. Opnieuw
+  laden helpt niet, want hij komt uit de kast en niet van het net. Dat is niet
+  te overleven zonder de app te verwijderen
+
+Die twee gaan nu via `isStijl()` **eerst naar het netwerk**, met de kast als
+achtervang — en de goede kopie gaat in `roadbook-offline-v1`, want die wordt
+nooit opgeruimd, zodat offline opstarten blijft werken. Bij het activeren van een
+nieuwe versie wordt de oude kopie weggegooid (`stijlOpruimen()`), zodat een
+telefoon die al vastzat zichzelf repareert.
+
+De zeef moet **de tegels niet raken** — dan zou elke tegel weer van internet
+komen en is offline rijden voorbij. `zelftest.js` meet dat na met zes adressen:
+de stijl en `/planet` erin, een tegel, een lettertype, de symbolen en een andere
+server erbuiten.
+
+**Les:** wat je bewaart moet je ook kunnen weggooien. Een kopie van een bestand
+dat verandert is geen versnelling maar een tijdbom, tenzij je een weg terug hebt.
 
 ## Versie 48: de app doorgespit
 
@@ -537,7 +640,7 @@ die niet uit onze eigen bestanden komt.
    hoogstens 700 wegen, een gebied van maximaal 2500 km², en het doormeten gaat
    in hapjes van 120 met de voortgang over de kaart
 
-## Automatisch zoomen, versie 45 — vervangen in versie 49
+## Automatisch zoomen, versie 45 — vervangen in versie 50
 
 | Wanneer | Zoom | Waarom |
 |---|---|---|

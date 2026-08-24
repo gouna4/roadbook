@@ -17,20 +17,31 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=49">
+<link rel="stylesheet" href="stijl.css?v=50">
 </head>
 <body>
 
 <aside class="panel" id="panel">
   <div class="grip" id="grip">
     <div class="griphandle"></div>
+    <!-- Wat je ziet als het blad dichtgeschoven is: het resultaat en de
+         startknop. Zoals elke navigatie: route op de kaart, kaartje eronder. -->
+    <div class="gripkaart" id="gripKaart" hidden>
+      <div class="cijfers gripcijfers" id="gripCijfers">
+        <div><span>Afstand</span><strong id="gKm">—</strong></div>
+        <div><span>Rijtijd</span><strong id="gTijd">—</strong></div>
+        <div><span>Aankomst</span><strong id="gEta">—</strong></div>
+        <div class="acc"><span>Bochtig</span><strong id="gCurve">—</strong></div>
+      </div>
+      <button class="doe start" id="gripStart">▶ Route starten</button>
+    </div>
   </div>
 
   <nav class="tabs" id="tabs" aria-label="Onderdelen">
     <button data-tab="plan" class="on">Plannen</button>
     <button data-tab="weg">Onderweg</button>
     <button data-tab="rit">Ritten</button>
-    <span class="ver" id="verNr">v49</span>
+    <span class="ver" id="verNr">v50</span>
     <button data-tab="set" class="sliders" aria-label="Instellingen" title="Instellingen">⚙</button>
   </nav>
 
@@ -403,17 +414,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=49"></script>
-<script src="02-invoer.js?v=49"></script>
-<script src="03-route.js?v=49"></script>
-<script src="04-bibliotheek.js?v=49"></script>
-<script src="05-weergave.js?v=49"></script>
-<script src="06-plannen.js?v=49"></script>
-<script src="07-interface.js?v=49"></script>
-<script src="08-onderweg.js?v=49"></script>
-<script src="09-rijden.js?v=49"></script>
-<script src="10-uitvoer.js?v=49"></script>
-<script src="11-offline.js?v=49"></script>
-<script src="12-opstarten.js?v=49"></script>
+<script src="01-basis.js?v=50"></script>
+<script src="02-invoer.js?v=50"></script>
+<script src="03-route.js?v=50"></script>
+<script src="04-bibliotheek.js?v=50"></script>
+<script src="05-weergave.js?v=50"></script>
+<script src="06-plannen.js?v=50"></script>
+<script src="07-interface.js?v=50"></script>
+<script src="08-onderweg.js?v=50"></script>
+<script src="09-rijden.js?v=50"></script>
+<script src="10-uitvoer.js?v=50"></script>
+<script src="11-offline.js?v=50"></script>
+<script src="12-opstarten.js?v=50"></script>
 </body>
 </html>

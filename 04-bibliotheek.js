@@ -62,11 +62,9 @@ function renderLib(){
 
 let libVisible=false;
 function drawLib(){
-  const src=map.getSource('lib');
-  if(!src) return;
   const feats = libVisible ? libAll().map(r=>({type:'Feature',
     properties:{id:r.id,name:r.name}, geometry:{type:'LineString',coordinates:r.pts}})) : [];
-  src.setData({type:'FeatureCollection',features:feats});
+  zetBron('lib',{type:'FeatureCollection',features:feats});
   el('libShow').classList.toggle('on',libVisible);
 }
 
@@ -213,7 +211,7 @@ function useImported(pts,name,named){
     { name:rond?'Weer thuis':laatsteNaam, lat:pts[pts.length-1][1], lon:pts[pts.length-1][0], _isDest:true }
   ];
   drawPoints();
-  map.getSource('fast').setData(EMPTY);
+  zetBron('fast',EMPTY);
   applyVariant('imp');
   map.fitBounds(pts.reduce((bb,c)=>bb.extend(c),new maplibregl.LngLatBounds(pts[0],pts[0])),
     {padding:60,duration:800});

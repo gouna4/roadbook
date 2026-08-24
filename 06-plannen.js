@@ -170,15 +170,18 @@ async function plan(){
       state.pois=[]; state.stays=[]; state.along=null; state.extraRows=[];
       document.querySelectorAll('#alongChips button').forEach(b=>b.classList.remove('on'));
       el('alongList').innerHTML='';
-      map.getSource('fast').setData(state.fast.shape.length
+      zetBron('fast',state.fast.shape.length
         ?{type:'Feature',geometry:{type:'LineString',coordinates:state.fast.shape}}:EMPTY);
       drawPoints();
       applyVariant('base');
     };
     show();
+    /* Route staat op het scherm: het paneel schuift dicht zodat je hem ziet,
+       met de cijfers en de startknop op de greep. */
+    if(typeof naarKaart==='function') naarKaart();
     const all0=state.fast.shape.concat(main.shape);
     map.fitBounds(all0.reduce((bb,c)=>bb.extend(c),new maplibregl.LngLatBounds(all0[0],all0[0])),
-      {padding:60,duration:800});
+      {padding:(typeof kaartRuimte==='function'?kaartRuimte():60),duration:800});
     btn.disabled=false; btn.textContent='Route plannen';
     saveLast(); renderLib(); showWeather();
 
@@ -339,7 +342,7 @@ const teken={ aan:false, bezig:false, punten:[], px:null, pid:null, oud:[] };
 
 function tekenLijnTonen(){
   const heeft=teken.punten.length>1;
-  map.getSource('teken')?.setData(heeft
+  zetBron('teken',heeft
     ? {type:'Feature',properties:{},geometry:{type:'LineString',coordinates:teken.punten}}
     : EMPTY);
   kaartKnoppenBij();
@@ -603,7 +606,7 @@ function pinPunten(){
 
 function pinLijnTonen(){
   const p=pinPunten();
-  map.getSource('punten')?.setData(p.length>1
+  zetBron('punten',p.length>1
     ? {type:'Feature',properties:{},geometry:{type:'LineString',coordinates:p}}
     : EMPTY);
   if(pin.aan) pinBalk();

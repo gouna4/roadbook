@@ -49,7 +49,7 @@ async function loadCurveLayer(){
         await sleep(0);
       }
     }
-    map.getSource('curve').setData({type:'FeatureCollection',features:feats});
+    zetBron('curve',{type:'FeatureCollection',features:feats});
     kaartMelding(feats.length
       ? `${feats.length} bochtige wegen in beeld, waarvan ${leuk} echt de moeite waard.`
       : 'Geen bochtige wegen gevonden in dit gebied — vlak land.');
@@ -132,9 +132,7 @@ async function findOffroad(){
 }
 
 function drawOffroad(){
-  const src=map.getSource('off');
-  if(!src) return;
-  src.setData({ type:'FeatureCollection', features: offVisible
+  zetBron('off',{ type:'FeatureCollection', features: offVisible
     ? offRoads.map(w=>({type:'Feature',properties:{id:w.id,name:w.name},
         geometry:{type:'LineString',coordinates:w.geom}})) : [] });
 }
@@ -198,7 +196,11 @@ const drive={ on:false, watch:null, lock:null, stem:true, gezegd:new Set(),
               spoor:[], spoorRit:false, terugGezegd:0, gedaanIdx:-1,
               afSinds:0, herLaatst:0, herBezig:false, geenNet:false, eerste:true,
               tempo:0, vorigeMelding:0, pad:null, terugAan:false,
-              spoorGetekend:0, spoorBewaard:0, laatsteKmu:null, zoomDoel:0 };
+              spoorGetekend:0, spoorBewaard:0, laatsteKmu:null,
+              /* de camera: waar we vandaan glijden, waarheen, en hoe ver de
+                 zoom nog moet. `stil` betekent: niets te bewegen, sla over. */
+              van:null, naar:null, naarTijd:0, ruw:null, koersVan:0, stil:false,
+              beeld:0, km:null, stand:0, zoomDoel:0, zoomNu:0 };
 
 /* Op welke afstanden een afslag wordt omgeroepen, van ver naar dichtbij. */
 const AF_STAPPEN=[[1.0,'Over 1 kilometer'],[0.4,'Over 400 meter'],[0.15,'Over 150 meter']];
@@ -553,7 +555,7 @@ function tekenGedaan(i){
   let van=i;
   while(van>0 && tot-drive.cum[van]<GEDAAN_KM) van--;
   const deel=drive.shape.slice(van,Math.max(van+2,i+1));
-  map.getSource('gedaan')?.setData({type:'Feature',properties:{},
+  zetBron('gedaan',{type:'Feature',properties:{},
     geometry:{type:'LineString',coordinates:deel}});
 }
 
@@ -575,7 +577,7 @@ function spoorBij(lon,lat){
      weg vóór je, niet naar waar je al was. */
   if(nu-(drive.spoorGetekend||0)>15000){
     drive.spoorGetekend=nu;
-    map.getSource('spoor')?.setData({type:'Feature',properties:{},
+    zetBron('spoor',{type:'Feature',properties:{},
       geometry:{type:'LineString',coordinates:drive.spoor.length>1?drive.spoor:[]}});
   }
   /* Naar de opslag schrijven blokkeert alles zolang het duurt. Dus alleen als je
@@ -615,7 +617,7 @@ function vanDeRouteAf(lat,lon){
     : 'Rijd terug naar het dichtstbijzijnde punt';
 
   pijlZet(((rel+180)%360+360)%360-180);
-  map.getSource('terug')?.setData({type:'Feature',properties:{},
+  zetBron('terug',{type:'Feature',properties:{},
     geometry:{type:'LineString',coordinates:[[lon,lat],doel]}});
   drive.terugAan=true;
 
@@ -686,7 +688,7 @@ async function herbereken(lat,lon){
     drive.sec=(r.sec||0)+drive.sec*Math.max(0,1-plak.vanaf/Math.max(0.1,plak.oudTotaal));
     drive.idx=0; drive.gedaanIdx=-1; drive.gezegd.clear(); drive.km=null;
     drive.herLaatst=Date.now(); drive.afSinds=0; drive.geenNet=false;
-    map.getSource('terug')?.setData(EMPTY);
+    zetBron('terug',EMPTY);
 
     zeg('Nieuwe route.');
     el('dThen').textContent=`Nieuwe route: ${afst(plak.kopKm)} tot je weer op je rit zit`;
@@ -771,7 +773,7 @@ function driveTick(pos){
   drive.idx=op.i;
   /* Alleen leegmaken als er iets stond. Elke seconde een lege laag verversen is
      een volledige hertekening voor niets. */
-  if(drive.terugAan){ map.getSource('terug')?.setData(EMPTY); drive.terugAan=false; }
+  if(drive.terugAan){ zetBron('terug',EMPTY); drive.terugAan=false; }
   tekenGedaan(op.i);
 
   /* Je kilometerstand mag alleen vooruit. Zonder dat kan een haarspeld je stand
@@ -891,8 +893,8 @@ function stopDrive(){
   drive.lock=null;
   try{ speechSynthesis.cancel(); }catch{}
   try{ drive.mij?.remove(); }catch{}
-  map.getSource('terug')?.setData(EMPTY);
-  map.getSource('gedaan')?.setData(EMPTY);
+  zetBron('terug',EMPTY);
+  zetBron('gedaan',EMPTY);
   document.body.classList.remove('rijden');
   el('drive').hidden=true;
   map.resize();

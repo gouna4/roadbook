@@ -60,9 +60,12 @@ const BASES={
                 'https://c.tile.opentopomap.org/{z}/{x}/{y}.png'],
         maxzoom:17, attribution:'© OpenTopoMap (CC-BY-SA)' }
 };
+/* De kaartstijl staat apart omdat we hem opnieuw moeten kunnen zetten als het
+   ophalen mislukt. Zie kaartWachten() onderaan dit blok. */
+const STIJL='https://tiles.openfreemap.org/styles/liberty';
 const map=new maplibregl.Map({
   container:'map',
-  style:'https://tiles.openfreemap.org/styles/liberty',
+  style:STIJL,
   center:[6.2,51.3], zoom:7, attributionControl:{compact:true}
 });
 map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
@@ -92,7 +95,18 @@ function setBase(kind){
   store.set('rb.base',kind);
 }
 
-map.on('load',()=>{
+/* ================= de kaart opbouwen =================
+   Alle eigen lagen erop. Dit staat in een functie en niet los in de luisteraar,
+   omdat de stijl van een gratis server komt: mislukt dat, dan zetten we hem
+   opnieuw en moet alles er nóg een keer op. Na setStyle is de kaart namelijk
+   helemaal leeg.
+
+   De eerste regel is de rem tegen twee keer opbouwen: bestaat 'fast' al, dan
+   staat alles er al en zou addSource een fout geven. */
+let kaartKlaar=false, baseLuistert=false, sleepLuistert=false, stijlPogingen=0;
+function kaartOpbouwen(){
+  if(map.getSource('fast')) return;
+  baseGround=[]; baseLabels=[]; origVis={};
   (map.getStyle().layers||[]).forEach(l=>{
     origVis[l.id]=l.layout?.visibility||'visible';
     (l.type==='symbol'?baseLabels:baseGround).push(l.id);
@@ -105,10 +119,13 @@ map.on('load',()=>{
   }
   /* Doorklikken: kleur -> topo -> satelliet -> kleur. Eén knop in plaats van
      drie, en geen rij knoppen meer die per ongeluk elkaars werk doet. */
-  el('baseCycle').addEventListener('click',()=>{
-    const nu=store.get('rb.base','kleur');
-    setBase(BASE_ORDE[(BASE_ORDE.indexOf(nu)+1)%BASE_ORDE.length]);
-  });
+  if(!baseLuistert){
+    baseLuistert=true;
+    el('baseCycle').addEventListener('click',()=>{
+      const nu=store.get('rb.base','kleur');
+      setBase(BASE_ORDE[(BASE_ORDE.indexOf(nu)+1)%BASE_ORDE.length]);
+    });
+  }
 
   map.addSource('fast',{type:'geojson',data:EMPTY});
   map.addLayer({id:'fast-case',type:'line',source:'fast',
@@ -182,8 +199,75 @@ map.on('load',()=>{
     layout:{'line-cap':'butt','line-join':'round'}});
 
   setBase(store.get('rb.base','kleur'));
-  enableDragShaping();
+  /* Ook maar één keer: dit hangt luisteraars aan de kaart, en die blijven na
+     een nieuwe stijl gewoon staan. Twee keer aanmelden is twee keer reageren. */
+  if(!sleepLuistert && typeof enableDragShaping==='function'){
+    sleepLuistert=true;
+    enableDragShaping();
+  }
+
+  kaartKlaar=true;
+  bronnenBijwerken();
+  /* Alleen onze eigen "de kaart laadt nog"-melding weghalen; stond er iets
+     anders, dan is dat van iemand anders en blijft het staan. */
+  if(stijlPogingen) setStatus('');
+}
+map.on('load',kaartOpbouwen);
+
+/* ================= lijnen op de kaart zetten =================
+   Elke lijn (je route, je tekening, je spoor) gaat via zetBron(). Waarom niet
+   gewoon map.getSource('route').setData()? Omdat die laag pas bestaat als de
+   kaartstijl binnen is, en die komt van een gratis server. Was hij er nog niet,
+   dan klapte het plannen eruit met een Engelse foutmelding en zag je alleen een
+   zwarte kaart — precies wat er niet mag gebeuren volgens de afspraak dat een
+   externe dienst netjes moet kunnen wegvallen.
+
+   Nu wordt onthouden wat er getekend moet worden, en dat gebeurt zodra de kaart
+   er is. Dat is meteen de reparatie na een mislukte stijl: alles komt terug. */
+const bronLaatst={};
+function zetBron(id,data){
+  bronLaatst[id]=data;
+  if(!kaartKlaar) return false;
+  const s=map.getSource(id);
+  if(!s) return false;
+  s.setData(data);
+  return true;
+}
+function bronnenBijwerken(){
+  for(const id of Object.keys(bronLaatst)){
+    const s=map.getSource(id);
+    if(s) s.setData(bronLaatst[id]);
+  }
+}
+
+/* De kaartstijl komt van OpenFreeMap, gratis en zonder sleutel — en dus soms
+   even weg. Blijft hij weg, dan zie je een zwarte kaart en snap je er niets van.
+   Dus: na acht seconden zeggen wat er is en het opnieuw proberen. Drie keer, en
+   daarna eerlijk zeggen dat het niet lukt. Je route zelf werkt gewoon door; de
+   kaart is alleen het plaatje eronder. */
+function kaartWachten(){
+  if(kaartKlaar) return;
+  if(stijlPogingen>=3){
+    setStatus('De kaart wil niet laden — de gratis kaartserver is even weg. '
+             +'Plannen werkt wel, je ziet de lijn alleen niet. Probeer het later nog eens.',true);
+    return;
+  }
+  stijlPogingen++;
+  setStatus('De kaart laadt nog… nieuwe poging ('+stijlPogingen+' van 3).');
+  map.once('style.load',kaartOpbouwen);
+  map.setStyle(STIJL);
+  setTimeout(kaartWachten,8000);
+
+/* Klaagt de kaart zelf al, dan hoeven we die acht seconden niet uit te zitten.
+   Eén keer, anders krijg je bij elke gemiste tegel een nieuwe poging. */
+let stijlKlacht=false;
+map.on('error',()=>{
+  if(kaartKlaar||stijlKlacht) return;
+  stijlKlacht=true;
+  setTimeout(kaartWachten,1500);
 });
+}
+setTimeout(kaartWachten,8000);
 
 /* ================= rekenhulp ================= */
 function setStatus(msg,isErr){ const s=el('status'); s.textContent=msg||''; s.classList.toggle('err',!!isErr); }

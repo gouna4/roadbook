@@ -140,7 +140,7 @@ function alsWissen(){
   state.shape=[]; state.tourShape=[]; state.pois=[]; state.stays=[];
   state.vias=[]; state.variants={}; state.mids=[]; state.fast={shape:[],km:0,sec:0};
   renderVias();
-  map.getSource('route').setData(EMPTY); map.getSource('fast').setData(EMPTY);
+  zetBron('route',EMPTY); zetBron('fast',EMPTY);
   el('summary').hidden=true; el('exports').hidden=true; el('legend').hidden=true;
   el('alongList').innerHTML='';
   clearAlong(); state.along=null; state.extraRows=[]; state.variants={}; state.shown=null;
@@ -216,7 +216,7 @@ function ritHerstellen(){
   clearAlong(); clearMarkers();
   state.variants={ rit:{ shape:r.shape, man:r.man, km:r.km, sec:r.sec,
     prof:curveProfile(r.shape), color:'#E0B354', label:'Uit je telefoon' } };
-  map.getSource('fast').setData(EMPTY);
+  zetBron('fast',EMPTY);
   applyVariant('rit');
   map.fitBounds(r.shape.reduce((bb,c)=>bb.extend(c),
     new maplibregl.LngLatBounds(r.shape[0],r.shape[0])),{padding:60,duration:800});

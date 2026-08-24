@@ -39,7 +39,11 @@ const nep = () => new Proxy(function(){}, {
 });
 function Nep(){ return nep(); }
 const element = () => ({ addEventListener(){}, removeEventListener(){},
-  classList:{toggle(){},add(){},remove(){},contains:()=>false}, style:{},
+  classList:{toggle(){},add(){},remove(){},contains:()=>false},
+  /* style is meer dan een leeg doosje: de app zet er ook eigen waarden in
+     (--dicht bijvoorbeeld), en dan moeten die drie methodes bestaan. */
+  style:{ setProperty(){}, removeProperty(){}, getPropertyValue:()=>'' },
+  offsetHeight:0, offsetWidth:0,
   textContent:'', innerHTML:'', hidden:false, value:'', checked:false,
   dataset:{}, children:[], firstElementChild:{style:{}}, appendChild(){},
   querySelectorAll:()=>[], querySelector:()=>null, append(){}, insertBefore(){},
@@ -720,6 +724,29 @@ const poolWinter = zonTijden(78, 15, new Date(Date.UTC(2026, 11, 21, 12)));
 check('poolzomer: de zon gaat niet onder', poolZomer !== null && uren(poolZomer) > 0, true);
 check('poolnacht: geen zonsopkomst', poolWinter, null);
 
+
+console.log('');
+console.log('--- sw.js: de stijl apart van de tegels ---');
+/* De stijl en het adressenlijstje gaan eerst naar het netwerk, de tegels eerst
+   naar de kast. Raakt die zeef per ongeluk ook de tegels, dan wordt elke tegel
+   opnieuw van internet gehaald en is offline rijden voorbij. Raakt hij de stijl
+   niet, dan kan een oude kopie de kaart weer zwart maken. Dus: nameten. */
+const swBron = fs.readFileSync('sw.js', 'utf8');
+const isStijl = eval('url => ' + swBron.match(/const isStijl = url =>\s*([^;]+);/)[1]);
+check('de stijl zelf', isStijl('https://tiles.openfreemap.org/styles/liberty'), true);
+check('het adressenlijstje', isStijl('https://tiles.openfreemap.org/planet'), true);
+check('een tegel juist niet',
+      isStijl('https://tiles.openfreemap.org/planet/20250122_001001_pt/14/8500/5450.pbf'), false);
+check('een lettertype juist niet',
+      isStijl('https://tiles.openfreemap.org/fonts/noto_sans_regular/0-255.pbf'), false);
+check('de symbolen juist niet',
+      isStijl('https://tiles.openfreemap.org/natural_earth/sprite.json'), false);
+check('en niets van een andere server',
+      isStijl('https://a.tile.opentopomap.org/12/2100/1350.png'), false);
+/* En de opruiming bij een nieuwe versie moet er ook echt staan. */
+check('oude stijl wordt bij een nieuwe versie weggegooid',
+      /stijlOpruimen\(\)/.test(swBron), true);
+
 console.log('');
 console.log('=== 4. klopt de interface met de code? ===');
 (function interfaceCheck(){
@@ -848,6 +875,24 @@ console.log('=== 4. klopt de interface met de code? ===');
                   && css.indexOf('#' + id) < 0);
   if (losse.length) console.log('LET OP  id-s die niets meer doen: ' + losse.join(', '));
   else console.log('OK   geen losse id-s');
+
+  /* Lijnen op de kaart zetten mag alleen via zetBron(). Doet een bestand het toch
+     rechtstreeks, dan klapt het eruit zolang de kaartstijl nog niet binnen is —
+     en dat is precies de fout waarmee versie 49 begon: "undefined is not an
+     object (evaluating 'map.getSource('fast').setData')", met een zwarte kaart. */
+  {
+    const stout = [];
+    for (const f of BESTANDEN) {
+      if (f === '01-basis.js') continue;          // daar staat zetBron zelf
+      const code = fs.readFileSync(f, 'utf8');
+      const re = /map\.getSource\([^)]*\)\s*\??\.\s*setData/g;
+      let m;
+      while ((m = re.exec(code))) stout.push(f + ': ' + m[0]);
+    }
+    if (stout.length) stout.forEach(s => console.log('     ' + s));
+    check('lijnen gaan via zetBron() en niet rechtstreeks', stout.length, 0);
+  }
+
 
   /* Versienummers die uit elkaar lopen geven een halve oude app. Ze staan op
      vier plekken en moeten alle vier gelijk zijn: de kop van index.html, achter

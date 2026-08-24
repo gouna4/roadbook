@@ -79,7 +79,10 @@ const sheet={ stand:'half', y0:0, h0:0, slepen:false };
 function mobiel(){ return window.matchMedia('(max-width:860px)').matches; }
 function liggend(){ return window.matchMedia('(max-width:1000px) and (orientation:landscape) and (max-height:560px)').matches; }
 
-function zetStand(st){
+/* bewaren=false: wel schuiven, niet onthouden. Dat gebruiken we als de app
+   zelf het blad dichtschuift na het plannen — jouw eigen voorkeur voor de
+   volgende keer hoort daar niet door te veranderen. */
+function zetStand(st,bewaren){
   sheet.stand=st;
   const p=el('panel');
   p.classList.remove('peek','half','full','dragging');
@@ -87,20 +90,32 @@ function zetStand(st){
   p.style.removeProperty('--sheet');
   /* Het paneel scrolt niet meer zelf; dat doet het middenstuk. */
   if(st!=='full'){ const w=document.querySelector('.stepwrap'); if(w) w.scrollTop=0; }
-  store.set('rb.sheet',st);
+  if(bewaren!==false) store.set('rb.sheet',st);
+  metenDicht();
 }
 
 function volgendeStand(){
   zetStand(sheet.stand==='peek'?'half':sheet.stand==='half'?'full':'peek');
 }
 
+/* De luisteraars mogen maar één keer worden aangemeld. initSheet() wordt ook
+   aangeroepen als je je telefoon draait — en op een iPhone bovendien elke keer
+   dat de adresbalk in- of uitschuift, want dat is ook een resize. Werd dan
+   opnieuw de bewaarde stand gezet, dan klapte het blad midden in je werk weer
+   open. Nu blijft de stand staan waar hij stond. */
+let sheetAan=false;
 function initSheet(){
   const p=el('panel'), g=el('grip');
-  if(!mobiel()){ p.classList.remove('peek','half','full'); return; }
-  zetStand(store.get('rb.sheet','half'));
+  if(!mobiel()){ p.classList.remove('peek','half','full'); metenDicht(); return; }
+  zetStand(sheetAan?sheet.stand:store.get('rb.sheet','half'),false);
+  if(sheetAan) return;
+  sheetAan=true;
 
   g.addEventListener('pointerdown',e=>{
     if(liggend()) return;                     /* liggend: alleen tikken */
+    /* Op het resultaatkaartje staan knoppen. Daar mag je niet mee gaan
+       slepen, anders start je nooit een route maar schuif je alleen. */
+    if(e.target.closest('.gripkaart')) return;
     sheet.slepen=true; sheet.y0=e.clientY;
     sheet.h0=p.getBoundingClientRect().top;
     p.classList.add('dragging');
@@ -126,7 +141,10 @@ function initSheet(){
   };
   g.addEventListener('pointerup',los);
   g.addEventListener('pointercancel',los);
-  g.addEventListener('click',e=>{ if(liggend()) volgendeStand(); });
+  g.addEventListener('click',e=>{
+    if(e.target.closest('.gripkaart')) return;
+    if(liggend()) volgendeStand();
+  });
 }
 
 /* Kaartknoppen achter één menuknop op de telefoon */
@@ -312,12 +330,61 @@ const TABORDE=['plan','weg','rit','set'];
    zoekbalk waar je heen gaat. */
 function klaarBij(){
   const v=state.variants?.[state.shown];
-  el('sheetDrive').hidden=!v?.shape?.length;
+  const erIsEr=!!v?.shape?.length;
+  el('sheetDrive').hidden=!erIsEr;
   const naar=(el('dest').value||'').trim();
   el('zoekBalk').textContent=naar||'Waar naartoe?';
   el('zoekBalk').classList.toggle('gevuld',!!naar);
+
+  /* Hetzelfde resultaat nog een keer, maar dan op de greep — daar zie je het
+     ook als het blad dichtgeschoven is. De cijfers worden overgenomen van het
+     paneel, zodat er nooit twee verschillende getallen kunnen staan. */
+  el('gripKaart').hidden=!erIsEr;
+  if(erIsEr){
+    el('gKm').textContent=el('sumKm').textContent;
+    el('gTijd').textContent=el('sumTime').textContent;
+    el('gEta').textContent=el('sumEta').textContent;
+    el('gCurve').textContent=el('sumCurve').textContent;
+  }
+  metenDicht();
+}
+
+/* Hoeveel er van het blad blijft staan als het dichtgeschoven is: de greep plus
+   de tabbalk. Niet schatten maar meten — met het resultaatkaartje erbij is dat
+   ruim twee keer zo hoog, en een vast getal zou de startknop half afsnijden. */
+function metenDicht(){
+  const wortel=document.documentElement;
+  if(!mobiel()||liggend()){ wortel.style.removeProperty('--dicht'); return; }
+  const h=(el('grip')?.offsetHeight||0)+(el('tabs')?.offsetHeight||0);
+  if(h>40) wortel.style.setProperty('--dicht',Math.round(h)+'px');
+}
+
+/* Er ligt een route: het blad gaat opzij zodat je hem ziet, met de cijfers en
+   de startknop binnen handbereik. Zo doet elke navigatie het — je hebt net
+   gezegd wat je wil, dus nu wil je de route zien en niet je instellingen. */
+function naarKaart(){
+  /* Liggend is het paneel een lade naast de kaart: je ziet de route al, en
+     dichtschuiven zou juist de startknop wegnemen. Dus alleen staand. */
+  if(mobiel()&&!liggend()) zetStand('peek',false);
+}
+
+/* Ruimte vrijhouden bij het inpassen van de route: onderaan het blad, bovenaan
+   de zoekbalk. Anders ligt de helft van je rit achter het paneel. */
+function kaartRuimte(){
+  if(!mobiel()) return {top:60,bottom:60,left:60,right:60};
+  if(liggend()) return {top:60,bottom:60,left:40,right:40};
+  const dicht=parseInt(getComputedStyle(document.documentElement)
+    .getPropertyValue('--dicht'))||96;
+  return {top:96,bottom:dicht+24,left:34,right:34};
 }
 ['start','dest'].forEach(id=>el(id).addEventListener('input',klaarBij));
+
+/* Starten vanaf de greep. Dezelfde knop als in het paneel, maar dan waar je
+   hem nodig hebt: op het scherm dat je ziet als de kaart openligt. */
+el('gripStart').addEventListener('click',()=>startDrive());
+/* Op de cijfers tikken opent het paneel weer. Tikken is minder werk dan
+   slepen, zeker met handschoenen aan. */
+el('gripCijfers').addEventListener('click',()=>zetStand('half'));
 
 zetTab(store.get('rb.tab','plan'));
 klaarBij();
