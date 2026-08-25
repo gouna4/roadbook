@@ -489,6 +489,18 @@ function koersTussen(van,naar,f){
   return (van+d*f+360)%360;
 }
 
+/* De kompasnaald. Alleen bijwerken als hij echt een graad of meer verdraait —
+   anders staat er zestig keer per seconde een stijlregel te veranderen voor
+   niets. */
+function kompasZet(koers){
+  const n=el('dNaald');
+  if(!n) return;
+  const hoek=Math.round(-(koers||0));
+  if(hoek===drive.naaldHoek) return;
+  drive.naaldHoek=hoek;
+  n.style.transform='rotate('+hoek+'deg)';
+}
+
 /* Waar zou je nu moeten zijn? We schuiven van de vorige naar de huidige plek in
    de tijd die je telefoon er gemiddeld over doet. Is die tijd voorbij en is er
    nog geen nieuwe melding, dan blijven we staan waar we zijn — doorschieten op
@@ -509,6 +521,9 @@ function naviBeeld(){
        gevallen simpelweg je koers. Hij loopt ook door als je zelf de kaart
        hebt verschoven — dan wil je juist zien waar je bent. */
     if(drive.mij) drive.mij.setLngLat([lon,lat]).setRotation(koers);
+    /* De naald van het kompas wijst naar het noorden. Draait de kaart met je
+       mee, dan draait het noorden dus de andere kant op. */
+    kompasZet(drive.noord?0:koers);
     if(drive.volgen){
       /* De zoom schuift er naartoe in plaats van te springen: ongeveer een
          halve seconde om er te zijn. Daarom heeft naviZoom() geen marges op
@@ -963,6 +978,7 @@ async function startDrive(){
      ook met een route. Aan het eind laten we dat zien. */
   drive.vrijKm=0; drive.vrijStart=Date.now();
   el('ritKlaar').hidden=true;
+  drive.naaldHoek=null; kompasZet(0);
 
   document.body.classList.add('rijden');
   el('drive').hidden=false;
@@ -1037,7 +1053,7 @@ el('dRecenter').addEventListener('click',()=>{
 el('dNorth').addEventListener('click',()=>{
   drive.noord=!drive.noord;
   el('dNorth').classList.toggle('on',drive.noord);
-  el('dNorth').textContent=drive.noord?'N':'◈';
+  kompasZet(drive.noord?0:drive.koers);
   el('dNorth').title=drive.noord?'Noorden boven — tik om mee te draaien'
                                 :'Draait met je mee — tik voor noorden boven';
   drive.volgen=true; el('dRecenter').hidden=true;

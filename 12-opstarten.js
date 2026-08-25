@@ -18,12 +18,18 @@ el('depTime').value=store.get('rb.set',{}).depTime||'09:00';
 updateDestLabel();
 
 
+/* De app begint met **lege velden**. Je vult zelf in waar je heen wil; er stond
+   altijd nog de bestemming van de vorige keer, en die moest je dan eerst
+   weghalen. Je instellingen (wegtype, onverhard, wat je onderweg wil zien)
+   worden wél onthouden — die stel je één keer in en daarna niet meer.
+
+   Alleen je vertrekpunt wordt gevuld, van je gps: dat is bijna altijd waar je
+   staat. Zie het blok onderaan dit bestand. */
 const remembered=store.get('rb.set');
 if(remembered){
   applySettings(remembered);
-  if(remembered.start) el('start').value=remembered.start;
-  if(remembered.dest) el('dest').value=remembered.dest;
-  state.vias=Array.isArray(remembered.vias)?remembered.vias:[];
+  /* De plekken van je laatste rit blijven wel bekend. Typ je dezelfde plaats
+     opnieuw, dan hoeft hij hem niet nog eens op te zoeken. */
   const last=store.get('rb.last');
   if(last?.pts){
     if(last.start) PICKED.set(last.start,last.pts.start);
@@ -62,12 +68,15 @@ if(navigator.serviceWorker)
 const gedeeld=(location.hash.match(/^#r=(.+)$/)||[])[1];
 if(gedeeld) applyShared(gedeeld);
 
-/* Waar je vertrekt: gewoon waar je staat. De app vraagt bij het opstarten zelf
-   je gps op en zet die in het vertrekveld — één handeling minder, en het klopt
-   vaker dan de plaats die er de vorige keer stond.
+/* Waar je vertrekt: gewoon waar je staat. Het veld begint leeg en de app vult
+   het met je gps — dat klopt vaker dan de plaats die er de vorige keer stond.
 
-   Heb je zelf een vertrekpunt ingetikt, dan blijft dat staan (`rb.startZelf`).
-   En bij een gedeelde route ook niet: daar hoort het vertrek bij de rit. */
-if(!gedeeld && !store.get('rb.startZelf',false)) pakMijnLocatie(true);
+   `rb.startZelf` gaat bij elke start op nul, want het veld is leeg: er is nog
+   niets wat jij zelf hebt gekozen. Zodra je er wél zelf in typt gaat de vlag om
+   en blijft jouw tekst staan, ook als het antwoord van de gps daarna pas komt.
+
+   Bij een gedeelde route gebeurt het niet: daar hoort het vertrek bij de rit. */
+store.set('rb.startZelf',false);
+if(!gedeeld) pakMijnLocatie(true);
 if(!store.ok())
   setStatus('Let op: dit venster mag geen gegevens bewaren. Op je eigen site werkt Bewaren wel.');

@@ -183,6 +183,10 @@ kaartgebieden je hebt binnengehaald (de kaartstukjes zelf zitten in de Cache
   gingen uit en de kaart werd zwart — en met dezelfde knop kwam hij niet terug.
   De kaartlagen zitten nu in `#bases` en dat is waar de code naar kijkt.
   `setBase()` valt bovendien terug op de kleurenkaart bij een onbekende waarde.
+- **Een id in een selector wint van een klasse.** `#drive > *{pointer-events:auto}`
+  zette `.dmid{pointer-events:none}` opzij, waardoor de kaart in de rijmodus niet
+  meer te verschuiven was. Schrijf geen regels over *alle* kinderen van een id;
+  noem de onderdelen bij naam. `zelftest.js` controleert dit.
 - **Op de telefoon is de onderste 86 pixels niet aan te raken**: daar ligt het
   bodemblad over de kaart. Knoppen op de kaart staan in portret dus op
   `bottom:104px` of hoger. Dit ging eerder mis: het ▤-menu zat achter het blad,
@@ -375,6 +379,73 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
   ongeveer 2200 stukjes en 46 MB. Een weekend van 600 km ongeveer 105 MB
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
+
+## Versie 56: de velden beginnen leeg
+
+Er stond altijd nog de bestemming van de vorige keer in het veld — je moest die
+eerst weghalen voordat je iets nieuws kon intypen. Nu begint de app leeg:
+
+- **Vertrek en bestemming zijn leeg**, en de tussenstops ook. De `value` die als
+  voorbeeld in `index.html` stond ("Belfeld", "Winterberg") is eruit, en bij het
+  opstarten worden ze niet meer teruggezet uit `rb.set`. `zelftest.js` weigert
+  voortaan een `value` op die twee velden
+- **Je instellingen worden wél onthouden** — wegtype, onverhard, snelwegaanloop,
+  wat je onderweg wil zien. Die stel je één keer in
+- **Je vertrekpunt wordt gevuld van je gps**, want dat is bijna altijd waar je
+  staat. `rb.startZelf` gaat bij elke start op nul (het veld is immers leeg) en
+  slaat pas om zodra je er zelf in typt — dan blijft jouw tekst staan, ook als
+  het antwoord van de gps daarna pas binnenkomt
+- **Je laatste rit is niet weg**: die staat nog onder Ritten en in de route in je
+  zak. Terughalen is iets anders dan alvast invullen
+- De plekken van je laatste rit blijven in het geheugen (`PICKED`), dus typ je
+  dezelfde plaats opnieuw, dan hoeft hij hem niet nog eens op te zoeken
+
+## Versie 55: onderweg getest, vier dingen mis
+
+De eigenaar heeft vrij gereden met versie 53 en stuurde foto's. Drie echte
+fouten, en één ding dat er nooit was.
+
+**1. De wegnaam en het bord stonden dwars door de klok van de telefoon.** Zonder
+route is er geen groen blok, en dan staat de zwarte balk bovenaan — maar die had
+geen ruimte voor het camera-eilandje. `body.vrij .dweg` krijgt nu
+`env(safe-area-inset-top)` mee, net als het groene blok dat al had. Dit is
+dezelfde soort fout als in versie 43 met de tabbalk: **wat bovenaan komt te
+staan moet zelf onder de statusbalk vandaan blijven.**
+
+**2. De kaart was in de rijmodus niet te verschuiven of te zoomen.** Je kneep en
+dan zoomde de hele app in plaats van de kaart. De oorzaak stond in de opmaak:
+
+```css
+#drive > *{pointer-events:auto}     /* sterkte 1,0,0 — door de id */
+.dmid{pointer-events:none}          /* sterkte 0,1,0 — verliest dus */
+```
+
+Het middenstuk over de kaart ving daardoor álle aanrakingen. De bedoeling was
+juist dat de kaart eronder bereikbaar bleef. Nu staan de drie balken bij naam in
+plaats van "alle kinderen", en `zelftest.js` weigert voortaan elke regel van de
+vorm `#id > * { pointer-events }`.
+
+**Les:** een id in een selector is sterker dan een klasse, hoe ver hij ook boven
+in het bestand staat. Een regel over *alle* kinderen zet zo ongemerkt een latere
+regel opzij.
+
+**3. De knoppen waren niet even breed.** Stoppen was smaller dan Stem en Spoor,
+omdat een flex-knop zonder `min-width:0` niet kleiner mag worden dan zijn eigen
+tekst. Dat geldt ook voor de drie knoppen onder Meenemen, die bovendien niet
+even hoog waren zodra er één over twee regels liep. Beide rijen hebben nu
+`flex:1 1 0; min-width:0` en een vaste minimumhoogte.
+
+**4. Een echt kompas in plaats van een letter.** De knop rechtsboven zei `◈` of
+`N`. Nu staat er een naald in die naar het noorden wijst terwijl de kaart met je
+meedraait — zoals in Maps. Eén blik en je weet welke kant je op rijdt; tikken
+zet het noorden weer boven. De naald wordt alleen bijgewerkt als hij een hele
+graad verdraait, anders staat er zestig keer per seconde een stijlregel te
+veranderen voor niets.
+
+**Wat níét is veranderd, op verzoek:** het bord met de toegestane snelheid
+blijft bovenaan bij de wegnaam staan. In het ontwerpvoorstel stond het naast je
+eigen snelheid — dat is hoe Garmin en TomTom het doen — maar de eigenaar zoekt
+het bovenaan, en dat is waar het hoort te staan.
 
 ## Versie 54: soort rit naar voren, en een einde aan je rit
 

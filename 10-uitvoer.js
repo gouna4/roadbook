@@ -88,7 +88,10 @@ function applySettings(s){
   ['avoidTowns','noRepeat','noToll','noFerry','findPois','findStays','findCurvy','zuinig']
     .forEach(k=>{ if(s[k]!=null) el(k).checked=!!s[k]; });
 }
-function saveSettings(){ store.set('rb.set',{...settings(),start:el('start').value,dest:el('dest').value,vias:state.vias}); }
+/* Alleen de instellingen, niet je plaatsen: de velden beginnen elke keer leeg.
+   Je laatste rit blijft wel bewaard onder `rb.last` en `rb.rit` — daar kun je
+   hem terughalen, en dat is iets anders dan hem alvast invullen. */
+function saveSettings(){ store.set('rb.set',settings()); }
 function saveLast(){
   store.set('rb.last',{ start:el('start').value, dest:el('dest').value, vias:[...state.vias],
     pts:{start:state.startPt,dest:state.destPt,vias:state.viaPts}, set:settings() });

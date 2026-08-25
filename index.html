@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=54">
+<link rel="stylesheet" href="stijl.css?v=56">
 </head>
 <body>
 
@@ -41,7 +41,7 @@
     <button data-tab="plan" class="on">Plannen</button>
     <button data-tab="weg">Onderweg</button>
     <button data-tab="rit">Ritten</button>
-    <span class="ver" id="verNr">v54</span>
+    <span class="ver" id="verNr">v56</span>
     <button data-tab="set" class="sliders" aria-label="Instellingen" title="Instellingen">⚙</button>
   </nav>
 
@@ -52,7 +52,7 @@
     <div class="plekken">
       <div class="plek">
         <span class="vlag start">⚑</span>
-        <input id="start" placeholder="Vanaf waar?" value="Belfeld">
+        <input id="start" placeholder="Vanaf waar?">
         <button class="veldknop" id="hereBtn" aria-label="Mijn locatie gebruiken"
                 title="Vertrek vanaf waar ik nu ben">◎</button>
         <button class="veldknop wis" id="startWis" hidden aria-label="Leegmaken"
@@ -61,7 +61,7 @@
       <div id="vias"></div>
       <div class="plek">
         <span class="vlag eind">⚑</span>
-        <input id="dest" placeholder="Waar naartoe?" value="Winterberg">
+        <input id="dest" placeholder="Waar naartoe?">
         <button class="veldknop wis" id="destWis" hidden aria-label="Leegmaken"
                 title="Dit veld leegmaken">✕</button>
       </div>
@@ -380,8 +380,17 @@
     <div class="dside">
       <button class="dround" id="dRecenter" hidden aria-label="Weer meevolgen"
               title="Je hebt de kaart zelf verschoven — tik om weer mee te volgen">◎</button>
+      <!-- Een echt kompas: de naald wijst naar het noorden terwijl de kaart met
+           je meedraait. Rood is noord, zoals op elk kompas. -->
       <button class="dround" id="dNorth" aria-label="Meedraaien of noorden boven"
-              title="Draait met je mee — tik voor noorden boven">◈</button>
+              title="Draait met je mee — tik voor noorden boven">
+        <svg id="dNaald" viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="20" r="14.5" fill="none" stroke="currentColor"
+                  stroke-width="1.2" opacity=".35"/>
+          <path d="M20 6 L26 22 L20 19 Z" fill="#E0402A"/>
+          <path d="M20 34 L14 18 L20 21 Z" fill="currentColor" opacity=".7"/>
+        </svg>
+      </button>
       <!-- Doortikken door vier zoomstanden. Automatisch is de eerste. -->
       <button class="dround" id="dZoom" aria-label="Zoomstand"
               title="Zoom: automatisch — tik voor een vaste stand">AUTO</button>
@@ -452,17 +461,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=54"></script>
-<script src="02-invoer.js?v=54"></script>
-<script src="03-route.js?v=54"></script>
-<script src="04-bibliotheek.js?v=54"></script>
-<script src="05-weergave.js?v=54"></script>
-<script src="06-plannen.js?v=54"></script>
-<script src="07-interface.js?v=54"></script>
-<script src="08-onderweg.js?v=54"></script>
-<script src="09-rijden.js?v=54"></script>
-<script src="10-uitvoer.js?v=54"></script>
-<script src="11-offline.js?v=54"></script>
-<script src="12-opstarten.js?v=54"></script>
+<script src="01-basis.js?v=56"></script>
+<script src="02-invoer.js?v=56"></script>
+<script src="03-route.js?v=56"></script>
+<script src="04-bibliotheek.js?v=56"></script>
+<script src="05-weergave.js?v=56"></script>
+<script src="06-plannen.js?v=56"></script>
+<script src="07-interface.js?v=56"></script>
+<script src="08-onderweg.js?v=56"></script>
+<script src="09-rijden.js?v=56"></script>
+<script src="10-uitvoer.js?v=56"></script>
+<script src="11-offline.js?v=56"></script>
+<script src="12-opstarten.js?v=56"></script>
 </body>
 </html>

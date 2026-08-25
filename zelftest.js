@@ -931,6 +931,26 @@ console.log('=== 4. klopt de interface met de code? ===');
   if (losse.length) console.log('LET OP  id-s die niets meer doen: ' + losse.join(', '));
   else console.log('OK   geen losse id-s');
 
+  /* De velden waar je je plaatsen intypt moeten leeg beginnen. Er stond ooit
+     "Belfeld" en "Winterberg" in als voorbeeld, en dat moest je elke keer eerst
+     weghalen. Een `value` op deze twee velden is dus een fout. */
+  {
+    const gevuld = [...html.matchAll(/<input[^>]*id="(start|dest)"[^>]*>/g)]
+      .filter(m => /\svalue="[^"]+"/.test(m[0])).map(m => m[1]);
+    if (gevuld.length) console.log('     voorgevuld: ' + gevuld.join(', '));
+    check('vertrek en bestemming beginnen leeg', gevuld.length, 0);
+  }
+
+  /* Een regel als `#drive > *{pointer-events:auto}` is door zijn id sterker dan
+     `.dmid{pointer-events:none}` even verderop. Dan vangt het middenstuk toch
+     alle aanrakingen en kun je de kaart in de rijmodus niet meer verschuiven —
+     de telefoon zoomt dan de hele app. Zo'n regel over álle kinderen mag hier
+     dus niet staan; noem de balken bij naam. */
+  {
+    const blanket = /#[\w-]+\s*>\s*\*\s*\{[^}]*pointer-events/.test(css);
+    check('geen id-regel die alle kinderen aanraakbaar maakt', blanket, false);
+  }
+
   /* Lijnen op de kaart zetten mag alleen via zetBron(). Doet een bestand het toch
      rechtstreeks, dan klapt het eruit zolang de kaartstijl nog niet binnen is —
      en dat is precies de fout waarmee versie 49 begon: "undefined is not an

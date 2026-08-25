@@ -216,10 +216,15 @@
     min-width:52px;flex:0 0 auto;padding-top:2px}
   .turns .r .tx{font-size:13px;line-height:1.35}
 
-  .exports{display:flex;gap:8px;flex-wrap:wrap}
-  .exports button{flex:1;min-width:88px;border:1px solid var(--brass);color:var(--brass);
+  /* Drie knoppen naast elkaar, alle drie precies even breed en even hoog — ook
+     als de ene "Delen" heet en de andere "Naar mijn telefoon". Ongelijke
+     knoppen naast elkaar zien er slordig uit en je mikt ernaast. */
+  .exports{display:flex;gap:8px}
+  .exports button{flex:1 1 0;min-width:0;min-height:52px;
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    border:1px solid var(--brass);color:var(--brass);
     border-radius:3px;padding:10px 6px;font-family:var(--display);text-transform:uppercase;
-    letter-spacing:.09em;font-size:12px;font-weight:600}
+    letter-spacing:.09em;font-size:12px;font-weight:600;line-height:1.2}
   .exports button:hover{background:var(--brass);color:var(--ink)}
 
   .foot{padding:14px 16px 26px;color:var(--zacht);font-size:11px;line-height:1.5}
@@ -464,7 +469,14 @@
   #drive{position:fixed;inset:0;z-index:50;color:var(--paper);pointer-events:none;
     display:flex;flex-direction:column}
   #drive[hidden]{display:none}
-  #drive > *{pointer-events:auto}
+  /* Alleen de balken vangen aanrakingen. Dit stond als `#drive > *` en dat is
+     door de id sterker dan `.dmid{pointer-events:none}` — waardoor het hele
+     middenstuk toch aanrakingen ving en je de kaart in de rijmodus niet kon
+     verschuiven of zoomen. De telefoon zoomde dan de hele app in plaats van de
+     kaart. Nu staan de drie balken er met naam bij, en het middenstuk niet. */
+  #drive > .dtop,
+  #drive > .dweg,
+  #drive > .dbottom{pointer-events:auto}
 
   .dtop{display:flex;align-items:center;gap:18px;background:var(--gaan);
     color:#FFF;padding:calc(14px + env(safe-area-inset-top)) 20px 14px}
@@ -483,6 +495,10 @@
      woordje erboven — het is precies het bord dat je langs de weg ziet. */
   .dweg{background:#07090B;display:flex;align-items:center;gap:12px;
     padding:9px 16px}
+  /* Zonder route is er geen groen blok en staat deze balk bovenaan. Dan moet
+     hij zelf onder het camera-eilandje en de statusbalk vandaan blijven, anders
+     staat de wegnaam dwars door de klok van je telefoon heen. */
+  body.vrij .dweg{padding-top:calc(9px + env(safe-area-inset-top))}
   .dweg.leeg{display:none}      /* niets te melden: dan ook geen balk */
   .dwegtxt{flex:1;min-width:0}
   .dwegnaam{font-family:var(--display);font-weight:700;color:#FFF;
@@ -514,6 +530,13 @@
     box-shadow:0 3px 12px var(--schaduw)}
   .dround[hidden]{display:none}
   .dround.on{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
+  /* Het kompas, zoals in Maps: een naald die naar het noorden wijst terwijl de
+     kaart met je meedraait. Eén blik en je weet welke kant je op rijdt; tikken
+     zet het noorden weer boven. */
+  #dNorth{padding:0;overflow:hidden}
+  #dNorth svg{width:30px;height:30px;display:block;
+    transition:transform .18s linear}
+  @media (prefers-reduced-motion:reduce){ #dNorth svg{transition:none} }
   /* De zoomstand is een woord, geen icoon: aan ‘VER’ zie je meteen wat er
      staat, aan een vergrootglas met een streepje niet. Vier letters moeten in
      een rondje van 52 px passen, dus kleiner en wat strakker gespatieerd. */
@@ -530,8 +553,13 @@
   .dvak strong{display:block;font-family:var(--mono);font-weight:500;
     font-size:clamp(22px,6.4vw,32px);line-height:1.05;margin-top:3px}
   .dbtns{display:flex;gap:8px;margin-top:12px}
-  .dbtns button{flex:1 1 0;border:1px solid var(--hair);border-radius:11px;
-    padding:15px 8px;font-family:var(--display);text-transform:uppercase;
+  /* Alle drie precies even breed en even hoog. Zonder min-width:0 mag een knop
+     niet kleiner worden dan zijn tekst, en dan werd Stoppen smaller dan de
+     andere twee — dat ziet er slordig uit en je mikt ernaast. */
+  .dbtns button{flex:1 1 0;min-width:0;white-space:nowrap;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    border:1px solid var(--hair);border-radius:11px;
+    padding:15px 6px;font-family:var(--display);text-transform:uppercase;
     letter-spacing:.07em;font-size:13px;font-weight:600;color:var(--muted)}
   .dbtns button:hover{color:var(--paper);border-color:var(--paper)}
   .dbtns button.on{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
