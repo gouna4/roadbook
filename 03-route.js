@@ -1,6 +1,6 @@
 /* Roadbook — 03-route.js
    De route laten berekenen: gewone ritten, hele lange ritten, bos en
-   water inpassen, bezienswaardigheden, foto's en alternatieve routes. */
+   water inpassen, bezienswaardigheden, wegnamen en snelheidslimieten. */
 
 /* ================= routeberekening ================= */
 /* De routeserver geeft een foutnummer terug. Vertaal dat naar iets waar je
@@ -85,6 +85,79 @@ async function handoverPoint(start,dest,km){
    De gratis routeserver weigert afstanden boven een paar duizend kilometer.
    Dan knippen we de rit zelf op: om de ~700 km een tussenpunt, dat we via
    de plaatsenzoeker een naam geven, en elk deel apart laten berekenen. */
+/* ================= wegnamen en snelheidslimieten =================
+   Eén aanvraag voor de hele rit bij `trace_attributes` van dezelfde
+   routeserver. Die legt onze lijn op de kaart en vertelt per stuk hoe de weg
+   heet en hoe hard je er mag.
+
+   De lijn gaat er in de korte schrijfwijze naartoe (11 KB voor 150 km in plaats
+   van 200 KB). `edge_walk` betekent: deze lijn komt van jou, loop hem precies
+   na. Dat is snel en klopt exact. Voor een ingelezen GPX klopt dat niet, dus
+   daar valt hij terug op `map_snap`, dat zelf zoekt welke wegen het waren.
+
+   Mislukt het? Dan gebeurt er niets. Je route en je afslagen werken gewoon
+   door — dit is een extraatje en mag wegvallen. */
+async function wegGegevens(shape,cum){
+  if(!shape||shape.length<2) return null;
+  const vraag=async(soort)=>{
+    const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),20000);
+    try{
+      const r=await fetch(VALHALLA.replace(/\/route$/,'/trace_attributes'),{
+        method:'POST', signal:ctl.signal,
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ encoded_polyline:encodePolyline6(shape),
+          costing:'motorcycle', shape_match:soort,
+          filters:{ attributes:['edge.names','edge.speed_limit',
+                    'edge.begin_shape_index'], action:'include' } })
+      });
+      clearTimeout(t);
+      if(!r.ok) return null;
+      return await r.json();
+    }catch{ clearTimeout(t); return null; }
+  };
+  let j=await vraag('edge_walk');
+  if(!j?.edges?.length) j=await vraag('map_snap');
+  if(!j?.edges?.length) return null;
+
+  /* Samenvoegen: pas een nieuwe regel als de naam of de limiet verandert.
+     "unlimited" van de Duitse Autobahn houden we als woord — daar is geen
+     getal voor, en "geen limiet" is precies wat je wil weten. */
+  const uit=[];
+  for(const e of j.edges){
+    const naam=(e.names||[])[0]||'';
+    const rauw=e.speed_limit;
+    const lim = rauw==='unlimited' ? 'vrij' : (+rauw>0 ? +rauw : 0);
+    const i=Math.max(0,Math.min(cum.length-1,e.begin_shape_index|0));
+    if(uit.length && uit[uit.length-1][1]===naam && uit[uit.length-1][2]===lim) continue;
+    uit.push([+cum[i].toFixed(3), naam, lim]);
+  }
+  return uit.length?uit:null;
+}
+
+/* Zonder route: waar rijd ik nu op? Eén klein vraagje (4 KB) aan dezelfde
+   server, hooguit één keer per twintig seconden. Genoeg om de wegnaam en de
+   limiet te weten als je zomaar wat rondrijdt. */
+async function wegOnderMij(lat,lon){
+  try{
+    const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),8000);
+    const r=await fetch(VALHALLA.replace(/\/route$/,'/locate')
+      +'?json='+encodeURIComponent(JSON.stringify({
+        locations:[{lat,lon}], costing:'motorcycle', verbose:true })),
+      {signal:ctl.signal});
+    clearTimeout(t);
+    if(!r.ok) return null;
+    const j=await r.json();
+    const kanten=(j?.[0]?.edges)||[];
+    if(!kanten.length) return null;
+    /* De dichtstbijzijnde kant is de weg waar je op zit. */
+    const b=kanten.reduce((a,x)=>(x.distance??9e9)<(a.distance??9e9)?x:a,kanten[0]);
+    const ei=b.edge_info||{};
+    const rauw=ei.speed_limit;
+    return { naam:(ei.names||[])[0]||'',
+             lim: rauw==='unlimited' ? 'vrij' : (+rauw>0 ? +rauw : 0) };
+  }catch{ return null; }
+}
+
 async function planLangeRit(points,lv,notes){
   const alles=[points[0]];
   const namen=[];
@@ -293,7 +366,7 @@ function sideWaypoint(from,to,offKm){
 async function placeName(pt){
   try{
     const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),8000);
-    const r=await fetch(`${PHOTON}reverse?lat=${pt[1].toFixed(5)}&lon=${pt[0].toFixed(5)}&limit=1`,
+    const r=await fetch(`${PHOTON_REV}?lat=${pt[1].toFixed(5)}&lon=${pt[0].toFixed(5)}&limit=1`,
       {signal:ctl.signal});
     clearTimeout(t);
     if(!r.ok) return '';

@@ -142,5 +142,31 @@ function applyVariant(k){
   if(typeof sheetSamenvatting==='function') sheetSamenvatting();
   if(typeof showWeather==='function') showWeather();
   if(typeof showElevation==='function') showElevation();
+  wegenLaden(v);
 }
+/* De wegnamen en snelheidslimieten erbij halen. Dat gebeurt op de achtergrond:
+   je route staat al op het scherm en dit is een extraatje. Eén aanvraag van
+   ongeveer 80 KB voor een dagrit; met "Zuinig met data" aan slaan we hem over.
+
+   Het resultaat blijft bij de route hangen én gaat mee in de route in je zak,
+   zodat het onderweg ook zonder bereik klopt. */
+function wegenLaden(v){
+  if(!v||!v.shape?.length) return;
+  if(v.wegen||v.wegenBezig) return;
+  if(el('zuinig')?.checked) return;
+  if(typeof wegGegevens!=='function') return;
+  v.wegenBezig=true;
+  const cum=cumulative(v.shape);
+  wegGegevens(v.shape,cum).then(lijst=>{
+    v.wegenBezig=false;
+    if(!lijst) return;
+    v.wegen=lijst;
+    /* Rijd je al, dan meteen gebruiken. */
+    if(typeof drive==='object' && drive.on && state.variants?.[state.shown]===v){
+      drive.wegen=lijst; drive.wegIdx=0;
+    }
+    if(typeof ritOpslaan==='function') ritOpslaan();
+  }).catch(()=>{ v.wegenBezig=false; });
+}
+
 

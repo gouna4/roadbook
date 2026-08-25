@@ -47,7 +47,7 @@ const element = () => ({ addEventListener(){}, removeEventListener(){},
   textContent:'', innerHTML:'', hidden:false, value:'', checked:false,
   dataset:{}, children:[], firstElementChild:{style:{}}, appendChild(){},
   querySelectorAll:()=>[], querySelector:()=>null, append(){}, insertBefore(){},
-  setAttribute(){}, getAttribute:()=>null, focus(){}, click(){}, remove(){},
+  setAttribute(){}, getAttribute:()=>null, focus(){}, blur(){}, click(){}, remove(){},
   getBoundingClientRect:()=>({top:0,left:0,width:0,height:0}),
   get parentNode(){ return element(); }, get parentElement(){ return element(); },
   get nextSibling(){ return null; }, get firstChild(){ return null; },
@@ -57,7 +57,13 @@ const g = globalThis;
 g.window = g;
 g.addEventListener = () => {};
 g.removeEventListener = () => {};
-g.document = { getElementById: element, createElement: element, createElementNS: element,
+/* Elk element één keer maken en onthouden. Gaf getElementById elke keer een
+   nieuw doosje terug, dan was alles wat de app erin zet meteen weer weg — en
+   dan controleer je niets: `el('x').hidden` gaf altijd het beginwaarde terug,
+   hoe vaak de app hem ook aanzette. */
+const elKast = new Map();
+const elBijId = id => { if(!elKast.has(id)) elKast.set(id, element()); return elKast.get(id); };
+g.document = { getElementById: elBijId, createElement: element, createElementNS: element,
   querySelectorAll: () => [], querySelector: () => null, addEventListener(){},
   body: element(), documentElement: element(), head: element(), visibilityState:'visible' };
 g.localStorage = { getItem:()=>null, setItem(){}, removeItem(){} };
@@ -65,10 +71,25 @@ g.caches = { open:()=>Promise.resolve({ put(){}, match:()=>Promise.resolve(null)
                                         delete:()=>Promise.resolve(false) }) };
 g.maplibregl = { Map:Nep, NavigationControl:Nep, GeolocateControl:Nep, ScaleControl:Nep,
   Marker:Nep, Popup:Nep, LngLatBounds:Nep, AttributionControl:Nep };
-g.speechSynthesis = { cancel(){}, speak(){}, getVoices:()=>[] };
-g.SpeechSynthesisUtterance = function(){};
-g.navigator = { geolocation:{ watchPosition:()=>1, clearWatch(){} }, wakeLock:null,
-  userAgent:'test', serviceWorker:null, share:null, clipboard:null };
+/* Wat de app zegt onthouden we, zodat de test kan nakijken of de afslag op tijd
+   en met de goede tekst wordt omgeroepen. */
+g.gezegdeTekst = [];
+g.speechSynthesis = { cancel(){}, speak(u){ g.gezegdeTekst.push(String(u&&u.text||'')); },
+  getVoices:()=>[] };
+g.SpeechSynthesisUtterance = function(t){ this.text=t; };
+/* navigator is in Node zelf al een read-only ding: `g.navigator = {...}` doet
+   dan stilletjes niets, en dan draaide de test met Node's eigen navigator. Alles
+   wat met je locatie te maken heeft werd zo nooit echt nagelopen — het viel
+   alleen niet op, want de code stopte netjes bij `if(!navigator.geolocation)`.
+   Met defineProperty gaat het wel. */
+Object.defineProperty(g, 'navigator', { configurable:true, writable:true,
+  /* getCurrentPosition antwoordt ook echt, zodat de code die daarna komt
+     (vertrekpunt zetten, plaatsnaam opvragen) ook wordt uitgevoerd. */
+  value:{ geolocation:{
+      getCurrentPosition:(ok)=>{ try{ ok({coords:{latitude:51.32,longitude:6.10,speed:0,heading:null}}); }catch(e){ throw e; } },
+      watchPosition:()=>1, clearWatch(){} },
+    wakeLock:{ request:()=>Promise.resolve(null) },
+    userAgent:'test', serviceWorker:null, share:null, clipboard:null } });
 g.location = { hash:'', href:'http://x/', search:'', origin:'http://x' };
 g.fetch = () => Promise.resolve({ ok:false, json:()=>Promise.resolve({}) });
 g.matchMedia = () => ({ matches:false, addEventListener(){} });
@@ -460,6 +481,10 @@ check('er zijn vier standen', Z_STANDEN.length, 4);
 check('de eerste is automatisch', Z_STANDEN[0].zoom, null);
 check('de andere drie hebben een vaste zoom',
       Z_STANDEN.slice(1).every(s => s.zoom > 12 && s.zoom < 19), true);
+/* DICHT moet echt dichtbij zijn: dichter dan wat de automatische stand ooit
+   kiest, anders heeft de knop geen zin. */
+check('DICHT is dichterbij dan de automatische stand ooit gaat',
+      Z_STANDEN[1].zoom > naviZoom(0, 0.1), true);
 /* Dicht → ruim → ver moet ook echt verder uitgezoomd zijn, anders zegt het
    woord op de knop iets anders dan de kaart doet. */
 check('dicht is dichterbij dan ruim', Z_STANDEN[1].zoom > Z_STANDEN[2].zoom, true);
@@ -475,8 +500,8 @@ check('achteruit werkt ook', zoomStandZet(-1).kort, 'VER');
    van zelf kiezen, ook vlak voor een afslag. */
 const doel = (stand, kmu, naar) => Z_STANDEN[stand].zoom || naviZoom(kmu, naar);
 check('automatisch rekent mee met je snelheid', doel(0, 120, null), 14.7);
-check('een vaste stand negeert je snelheid', doel(1, 120, null), 16.6);
-check('en negeert ook de afslag', doel(3, 60, 0.1), 14.6);
+check('een vaste stand negeert je snelheid', doel(1, 120, null), 17.6);
+check('en negeert ook de afslag', doel(3, 60, 0.1), 15.0);
 zoomStandZet(0);
 
 console.log('');
@@ -494,6 +519,36 @@ while (Math.abs(k - 90) > 3 && stappen < 20) { k = koersDemp(k, 90); stappen++; 
 console.log('     een bocht van 90 graden is na ' + stappen + ' meldingen binnen 3 graden');
 check('bocht binnen 6 meldingen gevolgd', stappen <= 6, true);
 check('blijft dan ook staan', Math.round(koersDemp(90, 90)), 90);
+console.log('');
+console.log('--- de weg waar je op rijdt ---');
+/* encodePolyline6 en decodePolyline6 horen elkaars werk ongedaan te maken. Gaat
+   dat mis, dan legt de routeserver onze lijn ergens anders neer en krijg je de
+   snelheidslimiet van een weg waar je niet bent. */
+const lijnW = [];
+for (let i = 0; i < 40; i++) lijnW.push([6.0 + i * 0.0013, 51.0 + i * 0.0007]);
+const heenTerug = decodePolyline6(encodePolyline6(lijnW));
+check('evenveel punten terug', heenTerug.length, lijnW.length);
+check('en op dezelfde plek (op de meter)',
+      heenTerug.every((p, i) => Math.abs(p[0] - lijnW[i][0]) < 1e-5 &&
+                                Math.abs(p[1] - lijnW[i][1]) < 1e-5), true);
+check('een lege lijn geeft niets', encodePolyline6([]), '');
+
+/* wegBij zoekt welk stuk weg bij een kilometerstand hoort. De lijst loopt op. */
+const wegen = [[0, 'Dorpsstraat', 30], [1.2, 'N271', 80], [14.5, 'A73', 100],
+               [60.0, 'A61', 'vrij'], [95.0, '', 0]];
+check('aan het begin', wegBij(wegen, 0.4).naam, 'Dorpsstraat');
+check('net over de grens', wegBij(wegen, 1.25).naam, 'N271');
+check('en de limiet erbij', wegBij(wegen, 1.25).lim, 80);
+check('midden op de snelweg', wegBij(wegen, 30).naam, 'A73');
+check('Duitse Autobahn: geen getal', wegBij(wegen, 70).lim, 'vrij');
+check('onbekende weg geeft niets', wegBij(wegen, 99).lim, 0);
+check('voorbij het eind blijft het laatste staan', wegBij(wegen, 500).naam, '');
+/* Met een hint zoekt hij verder vanaf waar je was — dat scheelt werk. Maar valt
+   de stand terug (herberekend), dan moet hij vooraan opnieuw beginnen. */
+check('met hint vooruit', wegBij(wegen, 30, 1).naam, 'A73');
+check('met hint die te ver staat', wegBij(wegen, 0.5, 3).naam, 'Dorpsstraat');
+check('lege lijst geeft niets', wegBij([], 5), null);
+
 console.log('');
 console.log('--- opDeRoute(): je plek op de route plakken ---');
 /* Een rechte weg van 10 km naar het oosten, met een vormpunt elke 100 m. Ga
@@ -921,6 +976,168 @@ console.log('=== 4. klopt de interface met de code? ===');
     fouten++;
   } else console.log('OK   alle eigen bestanden worden met versienummer opgevraagd');
 })();
+
+/* ================= 5. doen de dingen het ook als je ze aanroept? =================
+   De controles hierboven kijken of de code laadt en of het rekenwerk klopt. Ze
+   drukken nergens op. Deze doet dat wel: elke functie die achter een knop zit
+   wordt één keer aangeroepen, zonder route en zonder kaart. Wat er dan uitklapt
+   is een echte fout — een naam die niet bestaat, een element dat er niet is, of
+   een aanname die alleen klopt als er al een route ligt. */
+console.log('');
+console.log('=== 5. doen de knoppen het zonder route? ===');
+(function knoppenDoen(){
+  const doe = [
+    ['klaarBij', () => klaarBij()],
+    ['metenDicht', () => metenDicht()],
+    ['naarKaart', () => naarKaart()],
+    ['kaartRuimte', () => kaartRuimte()],
+    ['sheetSamenvatting', () => sheetSamenvatting()],
+    ['zetTab weg', () => zetTab('weg')],
+    ['zetTab rit', () => zetTab('rit')],
+    ['zetTab set', () => zetTab('set')],
+    ['zetTab plan', () => zetTab('plan')],
+    ['zetStand peek', () => zetStand('peek')],
+    ['zetStand half', () => zetStand('half')],
+    ['volgendeStand', () => volgendeStand()],
+    ['zoomStandZet alle vier', () => { for (let i = 0; i < 4; i++) zoomStandZet(i); }],
+    ['zuinigBij', () => zuinigBij()],
+    ['setBase kleur', () => setBase('kleur')],
+    ['setBase onzin (moet terugvallen)', () => setBase('bestaat-niet')],
+    ['kaartMelding', () => kaartMelding('test')],
+    ['renderVias', () => renderVias()],
+    ['renderLib', () => renderLib()],
+    ['drawPoints', () => drawPoints()],
+    ['zoekVeldStart zonder tekst', () => zoekVeldStart()],
+    ['pakMijnLocatie stil', () => pakMijnLocatie(true)],
+    ['startDrive zonder route', () => startDrive()],
+    ['stopDrive', () => stopDrive()],
+    ['zetBron zonder kaart', () => zetBron('route', EMPTY)],
+    ['bronnenBijwerken', () => bronnenBijwerken()],
+    ['naviBeeld', () => naviBeeld()],
+    ['themaZet', () => (typeof themaZet === 'function' ? themaZet('auto') : null)],
+  ];
+  /* En twee dingen die je echt doet: je vertrekpunt van de gps laten pakken, en
+     boven op de kaart een bestemming intikken en op Enter drukken. */
+  doe.push(['zoekbalk: typen en Enter', () => {
+    el('zoekVeld').value = 'Winterberg';
+    zoekVeldStart();
+  }]);
+  let stuk = 0;
+  for (const [naam, fn] of doe) {
+    try { fn(); }
+    catch (e) { stuk++; console.log('FOUT ' + naam + ': ' + e.message); fouten++; }
+  }
+  if (!stuk) console.log('OK   alle ' + doe.length + ' aangeroepen zonder fout');
+  check('de gps zet het vertrekpunt', /^51\.32000, 6\.10000$/.test(el('start').value), true);
+  check('de zoekbalk vult de bestemming', el('dest').value, 'Winterberg');
+})();
+
+
+/* ================= 6. een rit naspelen =================
+   Hierboven wordt er gedrukt zonder route. Hier ligt er wel een: een rechte weg
+   van 11 km met drie afslagen. De rijmodus wordt gestart en er worden een paar
+   gps-meldingen ingegooid, netjes na elkaar over de weg. Zo wordt driveTick()
+   echt uitgevoerd — met het op de route plakken, de kilometerstand, de camera
+   en de afslagmeldingen. Dat stuk code is het lastigste van de app en het werd
+   tot nu toe alleen op papier nagelopen. */
+console.log('');
+console.log('=== 6. een rit naspelen ===');
+(function ritNaspelen(){
+  const weg = [];
+  for (let i = 0; i < 111; i++) weg.push([6.0, 51.0 + i * 0.001]);   /* ~11,1 km pal noord */
+  const v = { shape: weg, km: 11.1, sec: 900,
+    man: [ { begin_shape_index:0,  instruction:'Rijd weg op de Teststraat.' },
+           { begin_shape_index:50, instruction:'Ga rechtsaf naar de Bergweg.' },
+           { begin_shape_index:110, instruction:'Je bent er.' } ],
+    prof: curveProfile(weg), color:'#E0B354', label:'Test' };
+  state.variants = { base: v }; state.shown = 'base';
+  state.fast = { shape:[], km:0, sec:0 };
+
+  const stap = (naam, fn) => {
+    try { fn(); return true; }
+    catch (e) { console.log('FOUT ' + naam + ': ' + e.message); fouten++; return false; }
+  };
+
+  stap('klaarBij met route', () => klaarBij());
+  check('de startknop komt tevoorschijn', el('sheetDrive').hidden, false);
+  stap('rijRouteUit', () => rijRouteUit(v));
+  check('afslagen overgenomen', drive.man.length, 3);
+  check('kilometerstand begint leeg', drive.km, null);
+
+  /* Nu rijden: acht meldingen, steeds een stukje verder, en telkens twintig
+     meter naast de weg — want dat is wat een telefoon je geeft. */
+  drive.on = true; drive.volgen = true; drive.stand = 0;
+  drive.zoomDoel = NAVI.zoom; drive.zoomNu = NAVI.zoom;
+  /* De padding zelf zetten: in deze nep-omgeving heeft de kaart geen echte
+     hoogte, en dan kan er niet mee gerekend worden. In de browser wel. */
+  drive.pad = naviPadding(800, 160, 150);
+  drive.van = null; drive.naar = null; drive.km = null; drive.idx = 0;
+  drive.spoor = []; drive.gezegd.clear();
+  const standen = [];
+  const laatste = 105;
+  for (let p = 5; p <= laatste; p += 4) {               /* stapjes van ~445 m */
+    const lat = 51.0 + p * 0.001, lon = 6.0 + 0.00025;  /* ~17 m naast de weg */
+    if (!stap('driveTick op punt ' + p, () => driveTick({ coords:
+        { latitude:lat, longitude:lon, speed:25, heading:0 } }))) break;
+    standen.push(drive.km);
+  }
+  stap('naviBeeld', () => naviBeeld());
+  stap('stopDrive', () => stopDrive());
+
+  check('alle meldingen verwerkt', standen.length, 26);
+  check('de kilometerstand loopt alleen vooruit',
+        standen.every((k, i) => i === 0 || k >= standen[i-1]), true);
+  check('en klopt ongeveer met de afgelegde weg',
+        Math.abs(standen[standen.length-1] - cumulative(weg)[laatste]) < 0.05, true);
+  check('je staat op de route geplakt, niet ernaast',
+        Math.abs(drive.pos[0] - 6.0) < 1e-9, true);
+  /* Onderweg hoort de afslag op 1 km, 400 m, 150 m en "nu" te komen. Met
+     stapjes van 445 m worden er een paar overgeslagen; minstens twee moeten er
+     staan, anders wordt er niet gewaarschuwd. */
+  check('de afslag is op tijd aangekondigd', drive.gezegd.size >= 2, true);
+  const overAfslag = gezegdeTekst.filter(t => /Bergweg/.test(t));
+  console.log('     gezegd: ' + overAfslag.join(' | '));
+  check('er wordt van ver naar dichtbij gewaarschuwd', overAfslag.length >= 2, true);
+  check('de eerste waarschuwing is de verste',
+        /kilometer/.test(overAfslag[0] || ''), true);
+  check('de straatnaam zit in de melding',
+        overAfslag.every(t => /Bergweg/.test(t)), true);
+})();
+
+
+console.log('');
+console.log('=== 7. vrij rijden, zonder bestemming ===');
+(function vrijRijden(){
+  state.variants = {}; state.shown = null;
+  const stap = (naam, fn) => {
+    try { fn(); return true; }
+    catch (e) { console.log('FOUT ' + naam + ': ' + e.message); fouten++; return false; }
+  };
+  stap('klaarBij zonder route', () => klaarBij());
+  check('de groene knop zegt Vrij rijden', el('gripStart').textContent, '▶ Vrij rijden');
+  check('en staat er ook echt', el('sheetDrive').hidden, false);
+  check('de cijfers zijn weg', el('gripCijfers').hidden, true);
+
+  stap('startDrive zonder route', () => startDrive());
+  check('hij weet dat het vrij rijden is', drive.vrij, true);
+  check('het bijschrift klopt', el('dLeftLbl').textContent, 'Gereden');
+  drive.on = true; drive.volgen = true; drive.stand = 0;
+  drive.pad = naviPadding(800, 160, 150);
+  drive.van = null; drive.naar = null; drive.ruw = null;
+  drive.vrijKm = 0; drive.vrijStart = Date.now();
+
+  /* Tien meldingen, telkens een stukje verder naar het noorden: samen ~1 km. */
+  for (let i = 0; i < 10; i++)
+    if (!stap('driveTick vrij ' + i, () => driveTick({ coords:
+        { latitude:51.0 + i * 0.001, longitude:6.0, speed:14, heading:0 } }))) break;
+
+  check('de teller telt de kilometers', Math.abs(drive.vrijKm - 1.0) < 0.05, true);
+  check('en het staat op het scherm', el('dLeft').textContent, '1');
+  check('er wordt niets over afslagen gezegd', drive.gezegd.size, 0);
+  stap('stopDrive', () => stopDrive());
+  check('vrij rijden staat weer uit', drive.vrij, false);
+})();
+
 
 console.log('');
 console.log(fouten ? `\n${fouten} FOUT(EN) — eerst oplossen.` : '\nAlles goed.');

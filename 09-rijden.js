@@ -430,11 +430,11 @@ function naviZoom(kmu,naarAfslag){
 const Z_STANDEN=[
   {kort:'AUTO', zoom:null, uitleg:'Automatisch — schuift mee met je snelheid',
    stem:'Zoom automatisch'},
-  {kort:'DICHT',zoom:16.6, uitleg:'Dichtbij — voor kruispunten en door dorpen',
+  {kort:'DICHT',zoom:17.6, uitleg:'Dichtbij — je zit boven op de weg',
    stem:'Dichtbij'},
-  {kort:'RUIM', zoom:15.6, uitleg:'Ruim — de gewone stand',
+  {kort:'RUIM', zoom:16.3, uitleg:'Ruim — de gewone stand',
    stem:'Ruim'},
-  {kort:'VER',  zoom:14.6, uitleg:'Ver — overzicht, je ziet de bochten aankomen',
+  {kort:'VER',  zoom:15.0, uitleg:'Ver — overzicht, je ziet de bochten aankomen',
    stem:'Ver'}
 ];
 function zoomStandZet(i){
@@ -687,6 +687,9 @@ async function herbereken(lat,lon){
     drive.man=plak.man;
     drive.sec=(r.sec||0)+drive.sec*Math.max(0,1-plak.vanaf/Math.max(0.1,plak.oudTotaal));
     drive.idx=0; drive.gedaanIdx=-1; drive.gezegd.clear(); drive.km=null;
+    /* De wegenlijst hoort bij de oude kilometerstanden en klopt nu niet meer.
+       Weg ermee; vanaf hier wordt de wegnaam per keer gevraagd. */
+    drive.wegen=null; drive.wegIdx=0;
     drive.herLaatst=Date.now(); drive.afSinds=0; drive.geenNet=false;
     zetBron('terug',EMPTY);
 
@@ -720,6 +723,53 @@ function herberekenMisschien(lat,lon,off,snelheid){
   herbereken(lat,lon);
 }
 
+/* ================= de weg waar je op rijdt =================
+   De naam van de weg onder je wielen, en hoe hard je er mag. Op de snelweg en
+   buiten de bebouwde kom is dat het enige wat je wil weten als er geen afslag
+   aankomt.
+
+   Twee bronnen. Ligt er een route, dan staat alles al in je telefoon
+   (`drive.wegen`, opgehaald bij het plannen) — dat werkt dus ook zonder bereik.
+   Rijd je zomaar wat, of is er net herberekend, dan vragen we het per keer aan
+   de routeserver, hooguit één keer per twintig seconden. */
+/* Hoe vaak we mogen vragen waar we zijn. Vrij rijden: elke 20 seconden, want
+   dan is het het enige wat je te zien krijgt. Met een route: hooguit één keer
+   per minuut, want dan is het aanvullend — de lijst bij je route doet het werk.
+   En nooit als je nauwelijks bewogen bent: dan is het antwoord hetzelfde. */
+const WEG_VRAAG_MS=20000, WEG_VRAAG_ROUTE_MS=60000, WEG_VRAAG_M=0.2;
+function wegZet(naam,lim){
+  if(naam===drive.wegNaam && lim===drive.wegLim) return;   /* niets veranderd */
+  drive.wegNaam=naam; drive.wegLim=lim;
+  el('dWeg').textContent=naam||'';
+  const b=el('dBord');
+  if(!lim){ b.hidden=true; b.textContent=''; b.classList.remove('vrij'); }
+  else{
+    b.hidden=false;
+    if(lim==='vrij'){ b.textContent='vrij'; b.classList.add('vrij'); }
+    else { b.textContent=String(lim); b.classList.remove('vrij'); }
+  }
+  wegBalkBij();
+}
+/* Staat er niets in de balk, dan hoort hij er ook niet te zijn: dat is ruimte
+   die de kaart beter kan gebruiken. */
+function wegBalkBij(){
+  const bar=document.querySelector('.dweg');
+  if(!bar) return;
+  const leeg=!el('dWeg').textContent && !el('dThen').textContent && el('dBord').hidden;
+  bar.classList.toggle('leeg',leeg);
+}
+function wegVragen(lat,lon){
+  /* Zuinig met data aan? Dan vragen we niets. Dat is de afspraak van die knop. */
+  if(el('zuinig')?.checked) return;
+  if(typeof wegOnderMij!=='function') return;
+  const nu=Date.now();
+  const wacht=drive.vrij?WEG_VRAAG_MS:WEG_VRAAG_ROUTE_MS;
+  if(drive.wegVraagT && nu-drive.wegVraagT<wacht) return;
+  if(drive.wegVraagPos && haversine(drive.wegVraagPos,[lon,lat])<WEG_VRAAG_M) return;
+  drive.wegVraagT=nu; drive.wegVraagPos=[lon,lat];
+  wegOnderMij(lat,lon).then(w=>{ if(drive.on&&w) wegZet(w.naam,w.lim); }).catch(()=>{});
+}
+
 function driveTick(pos){
   if(!drive.on) return;
   const {latitude:la,longitude:lo,speed,heading}=pos.coords;
@@ -737,14 +787,20 @@ function driveTick(pos){
     else if(drive.ruw&&haversine(drive.ruw,[lo,la])>0.008) ruw=bearing(drive.ruw,[lo,la]);
     if(ruw!=null) drive.koers=koersDemp(drive.koers,ruw);
   }
+  /* Hoeveel je gereden hebt, voor de teller bij vrij rijden. Sprongen van meer
+     dan een halve kilometer tussen twee meldingen zijn gps-hik, geen weg. */
+  if(drive.ruw){
+    const stap=haversine(drive.ruw,[lo,la]);
+    if(stap<0.5) drive.vrijKm=(drive.vrijKm||0)+stap;
+  }
   drive.ruw=[lo,la];
   meldTempo();
 
   /* Je positie op de route plakken. Je telefoon zit altijd een paar meter
      naast de weg; zonder dit staat de pijl naast de weg én is de afstand tot
-     de afslag verkeerd. */
-  const op=opDeRoute(drive.shape,drive.cum,la,lo,drive.idx);
-  const opRoute = op && op.off<=AF_KM;
+     de afslag verkeerd. Rijd je vrij, dan is er niets om je op te plakken. */
+  const op = drive.vrij ? null : opDeRoute(drive.shape,drive.cum,la,lo,drive.idx);
+  const opRoute = !drive.vrij && op && op.off<=AF_KM;
   drive.pos = opRoute ? op.punt : [lo,la];
 
   /* Waar de kaart naartoe glijdt: van waar we net waren naar waar je nu bent.
@@ -758,6 +814,19 @@ function driveTick(pos){
   spoorBij(lo,la);
   drive.laatsteKmu=kmu;
   el('dSpeed').textContent=(kmu!=null?Math.round(kmu):'—');
+
+  /* Vrij rijden: geen route, geen afslagen. Alleen de kaart die met je meegaat,
+     je snelheid, en de weg waar je op zit. De teller onderin telt wat je hebt
+     gereden en hoe lang je onderweg bent. */
+  if(drive.vrij){
+    wegVragen(la,lo);
+    drive.zoomDoel=Z_STANDEN[drive.stand||0].zoom||naviZoom(kmu,null);
+    if(drive.eerste){ naviZet(drive.zoomDoel); drive.zoomNu=drive.zoomDoel; drive.eerste=false; }
+    el('dLeft').textContent=(drive.vrijKm||0).toFixed(0);
+    const mins=Math.round((Date.now()-(drive.vrijStart||Date.now()))/60000);
+    el('dEta').textContent = mins<60 ? mins+' min' : Math.floor(mins/60)+'u '+String(mins%60).padStart(2,'0');
+    return;
+  }
 
   if(!opRoute){
     vanDeRouteAf(la,lo);
@@ -780,6 +849,12 @@ function driveTick(pos){
      laten terugvallen, en dan komt de afslagmelding te laat. */
   drive.km=kmVooruit(op.km,drive.km);
   const gereden=drive.km;
+  /* De weg waar je nu op rijdt. Staat hij in de lijst die bij de route hoort,
+     dan is dat gratis en werkt het zonder bereik; anders vragen we het. */
+  const w = drive.wegen && drive.wegen.length
+    ? wegBij(drive.wegen,gereden,drive.wegIdx) : null;
+  if(w){ drive.wegIdx=w.i; wegZet(w.naam,w.lim); }
+  else wegVragen(la,lo);
   const totaal=drive.cum[drive.cum.length-1];
   const over=Math.max(0,totaal-gereden);
   const volg=drive.man.find(m=>m.km>gereden+0.02);
@@ -800,6 +875,7 @@ function driveTick(pos){
     el('dDist').textContent=afst(over);
     el('dNext').textContent=over<0.2?'Je bent er':'Rechtdoor';
     el('dThen').textContent=over<0.2?'':'tot het eind van je rit';
+    wegBalkBij();
     if(over<0.2 && !drive.gezegd.has('eind')){ drive.gezegd.add('eind'); zeg('Je bent er. Goede rit gehad.'); }
     return;
   }
@@ -809,6 +885,7 @@ function driveTick(pos){
   const later=drive.man[drive.man.indexOf(volg)+1];
   el('dThen').textContent=straatUit(volg.tekst)
     +(later?' · daarna '+richtingWoord(later.hoek||0).toLowerCase():'');
+  wegBalkBij();
 
   /* De afslag in stappen aankondigen. Eerst was er n melding op 400 meter, en
      die kwam op een provinciale weg te laat: bij 100 km/u ben je er in veertien
@@ -841,13 +918,33 @@ function rijRouteUit(v){
   /* Een andere route betekent een andere kilometerstand; de rem op teruglopen
      moet dus opnieuw beginnen, anders blijft hij op de oude stand hangen. */
   drive.km=null;
+  /* De wegnamen en limieten horen bij deze route. */
+  drive.wegen=v.wegen||null; drive.wegIdx=0;
 }
 
 async function startDrive(){
-  const v=state.variants?.[state.shown];
-  if(!v?.shape?.length){ setStatus('Plan eerst een route.',true); return; }
   if(!navigator.geolocation){ setStatus('Je browser geeft je locatie niet door.',true); return; }
-  rijRouteUit(v);
+  const v=state.variants?.[state.shown];
+  /* Geen route? Dan rijd je vrij. De kaart gaat met je mee, je ziet je snelheid
+     en de weg waar je op zit, en je spoor wordt bijgehouden zodat je met één
+     knop terug kunt over de weg die je kwam. Precies wat je wil als je zomaar
+     de deur uit rijdt zonder plan. */
+  drive.vrij = !v?.shape?.length;
+  if(drive.vrij){
+    drive.shape=null; drive.cum=null; drive.man=[]; drive.sec=0;
+    drive.wegen=null; drive.wegIdx=0;
+    /* Wat er de vorige rit al omgeroepen is mag weg, anders blijft dat hangen. */
+    drive.gezegd.clear(); drive.km=null; drive.idx=0;
+    drive.vrijKm=0; drive.vrijStart=Date.now();
+    document.body.classList.add('vrij');
+    el('dLeftLbl').textContent='Gereden';
+    el('dEtaLbl').textContent='Onderweg';
+  }else{
+    document.body.classList.remove('vrij');
+    el('dLeftLbl').textContent='Nog te gaan';
+    el('dEtaLbl').textContent='Aankomst';
+    rijRouteUit(v);
+  }
   drive.on=true; drive.pos=null; drive.volgen=true; drive.spoorRit=false;
   drive.spoor=[]; drive.terugGezegd=0;
   drive.afSinds=0; drive.herLaatst=0; drive.herBezig=false; drive.geenNet=false;
@@ -867,7 +964,11 @@ async function startDrive(){
   el('dRecenter').hidden=true;
   el('dNext').textContent='Wachten op gps…';
   el('dDist').textContent='—';
-  el('dThen').hidden=true;
+  el('dThen').textContent='';
+  el('dWeg').textContent='';
+  el('dBord').hidden=true;
+  drive.wegNaam=null; drive.wegLim=null; drive.wegVraagT=0; drive.wegVraagPos=null;
+  wegBalkBij();
   el('dTrack').classList.remove('on');
   el('dTrack').textContent='↩ Spoor';
   map.resize();
@@ -877,7 +978,8 @@ async function startDrive(){
 
 
   try{ drive.lock=await navigator.wakeLock?.request('screen'); }catch{}
-  zeg('Rijmodus aan. Goede rit.');
+  zeg(drive.vrij ? 'Vrij rijden. Ik houd je plek en je spoor bij.'
+                 : 'Rijmodus aan. Goede rit.');
   drive.watch=navigator.geolocation.watchPosition(driveTick,
     ()=>{ el('dNext').textContent='Geen gps-signaal';
           el('dThen').textContent='Even wachten — onder een dak vindt hij de satellieten niet'; },
@@ -885,7 +987,8 @@ async function startDrive(){
 }
 
 function stopDrive(){
-  drive.on=false;
+  drive.on=false; drive.vrij=false;
+  document.body.classList.remove('vrij');
   if(drive.beeld){ cancelAnimationFrame(drive.beeld); drive.beeld=0; }
   if(drive.watch!=null) navigator.geolocation.clearWatch(drive.watch);
   drive.watch=null;

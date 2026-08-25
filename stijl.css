@@ -199,11 +199,6 @@
   .stop .title{font-family:var(--display);font-size:16px;line-height:1.15}
   .stop .kind{font-size:11.5px;color:var(--muted);margin-top:1px}
   .stop .add{margin-top:4px}
-  .shot{margin-top:7px;border:1px solid var(--hair);border-radius:3px;overflow:hidden;
-    background:var(--panel-2)}
-  .shot img{display:block;width:100%;height:104px;object-fit:cover;background:var(--panel-2)}
-  .shot .cr{font-size:10px;color:var(--zacht);padding:3px 7px;line-height:1.3}
-  .shot .cr a{color:var(--link)}
   .fade{animation:rise .35s ease both}
   @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   @media (prefers-reduced-motion:reduce){.fade{animation:none}}
@@ -266,8 +261,6 @@
      staat het paneel dicht en is de gewone statusregel onzichtbaar. */
 
   /* Route starten staat waar je net op Plannen drukte. */
-  .go.alt{background:none;border:1px solid var(--brass);color:var(--brass);margin-top:8px}
-  .go.alt:hover{background:var(--brass);color:var(--ink);filter:none}
   .go[hidden]{display:none}
 
 
@@ -307,7 +300,11 @@
   body.rijden{grid-template-columns:1fr}
   /* In de rijmodus is alleen de cockpit te zien. Stond dit fout, dan lagen de
      plus- en minknop van de kaart over je afslag heen. */
+  /* Vrij rijden: er is geen afslag, dus het groene blok heeft niets te melden.
+     Weg ermee — dan is er meer kaart, en dat is precies waarvoor je vrij rijdt. */
+  body.vrij .dtop{display:none}
   body.rijden .panel,
+  body.rijden .zoekbalk,
   body.rijden .mapleft,
   body.rijden #pinBar,
   body.rijden .maplibregl-ctrl-top-right,
@@ -419,12 +416,18 @@
     word-break:break-all;line-height:1.4;margin-bottom:10px}
 
   /* De ingang: waar wil je heen. Ligt over de kaart, linksboven. */
+  /* De zoekbalk over de kaart is een echt invoerveld, geen knop die je
+     doorstuurt. Typen en Enter: hij rekent meteen. Het vak is `absolute`, en
+     dat is genoeg houvast voor de suggestielijst die zich eraan ophangt. */
   .zoekbalk{position:absolute;left:12px;top:calc(12px + env(safe-area-inset-top));
-    right:78px;z-index:5;text-align:left;background:var(--glas);
-    border:1px solid var(--hair);border-radius:26px;color:var(--muted);
-    padding:15px 20px;font-size:15px;overflow:hidden;text-overflow:ellipsis;
-    white-space:nowrap;box-shadow:0 3px 14px var(--schaduw)}
-  .zoekbalk.gevuld{color:var(--paper)}
+    right:78px;z-index:5;background:var(--glas);
+    border:1px solid var(--hair);border-radius:26px;
+    padding:4px 6px 4px 20px;display:flex;align-items:center;gap:4px;
+    box-shadow:0 3px 14px var(--schaduw)}
+  .zoekbalk input{flex:1;min-width:0;border:0;background:none;padding:11px 0;
+    font-family:var(--body);font-size:15px;color:var(--paper)}
+  .zoekbalk input::placeholder{color:var(--muted)}
+  .zoekbalk:focus-within{border-color:var(--brass)}
   .zoekbalk:hover{border-color:var(--brass)}
 
   /* ---------- rijmodus: blokken in volle kleur ----------
@@ -447,10 +450,32 @@
     font-weight:600;margin-top:5px;opacity:.92;overflow:hidden;
     text-overflow:ellipsis;white-space:nowrap}
 
-  .dstraat{background:#07090B;color:#FFF;padding:13px 20px;
-    font-family:var(--display);font-size:clamp(16px,4.6vw,23px);font-weight:600;
+  /* De zwarte balk onder het groene blok. Links de weg waar je op rijdt met
+     daaronder wat er straks komt, rechts een rond bord met de snelheid die daar
+     geldt. Een rond bord lees je door een vizier sneller dan een getal met een
+     woordje erboven — het is precies het bord dat je langs de weg ziet. */
+  .dweg{background:#07090B;display:flex;align-items:center;gap:12px;
+    padding:9px 16px}
+  .dweg.leeg{display:none}      /* niets te melden: dan ook geen balk */
+  .dwegtxt{flex:1;min-width:0}
+  .dwegnaam{font-family:var(--display);font-weight:700;color:#FFF;
+    font-size:clamp(18px,5.2vw,26px);line-height:1.1;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dwegnaam:empty{display:none}
+  .dstraat{color:#FFF;font-family:var(--display);font-size:clamp(15px,4.2vw,20px);
+    font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .dstraat:empty{display:none}
+  .dwegnaam:not(:empty) + .dstraat{font-size:clamp(12.5px,3.4vw,15px);
+    font-weight:500;color:#9AA6AE;margin-top:2px}
+  .dbord{flex:none;width:56px;height:56px;border-radius:50%;background:#FFF;
+    border:5px solid #D42B1A;color:#111;font-family:var(--mono);font-weight:700;
+    font-size:22px;line-height:1;display:flex;align-items:center;
+    justify-content:center}
+  .dbord[hidden]{display:none}
+  /* Geen limiet (Duitse Autobahn): geen rode ring maar een grijze, want er
+     staat geen getal om je aan te houden. */
+  .dbord.vrij{border-color:#8A939A;color:#5A646C;font-family:var(--display);
+    font-size:15px;text-transform:uppercase;letter-spacing:.04em}
 
   .dmid{flex:1;display:flex;align-items:flex-start;justify-content:flex-end;
     padding:12px 12px 0;pointer-events:none}
@@ -512,7 +537,6 @@
   .block > * + *{margin-top:9px}
   .block .eyebrow{margin-bottom:0}
   .hint b{color:var(--paper);font-weight:500}
-  .zacht{color:var(--zacht)}
 
   select{background:var(--ink);border:1px solid var(--hair);border-radius:4px;
     color:var(--paper);padding:8px 9px;font-size:13.5px}
@@ -576,10 +600,10 @@
     .gripkaart{margin-top:2px}
     .gripkaart[hidden]{display:none}
     .gripcijfers{padding:0;cursor:pointer}
+    .gripcijfers[hidden]{display:none}
     .gripcijfers strong{font-size:16px}
     .gripkaart .doe{width:100%;margin:10px 0 0;padding:15px}
 
-    .masthead{padding-top:12px}
     .check{padding:3px 0}
     .check input{width:19px;height:19px}
     .levels button{padding:12px 4px}

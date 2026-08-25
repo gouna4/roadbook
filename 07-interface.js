@@ -236,20 +236,57 @@ function doUndo(){
 el('btnUndo').addEventListener('click',doUndo);
 el('btnUndo').disabled=true;
 
-/* ================= vanaf mijn locatie ================= */
-el('hereBtn').addEventListener('click',()=>{
-  if(!navigator.geolocation){ setStatus('Je browser geeft je locatie niet door.',true); return; }
-  setStatus('Locatie ophalen…');
+/* ================= vanaf mijn locatie =================
+   Je vertrekt bijna altijd waar je staat. Daarom pakt de app bij het opstarten
+   zelf je gps en zet die in het vertrekveld — je hoeft nergens op te drukken.
+
+   Tik je zelf iets in dat veld, dan is dat een keuze en blijft die staan: vanaf
+   dat moment laat de app je vertrekpunt met rust (`rb.startZelf`). Met het
+   kruisje leegmaken of op ◎ drukken zet hem weer op automatisch.
+
+   stil=true bij het opstarten: dan geen meldingen en niet naar je toe vliegen
+   als er al een route op het scherm staat. */
+function pakMijnLocatie(stil){
+  if(!navigator.geolocation){
+    if(!stil) setStatus('Je browser geeft je locatie niet door.',true);
+    return;
+  }
+  if(!stil) setStatus('Locatie ophalen…');
   navigator.geolocation.getCurrentPosition(pos=>{
-    pushUndo();
+    if(!stil) pushUndo();
+    /* Ondertussen zelf iets ingetypt? Dan wint dat. */
+    if(stil && store.get('rb.startZelf',false)) return;
     const {latitude:la,longitude:lo}=pos.coords;
     const label=`${la.toFixed(5)}, ${lo.toFixed(5)}`;
     PICKED.set(label,{name:'Mijn locatie',lat:la,lon:lo});
-    el('start').value=label; saveSettings();
-    map.flyTo({center:[lo,la],zoom:11});
-    setStatus('Vertrekpunt op je huidige locatie gezet.');
-  },err=>setStatus('Locatie niet gelukt — sta het toe in je browser.',true),
+    el('start').value=label;
+    if(typeof saveSettings==='function') saveSettings();
+    wisKnopBij('start','startWis');
+    /* En vraag erbij hoe die plek heet. Cijfers in je vertrekveld zeggen je
+       niets; "Baarlo" wel. De coördinaten blijven eronder liggen, dus er wordt
+       nog steeds vanaf je exacte plek gerekend en niet vanaf het dorpsplein. */
+    if(typeof placeName==='function') placeName([lo,la]).then(naam=>{
+      if(!naam) return;
+      if(el('start').value!==label) return;      /* je hebt ondertussen zelf iets ingetikt */
+      PICKED.set(naam,{name:naam,lat:la,lon:lo});
+      el('start').value=naam;
+      if(typeof saveSettings==='function') saveSettings();
+      wisKnopBij('start','startWis');
+    }).catch(()=>{});
+    if(!stil){
+      map.flyTo({center:[lo,la],zoom:11});
+      setStatus('Vertrekpunt op je huidige locatie gezet.');
+    }
+  },err=>{ if(!stil) setStatus('Locatie niet gelukt — sta het toe in je browser.',true); },
    {enableHighAccuracy:true,timeout:10000});
+}
+el('hereBtn').addEventListener('click',()=>{
+  store.set('rb.startZelf',false);   /* weer automatisch */
+  pakMijnLocatie(false);
+});
+/* Typ je zelf een vertrekpunt, dan houdt de app zijn handen eraf. */
+el('start').addEventListener('input',()=>{
+  store.set('rb.startZelf',!!el('start').value.trim());
 });
 
 
@@ -274,9 +311,43 @@ document.querySelectorAll('#tabs button').forEach(b=>
   b.addEventListener('click',()=>zetTab(b.dataset.tab)));
 /* De knop bij de wegtypes brengt je naar de rest van de wegkeuzes. */
 el('wegMeer').addEventListener('click',()=>zetTab('set'));
-el('zoekBalk').addEventListener('click',()=>{
-  zetTab('plan');
-  el('dest').focus();
+/* ================= waar naartoe, boven op de kaart =================
+   Dit was een knop die je naar het paneel stuurde. Dat is een omweg: je weet
+   waar je heen wil, dus je wil het intikken en weg. Nu is het een echt veld met
+   dezelfde plaatsenzoeker als in het paneel, en Enter start de berekening.
+
+   Het paneel en dit veld houden elkaar bij, zodat er nooit twee verschillende
+   bestemmingen kunnen staan. */
+attachAC(el('zoekVeld'));
+
+function zoekVeldStart(){
+  const q=el('zoekVeld').value.trim();
+  if(!q){ setStatus('Vul in waar je heen wil.',true); return; }
+  el('dest').value=q;
+  if(typeof saveSettings==='function') saveSettings();
+  wisKnopBij('dest','destWis');
+  klaarBij();
+  el('zoekVeld').blur();
+  if(typeof plan==='function') plan();
+}
+
+el('zoekVeld').addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return;
+  /* Stond er een suggestie aangewezen, dan heeft de plaatsenzoeker deze Enter
+     al gebruikt om die te kiezen. Die vult het veld en meldt zich hieronder. */
+  if(e.defaultPrevented) return;
+  e.preventDefault();
+  zoekVeldStart();
+});
+/* Een gekozen suggestie stuurt een change-melding die de app zelf maakt; die is
+   niet "trusted". Zo weten we het verschil met het gewone verlaten van het veld
+   — anders zou hij gaan rekenen zodra je ergens anders tikt. */
+el('zoekVeld').addEventListener('change',e=>{ if(!e.isTrusted) zoekVeldStart(); });
+el('zoekVeld').addEventListener('input',()=>{
+  el('zoekWis').hidden=!el('zoekVeld').value;
+});
+el('zoekWis').addEventListener('click',()=>{
+  el('zoekVeld').value=''; el('zoekWis').hidden=true; el('zoekVeld').focus();
 });
 
 /* Zuinig met data: één schakelaar in plaats van drie vinkjes waar je over moet
@@ -331,15 +402,23 @@ const TABORDE=['plan','weg','rit','set'];
 function klaarBij(){
   const v=state.variants?.[state.shown];
   const erIsEr=!!v?.shape?.length;
-  el('sheetDrive').hidden=!erIsEr;
+  /* Groen betekent gaan, en dat kan altijd: met een route rijd je die, zonder
+     route rijd je gewoon. In beide gevallen gaat de kaart met je mee en wordt
+     je spoor bijgehouden. Eén knop, en het woord erop zegt wat er gebeurt. */
+  const gaan = erIsEr ? '▶ Route starten' : '▶ Vrij rijden';
+  el('sheetDrive').hidden=false;
+  el('sheetDrive').textContent=gaan;
+  el('gripStart').textContent=gaan;
   const naar=(el('dest').value||'').trim();
-  el('zoekBalk').textContent=naar||'Waar naartoe?';
-  el('zoekBalk').classList.toggle('gevuld',!!naar);
+  /* Niet overschrijven terwijl je erin aan het typen bent. */
+  if(document.activeElement!==el('zoekVeld')) el('zoekVeld').value=naar;
+  el('zoekWis').hidden=!el('zoekVeld').value;
 
   /* Hetzelfde resultaat nog een keer, maar dan op de greep — daar zie je het
      ook als het blad dichtgeschoven is. De cijfers worden overgenomen van het
      paneel, zodat er nooit twee verschillende getallen kunnen staan. */
-  el('gripKaart').hidden=!erIsEr;
+  el('gripKaart').hidden=false;
+  el('gripCijfers').hidden=!erIsEr;
   if(erIsEr){
     el('gKm').textContent=el('sumKm').textContent;
     el('gTijd').textContent=el('sumTime').textContent;

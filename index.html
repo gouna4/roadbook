@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=50">
+<link rel="stylesheet" href="stijl.css?v=53">
 </head>
 <body>
 
@@ -41,7 +41,7 @@
     <button data-tab="plan" class="on">Plannen</button>
     <button data-tab="weg">Onderweg</button>
     <button data-tab="rit">Ritten</button>
-    <span class="ver" id="verNr">v50</span>
+    <span class="ver" id="verNr">v53</span>
     <button data-tab="set" class="sliders" aria-label="Instellingen" title="Instellingen">⚙</button>
   </nav>
 
@@ -359,7 +359,16 @@
       <div class="dwoord" id="dNext">Wachten op gps…</div>
     </div>
   </div>
-  <div class="dstraat" id="dThen"></div>
+  <!-- Zwarte balk: de weg waar je nu op rijdt, en rechts hoe hard je daar mag.
+       Op de snelweg en buiten de kom is dat het enige wat je wil weten als er
+       geen afslag aankomt. -->
+  <div class="dweg">
+    <div class="dwegtxt">
+      <div class="dwegnaam" id="dWeg"></div>
+      <div class="dstraat" id="dThen"></div>
+    </div>
+    <div class="dbord" id="dBord" hidden></div>
+  </div>
   <div class="dmid">
     <!-- Rechtsboven, onder het groene blok: aanhaken en meedraaien/noord. -->
     <div class="dside">
@@ -375,8 +384,8 @@
   <div class="dbottom">
     <div class="dcijfers">
       <div class="dvak"><span>Snelheid</span><strong id="dSpeed">—</strong></div>
-      <div class="dvak"><span>Nog te gaan</span><strong id="dLeft">—</strong></div>
-      <div class="dvak"><span>Aankomst</span><strong id="dEta">—</strong></div>
+      <div class="dvak"><span id="dLeftLbl">Nog te gaan</span><strong id="dLeft">—</strong></div>
+      <div class="dvak"><span id="dEtaLbl">Aankomst</span><strong id="dEta">—</strong></div>
     </div>
     <div class="dbtns">
       <button id="dMute">🔊 Stem</button>
@@ -393,7 +402,14 @@
        paneel dicht en is de statusregel onzichtbaar. -->
   <div id="toast" hidden></div>
   <!-- De ingang van de app: waar wil je heen. Tikken opent Plannen. -->
-  <button class="zoekbalk" id="zoekBalk">Waar naartoe?</button>
+  <!-- Waar naartoe, boven op de kaart. Je typt er rechtstreeks in en drukt op
+       Enter; je hoeft niet eerst naar het paneel. -->
+  <div class="zoekbalk">
+    <input id="zoekVeld" placeholder="Waar naartoe?" autocomplete="off"
+           enterkeyhint="go" aria-label="Waar naartoe">
+    <button class="veldknop wis" id="zoekWis" hidden aria-label="Leegmaken"
+            title="Dit veld leegmaken">✕</button>
+  </div>
   <!-- Alle kaartknoppen in één kolom rechtsonder. De pen zit onderaan, want die
        gebruik je het meest en daar zit je duim. Wat verborgen is neemt geen
        ruimte in, dus de kolom schuift netjes mee. -->
@@ -414,17 +430,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=50"></script>
-<script src="02-invoer.js?v=50"></script>
-<script src="03-route.js?v=50"></script>
-<script src="04-bibliotheek.js?v=50"></script>
-<script src="05-weergave.js?v=50"></script>
-<script src="06-plannen.js?v=50"></script>
-<script src="07-interface.js?v=50"></script>
-<script src="08-onderweg.js?v=50"></script>
-<script src="09-rijden.js?v=50"></script>
-<script src="10-uitvoer.js?v=50"></script>
-<script src="11-offline.js?v=50"></script>
-<script src="12-opstarten.js?v=50"></script>
+<script src="01-basis.js?v=53"></script>
+<script src="02-invoer.js?v=53"></script>
+<script src="03-route.js?v=53"></script>
+<script src="04-bibliotheek.js?v=53"></script>
+<script src="05-weergave.js?v=53"></script>
+<script src="06-plannen.js?v=53"></script>
+<script src="07-interface.js?v=53"></script>
+<script src="08-onderweg.js?v=53"></script>
+<script src="09-rijden.js?v=53"></script>
+<script src="10-uitvoer.js?v=53"></script>
+<script src="11-offline.js?v=53"></script>
+<script src="12-opstarten.js?v=53"></script>
 </body>
 </html>

@@ -298,12 +298,6 @@ function enableDragShaping(){
     const r=libAll().find(x=>String(x.id)===String(id));
     if(r){ skipClick=Date.now(); useImported(r.pts,r.name,r.named); }
   });
-  map.on('mouseenter','alts-line',()=>{ canvas.style.cursor='pointer'; });
-  map.on('mouseleave','alts-line',()=>{ canvas.style.cursor=''; });
-  map.on('click','alts-line',e=>{
-    const lv=e.features?.[0]?.properties?.lv;
-    if(lv) { skipClick=Date.now(); applyVariant(+lv); }
-  });
   map.on('mousedown','route-hit',e=>{
     if(e.originalEvent.button!==0) return;
     if(teken.aan) return;              /* aan het tekenen: niet ook slepen */

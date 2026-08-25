@@ -36,7 +36,7 @@ stijl.css           alle opmaak; kleuren en lettertypes staan bovenaan
 05-weergave.js      de route tekenen en varianten vergelijken
 06-plannen.js       plan() — de hoofdknop — en de route slepen
 07-interface.js     onderweg-knoppen, bodemblad, uitklapbare blokken
-08-onderweg.js      weer, afslagen, hoogteprofiel, delen, rittenlogboek
+08-onderweg.js      weer, afslagen, hoogteprofiel, delen
 09-rijden.js        bochtigheidskaart, offroad zoeken, rijmodus met stem
 10-uitvoer.js       afdrukken, GPX uitvoeren, bewaren, route in je zak
 11-offline.js       een gebied binnenhalen zodat de kaart zonder bereik werkt
@@ -90,6 +90,8 @@ er ook niet in.
 | Plaatsen zoeken | Overpass API, drie servers als reserve | vaak druk, altijd via `overpass()` |
 | Adres zoeken | Photon (Komoot) voor meetypen, Nominatim voor de rest | Nominatim: hooguit 1 aanroep per seconde |
 | Hoogteprofiel | Valhalla `/height` | |
+| Wegnamen en snelheidslimieten | Valhalla `/trace_attributes` (POST) | één aanvraag per rit, 28 KB per 100 km; de lijn gaat als polyline mee |
+| Welke weg zit ik op (zonder route) | Valhalla `/locate` | 4 KB, hooguit 1 per 20 s |
 | Weer | Open-Meteo | meerdere locaties in één aanroep |
 | Foto's | Wikimedia Commons, geosearch | `origin=*` voor CORS |
 
@@ -135,17 +137,18 @@ berekening de oude stilzet.
   bochtigheidskaartlaag, en het beoordelen van geïmporteerde routes
 - `urbanScore()` — hoeveel stad je doorrijdt; kiest automatisch de rustigste route
 - `doubleShare()` — welk deel van de rit je twee keer rijdt
-- `riddenShare()` — welk deel je volgens je logboek al kent
 - `hasSpur()` — herkent doodlopende omwegen
 - `simplify()` — Douglas-Peucker, om routes klein genoeg te maken voor opslag
 
 **Opslag** loopt altijd via `store` (localStorage in een try/catch, faalt
 stil). Sleutels: `rb.set` instellingen, `rb.last` laatste rit, `rb.routes`
-bewaarde routes, `rb.lib` GPX-bibliotheek, `rb.log` rittenlogboek,
+bewaarde routes, `rb.lib` GPX-bibliotheek, `rb.base` welke kaartlaag,
+`rb.tab` welk tabblad open stond,
 `rb.fold.*` open/dicht van de blokken, `rb.sheet` stand van het bodemblad,
-`rb.rit` de route in je zak (lijn plus afslagen, om zonder bereik te rijden),
+`rb.rit` de route in je zak (lijn, afslagen én de snelheidslimieten, om zonder
+bereik te rijden),
 `rb.spoor` je eigen gps-spoor van de laatste rit, `rb.stap` welke stap open stond, `rb.zoom` welke zoomstand je koos in de
-rijmodus, `rb.thema`
+rijmodus, `rb.startZelf` of je je vertrekpunt zelf hebt ingetikt, `rb.thema`
 licht/donker/automatisch, `rb.gebieden` welke
 kaartgebieden je hebt binnengehaald (de kaartstukjes zelf zitten in de Cache
 `roadbook-offline-v1`, niet in localStorage).
@@ -191,7 +194,7 @@ kaartgebieden je hebt binnengehaald (de kaartstukjes zelf zitten in de Cache
   | 1 Waar | soort rit, vertrek, tussenstops, bestemming, GPX, tekenen |
   | 2 Wegen | wegtype, vermijden, onverhard, snelwegaanloop |
   | 3 De rit | vertrektijd, tank, wat je onderweg wil zien — **en het resultaat** |
-  | 4 ⚙ | bibliotheek, offline kaart, logboek, offroad, uiterlijk, bewaarde ritten |
+  | 4 ⚙ | bibliotheek, offline kaart, offroad, uiterlijk, bewaarde ritten |
 
   Je kunt rechtstreeks op een stap tikken; je hoeft niet door de reeks te lopen.
   Dat is de zwakke plek van stap-voor-stap en die is hiermee gedekt: voor een rit
@@ -219,11 +222,12 @@ Wegtypes met symbolen · vermijden-menu · snelwegaanloop · rondrit en heen-en-
 mijden · bochtigheid meten en kleuren · bezienswaardigheden met foto's ·
 tankstations, eten, koffie, motorzaken · tankbereik · overnachtingen · weer
 en aankomsttijd · hoogteprofiel · offroad zoeken · GPX importeren en
-exporteren met begrensde vormpunten · routebibliotheek · rittenlogboek ·
+exporteren met begrensde vormpunten · routebibliotheek ·
 delen via link · afdrukken · bodemblad op de telefoon · installeerbaar met
 offline opstarten
 
-**Rijmodus** (`09-rijden.js`) werkt als een navigatie: de kaart vult het scherm,
+**Rijmodus** (`09-rijden.js`) werkt als een navigatie, met of zonder
+bestemming: de kaart vult het scherm,
 draait met je koers mee en staat gekanteld, met je eigen pijl erin. Instructie
 boven, snelheid en aankomst onder. Zelf de kaart verschuiven zet het meevolgen
 uit, met een knop pak je het weer op. Verder:
@@ -234,6 +238,11 @@ uit, met een knop pak je het weer op. Verder:
 - **Vloeiend** — de camera wordt per beeldje gezet (`naviBeeld()`), niet met een
   animatie per gps-melding; die werd altijd door de volgende afgebroken
 - **De afslag in stappen omgeroepen** — 1 km, 400 m, 150 m, nu (`AF_STAPPEN`)
+- **De weg en de limiet** — naam groot in de zwarte balk, de snelheid als rond
+  bord ernaast. Komt uit `wegGegevens()` bij het plannen en gaat mee in `rb.rit`,
+  dus het werkt zonder bereik
+- **Vrij rijden** — zonder route: kaart die meegaat, je snelheid, de weg waar je
+  op zit, en een teller met gereden kilometers en tijd
 - **Vier zoomstanden** onder één knop rechtsboven (`Z_STANDEN`): AUTO · DICHT ·
   RUIM · VER. Je keuze blijft staan (`rb.zoom`)
 - **Van de route af** — pijl, afstand en gewone taal ("400 m, links achter je"),
@@ -365,6 +374,160 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
   ongeveer 2200 stukjes en 46 MB. Een weekend van 600 km ongeveer 105 MB
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
+
+## Versie 53: hoe hard mag ik hier, en waar rijd ik eigenlijk
+
+Drie wensen van de eigenaar, en ze bleken alle drie gratis te kunnen — bij een
+server die we al gebruiken.
+
+**De snelheid die hier geldt, en de naam van de weg.** Dat staat allebei in
+OpenStreetMap, en Valhalla geeft het terug via `trace_attributes`. Eén aanvraag
+voor de hele rit, meteen na het plannen:
+
+| | |
+|---|---|
+| verstuurd | de lijn in korte schrijfwijze, 7 KB voor 100 km |
+| terug | 28 KB voor 100 km, in 86 ms |
+| bewaard | **0,9 KB** — 43 regels `[kilometer, naam, limiet]` |
+| dekking | 399 van de 405 stukken hadden een limiet |
+
+Nagemeten op een echte rit Venlo → Eifel: 30 in de kom, 50 op de singel, 70 op
+een Kreisstraße, 100 op de A61, 120 op de A44. Dat is precies wat je wil weten.
+
+- **Het gaat mee in de route in je zak.** Dus onderweg zonder bereik weet je nog
+  steeds hoe hard je mag — die 0,9 KB kost niets
+- **Een rond bord**, zoals langs de weg: wit met een rode ring en het getal. Geen
+  getal met een woordje erboven; een bord herken je door een vizier sneller
+- **Duitse Autobahn zonder limiet** krijgt geen rood bord maar een grijze ring
+  met "vrij". Er is geen getal om je aan te houden, en dat moet je zien
+- **De naam van de weg staat groot in de zwarte balk**, met eronder klein wat er
+  straks komt. Precies waar eerst alleen de volgende straatnaam stond
+- Met **Zuinig met data** aan wordt het overgeslagen
+- Na een herberekening onderweg klopt de lijst niet meer (andere kilometers), dan
+  wordt hij weggegooid en vragen we het per keer bij `/locate` — 4 KB, hooguit
+  één keer per minuut, en alleen als je echt bewogen bent
+
+**Vrij rijden — zonder bestemming.** *"Als ik de navi niet heb gestart en begin
+te rijden, dat je mij ziet verplaatsen."* Twee dingen daarvoor:
+
+- **De ◎-knop op de kaart volgt je nu echt.** Eén tik en je ziet jezelf rijden,
+  met een pijl die je kijkrichting aangeeft. Dat is de gewone knop van de kaart
+  zelf, hij stond alleen op "één keer springen" in plaats van "meelopen"
+- **En de rijmodus werkt nu zonder route.** De groene knop staat er altijd: ligt
+  er een route, dan zegt hij *Route starten*; ligt er geen, dan *Vrij rijden*.
+  Groen betekent gaan, dat is de enige regel. Zonder route vervalt het groene
+  afslagblok — er is geen afslag — en dat scheelt een kwart scherm dat de kaart
+  erbij krijgt. Je ziet: de weg waar je op zit, hoe hard je mag, je snelheid, en
+  onderin een teller met wat je gereden hebt en hoe lang je onderweg bent.
+  Je spoor loopt gewoon mee, dus **↩ Spoor** brengt je terug over de weg die je
+  kwam — ook zonder bereik
+
+**Nieuw rekenwerk, dus nieuwe controles:** `encodePolyline6()` (heen en terug
+gecodeerd moet dezelfde lijn geven — gaat dat mis, dan krijg je de limiet van
+een weg waar je niet bent), `wegBij()` (welk stuk hoort bij deze kilometerstand,
+met een hint die vooruit zoekt maar terugvalt als je stand terugloopt), en een
+nagespeelde **vrije rit** van tien meldingen die nakijkt dat de teller klopt en
+dat er niets over afslagen wordt gezegd.
+
+## Versie 52: minder handelingen, en alles nagelopen
+
+Na een rit met versie 50. Het rijden zelf was goed — *"de navi schokt niet meer
+en zit op de weg"* — maar er zat te veel werk vóór het wegrijden.
+
+**Je vertrekt waar je staat.** De app haalt bij het opstarten zelf je gps op en
+zet die in het vertrekveld. Dat is bijna altijd goed: je plant een rit vanaf de
+plek waar je motor staat, niet vanaf de plaats die er de vorige keer stond.
+
+- Typ je zelf iets in het vertrekveld, dan is dat een keuze en blijft die staan.
+  Vanaf dat moment laat de app je vertrekpunt met rust (`rb.startZelf`)
+- Met het kruisje leegmaken of op ◎ drukken zet hem weer op automatisch
+- Bij een gedeelde route gebeurt het niet: daar hoort het vertrek bij de rit
+- Lukt de locatie niet, dan blijft er gewoon staan wat er stond. Geen melding
+  bij het opstarten — daar heb je op dat moment niets aan
+
+**"Waar naartoe" op de kaart is een echt invoerveld geworden.** Het was een knop
+die je naar het paneel stuurde, en dat is een omweg: je weet waar je heen wil,
+dus je wil het intikken en weg. Nu typ je het daar, met dezelfde plaatsenzoeker
+als in het paneel, en **Enter rekent meteen**. Daarna schuift het paneel dicht
+en staat de groene startknop klaar. Van niets naar rijden: tikken, typen, Enter,
+starten.
+
+- Het veld en het paneel houden elkaar bij, zodat er nooit twee verschillende
+  bestemmingen kunnen staan
+- Kies je een suggestie uit de lijst, dan rekent hij ook meteen. Het verschil
+  met "je tikt ergens anders en verlaat het veld" zit in `e.isTrusted`: een
+  gekozen suggestie stuurt een melding die de app zélf maakt, en die is niet
+  trusted. Zonder dat onderscheid ging hij rekenen zodra je het veld verliet
+
+**DICHT is nu echt dichtbij.** De vaste zoomstanden waren te bescheiden: DICHT
+stond op 16,6 en dat is nog steeds ver weg als je hem uitdrukkelijk indrukt.
+Nu **17,6 · 16,3 · 15,0** voor DICHT · RUIM · VER. `zelftest.js` bewaakt dat
+DICHT dichterbij is dan de automatische stand ooit gaat — anders heeft de knop
+geen zin.
+
+### Alles nagelopen: twee echte fouten, en twee blinde vlekken in de test
+
+*Dit hoort bij versie 52. Versie 51 is nooit de deur uit gegaan; het nummer is
+opgehoogd zodat er geen half-oude versie uit een cache kan komen.*
+
+Op verzoek de hele app doorgespit. Wat eruit kwam:
+
+**1. De plaatsnaam-zoeker vroeg een adres dat niet bestaat.** `placeName()`
+bouwde `photon.komoot.io/api/reverse`, en dat geeft 404 — het moet
+`photon.komoot.io/reverse` zijn, zonder `/api/`. Die functie gaf dus **altijd**
+een lege naam terug, en dat viel niet op omdat hij netjes `''` teruggeeft als
+het misgaat. Gevolg: de regel *"via Adenau"* bij je route is er nooit geweest,
+en de tussenpunten van een hele lange rit heetten "Tussenpunt 3" in plaats van
+de plaats waar ze liggen. Nu gerepareerd, en meteen gebruikt om je vertrekveld
+een échte naam te geven in plaats van cijfers.
+
+**2. De app kon bij het opstarten stilvallen op de service worker.**
+`if('serviceWorker' in navigator)` is ook waar als het er staat maar op `null` —
+dat komt voor in een afgeschermd venster en op een gewone http-pagina. Dan klapte
+die regel eruit, en **alles wat erna stond deed niets meer**: een gedeelde route
+werd niet geopend en je vertrekpunt niet gepakt. Nu `if(navigator.serviceWorker)`.
+
+**En twee blinde vlekken in `zelftest.js` zelf**, die verklaren waarom zulke
+dingen er doorheen konden:
+
+- **De nep-`navigator` werd genegeerd.** In Node is `navigator` een read-only
+  ding; `g.navigator = {...}` doet dan stilletjes niets. De test draaide dus met
+  Node's eigen navigator, en die heeft geen `geolocation`. Alles wat met je
+  locatie te maken heeft — de rijmodus, het vertrekpunt — werd nooit echt
+  nagelopen, en het viel niet op omdat de code netjes stopt bij
+  `if(!navigator.geolocation)`. Nu met `Object.defineProperty`, en de nep-gps
+  antwoordt ook echt
+- **Elk element werd elke keer opnieuw gemaakt.** `getElementById` gaf een vers
+  doosje terug, dus alles wat de app erin zette was meteen weer weg. Een
+  controle als "staat de startknop nu aan" gaf altijd het antwoord van het lege
+  doosje. Nu wordt elk element één keer gemaakt en onthouden
+
+**Daardoor konden er twee nieuwe onderdelen bij, en die zijn het belangrijkst:**
+
+- **Sectie 5 — de knoppen worden echt ingedrukt.** Alle 29 functies die achter
+  een knop zitten worden één keer aangeroepen, zonder route en zonder kaart. Wat
+  er dan uitklapt is een echte fout. Inclusief: je gps pakt het vertrekpunt, en
+  boven op de kaart een bestemming intikken en op Enter drukken
+- **Sectie 6 — een rit wordt nagespeeld.** Een rechte weg van 11 km met drie
+  afslagen, en 26 gps-meldingen die er twintig meter naast liggen. Daarmee wordt
+  `driveTick()` echt uitgevoerd: het op de route plakken, de kilometerstand die
+  alleen vooruit mag, de camera en de afslagmeldingen. Er wordt nagekeken dat de
+  stand klopt met de afgelegde weg, dat je op de lijn geplakt wordt, en dat er
+  eerst "Over 1 kilometer, ga rechtsaf naar de Bergweg" komt en daarna pas de
+  volgende. Dat stuk code is het lastigste van de app en werd tot nu toe alleen
+  op papier nagelopen
+
+**Verder opgeruimd:** drie luisteraars voor een kaartlaag die sinds versie 37
+niet meer bestaat (`alts-line`), de opmaak van de foto's bij plekken en van de
+knop voor alternatieve routes (allebei ook versie 37), en `.masthead` en
+`.zacht` die nergens meer gezet worden. De zoekbalk wordt nu ook echt verborgen
+in de rijmodus in plaats van er alleen achter te liggen. En het rittenlogboek
+stond nog op vijf plekken in dit bestand beschreven terwijl het er sinds versie
+37 niet meer is.
+
+**Live nagekeken of de gratis diensten nog antwoorden:** Photon zoeken,
+Photon omgekeerd, Nominatim, Valhalla route, Valhalla hoogte, Open-Meteo en
+Overpass. Alle zeven geven antwoord; alleen dat ene adres was fout.
 
 ## Versie 50: een weekend gereden, vier klachten
 
@@ -773,8 +936,9 @@ Gebouwd naar een schets van de eigenaar. Drie tabbladen met een woord en een
 streep eronder — **Plannen · Onderweg · Ritten** — en een tandwiel voor alles wat
 je één keer instelt. Geen genummerde stappen meer: de naam zegt waar je bent.
 
-- **De zoekbalk over de kaart** is de ingang. Hij laat zien waar je heen gaat, en
-  tikken brengt je naar Plannen met de cursor in het juiste vak
+- **De zoekbalk over de kaart** is de ingang. Je typt er rechtstreeks in en drukt
+  op Enter; hij rekent meteen (sinds versie 51). Hij laat ook zien waar je heen
+  gaat als de route er al ligt
 - **Vertrek en bestemming zijn regels met een vlaggetje**, geen invulvakken. Het
   invoerveld zit er wel in, maar zonder kader: het leest als tekst en je kunt er
   toch in typen
@@ -924,11 +1088,22 @@ Er is geen testopstelling. Controleer wijzigingen zo:
    & "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe" zelftest.js
    ```
 
-   Hij kijkt vier dingen na: de laadvolgorde, of alle **namen bestaan**, het
-   eigen rekenwerk, en of de **interface klopt met de code** (elke `el('id')`
-   bestaat, de kaartlaag-knoppen staan apart, en de twee versienummers zijn
-   gelijk). Die tweede gebruikt de compiler die in VS Code meegeleverd
-   wordt. Zo vonden we dat `vast` en `pogingen` in de rondje-logica nergens
+   Hij kijkt zes dingen na:
+
+   1. de **laadvolgorde** — elk bestand wordt in dezelfde volgorde uitgevoerd
+      als in de browser
+   2. of alle **namen bestaan**, met de compiler die in VS Code meegeleverd wordt
+   3. het **eigen rekenwerk** — richtingen, afstanden, je plek op de route,
+      de zonnestand, het aan elkaar plakken van routes
+   4. of de **interface klopt met de code**: elke `el('id')` bestaat, elke knop
+      heeft een luisteraar, geen losse id's, geen kleur die naar zichzelf
+      verwijst, en het versienummer staat op alle vier de plekken gelijk
+   5. of de **knoppen het doen**: elke functie achter een knop wordt één keer
+      aangeroepen, zonder route en zonder kaart
+   6. of een **rit werkt**: een nagespeelde rit van 11 km met 26 gps-meldingen
+      door `driveTick()`, inclusief de afslagmeldingen
+
+   Punt 2 gebruikt de compiler die in VS Code meegeleverd wordt. Zo vonden we dat `vast` en `pogingen` in de rondje-logica nergens
    gemaakt werden — een rondje plannen klapte er dus altijd uit, met
    "vast is not defined". Zulke fouten zie je niet met een tikfoutcontrole,
    want de code is goed geschreven; de naam bestaat alleen niet.

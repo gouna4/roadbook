@@ -167,7 +167,10 @@ function ritOpslaan(){
     km:+cum[cum.length-1].toFixed(1), sec:v.sec||0,
     shape:v.shape.map(c=>[+c[0].toFixed(5),+c[1].toFixed(5)]),
     man:afslagen(v,cum,v.shape).map(m=>({km:+m.km.toFixed(3),tekst:m.tekst,
-                                         hoek:Math.round(m.hoek||0)})) };
+                                         hoek:Math.round(m.hoek||0)})),
+    /* De wegnamen en snelheidslimieten gaan mee: ongeveer 1 KB voor een
+       dagrit, en daarmee weet je onderweg zonder bereik nog hoe hard je mag. */
+    wegen:v.wegen||null };
 
   if(!store.set('rb.rit',rit)){
     rit.shape=simplify(v.shape,0.02);
@@ -215,6 +218,9 @@ function ritHerstellen(){
   state.along=null; state.extraRows=[];
   clearAlong(); clearMarkers();
   state.variants={ rit:{ shape:r.shape, man:r.man, km:r.km, sec:r.sec,
+    /* De wegnamen en limieten komen mee uit de opslag; zonder bereik worden ze
+       niet opnieuw opgehaald, en dat hoeft ook niet. */
+    wegen:r.wegen||null,
     prof:curveProfile(r.shape), color:'#E0B354', label:'Uit je telefoon' } };
   zetBron('fast',EMPTY);
   applyVariant('rit');

@@ -79,7 +79,7 @@ function metOuders(set){
 /* Zonder de stijl, de lettertypes en de symbolen blijft de kaart leeg, ook al
    heb je alle stukjes. Het zijn maar een paar bestanden. */
 function offVasteAdressen(){
-  const uit=[OFM+'/styles/liberty', OFM+'/planet'];
+  const uit=[STIJL, OFM+'/planet'];   /* zelfde adres als de kaart zelf gebruikt */
   for(const naam of ['Noto Sans Regular','Noto Sans Bold','Noto Sans Italic'])
     for(const bereik of ['0-255','256-511'])
       uit.push(OFM+'/fonts/'+encodeURIComponent(naam)+'/'+bereik+'.pbf');

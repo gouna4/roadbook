@@ -1,6 +1,6 @@
 /* Roadbook — 08-onderweg.js
    Weer en aankomsttijd, afslagen, hoogteprofiel, delen via link, het
-   rittenlogboek en al gereden wegen. */
+   en delen. */
 
 /* ================= weer onderweg =================
    Open-Meteo is gratis en heeft geen sleutel nodig. In één aanvraag halen we

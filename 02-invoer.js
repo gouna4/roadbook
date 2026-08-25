@@ -154,7 +154,7 @@ function addVia(text=''){ if(typeof pushUndo==='function') pushUndo();
 document.addEventListener('pointerdown',e=>{
   const a=document.activeElement;
   if(!a||!/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
-  if(e.target&&e.target.closest&&e.target.closest('.plek,.field,.ac,.numin,.slider')) return;
+  if(e.target&&e.target.closest&&e.target.closest('.plek,.field,.ac,.numin,.slider,.zoekbalk')) return;
   a.blur();
 },true);
 

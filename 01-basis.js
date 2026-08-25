@@ -6,6 +6,10 @@
 const VALHALLA='https://valhalla1.openstreetmap.de/route';
 const NOMINATIM='https://nominatim.openstreetmap.org/search';
 const PHOTON='https://photon.komoot.io/api/';
+/* Andersom zoeken (van punt naar plaatsnaam) zit bij Photon op een ander adres,
+   niet onder /api/. Dat stond fout: /api/reverse geeft 404, en daardoor kreeg de
+   app nooit een plaatsnaam terug — zonder dat er iets op fout leek te staan. */
+const PHOTON_REV='https://photon.komoot.io/reverse';
 const OVERPASS_MIRRORS=[
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
@@ -69,7 +73,13 @@ const map=new maplibregl.Map({
   center:[6.2,51.3], zoom:7, attributionControl:{compact:true}
 });
 map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
-map.addControl(new maplibregl.GeolocateControl({trackUserLocation:false}),'top-right');
+/* De ◎-knop rechtsboven op de kaart volgt je nu écht: één tik en je ziet
+   jezelf rijden, met een pijl die je kijkrichting aangeeft. Daar hoef je de
+   rijmodus niet voor te starten en er hoeft geen bestemming te zijn. Nog een
+   keer tikken zet het weer uit. */
+map.addControl(new maplibregl.GeolocateControl({
+  positionOptions:{enableHighAccuracy:true},
+  trackUserLocation:true, showUserHeading:true }),'top-right');
 map.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
 
 const BASE_ORDE=['kleur','topo','sat'];
@@ -304,6 +314,45 @@ function decodePolyline6(str){
   }
   return out;
 }
+/* ================= de weg waar je op rijdt =================
+   Welke weg is dit, en hoe hard mag je hier? Dat staat allebei in
+   OpenStreetMap, en de routeserver geeft het terug. We halen het één keer op
+   voor de hele rit en bewaren het bij de route, zodat het onderweg ook zonder
+   bereik klopt.
+
+   De lijst is compact: per stuk weg één regel [kilometer, naam, limiet]. Een
+   rit van 150 km wordt zo ongeveer 80 regels van samen 1 KB. Opeenvolgende
+   stukken met dezelfde naam en dezelfde limiet worden samengevoegd, anders
+   zouden het er zeshonderd zijn. */
+
+/* De lijn terug in de korte schrijfwijze van de routeserver, met zes decimalen.
+   Zo past een rit van 150 km in 11 KB in plaats van 200 KB, en dat scheelt op
+   een telefoon met een schrale verbinding. */
+function encodePolyline6(shape){
+  let uit='', vlat=0, vlon=0;
+  const stuk=(w)=>{
+    let v=w<0?~(w<<1):(w<<1), s='';
+    while(v>=0x20){ s+=String.fromCharCode((0x20|(v&0x1f))+63); v>>>=5; }
+    return s+String.fromCharCode(v+63);
+  };
+  for(const p of shape){
+    const la=Math.round(p[1]*1e6), lo=Math.round(p[0]*1e6);
+    uit+=stuk(la-vlat)+stuk(lo-vlon);
+    vlat=la; vlon=lo;
+  }
+  return uit;
+}
+
+/* Welk stuk weg hoort bij deze kilometerstand? De lijst loopt op, dus we zoeken
+   vanaf waar we de vorige keer waren; dat is één stap in plaats van tachtig. */
+function wegBij(wegen,km,vanaf){
+  if(!wegen||!wegen.length) return null;
+  let i=Math.max(0,Math.min(wegen.length-1,vanaf|0));
+  if(wegen[i][0]>km) i=0;
+  while(i+1<wegen.length && wegen[i+1][0]<=km) i++;
+  return { i, naam:wegen[i][1]||'', lim:wegen[i][2]||0 };
+}
+
 function cumulative(shape){
   const c=[0]; for(let i=1;i<shape.length;i++) c.push(c[i-1]+haversine(shape[i-1],shape[i]));
   return c;
