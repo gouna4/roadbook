@@ -191,10 +191,11 @@ kaartgebieden je hebt binnengehaald (de kaartstukjes zelf zitten in de Cache
 
   | Stap | Wat erin staat |
   |---|---|
-  | 1 Waar | soort rit, vertrek, tussenstops, bestemming, GPX, tekenen |
+  | 1 Waar | vertrek, tussenstops, bestemming, **soort rit**, GPX, tekenen |
   | 2 Wegen | wegtype, vermijden, onverhard, snelwegaanloop |
   | 3 De rit | vertrektijd, tank, wat je onderweg wil zien — **en het resultaat** |
   | 4 ⚙ | bibliotheek, offline kaart, offroad, uiterlijk, bewaarde ritten |
+  |  | *soort rit stond hier tot versie 54; dat hoort bij Plannen* |
 
   Je kunt rechtstreeks op een stap tikken; je hoeft niet door de reeks te lopen.
   Dat is de zwakke plek van stap-voor-stap en die is hiermee gedekt: voor een rit
@@ -374,6 +375,61 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
   ongeveer 2200 stukjes en 46 MB. Een weekend van 600 km ongeveer 105 MB
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
+
+## Versie 54: soort rit naar voren, en een einde aan je rit
+
+**Soort rit staat nu in Plannen**, direct onder je bestemming — niet meer achter
+het tandwiel. Het is het tweede wat je bedenkt, meteen na waar je heen wil.
+Een rondje plannen was: tandwiel → Rondje → vinkje → kilometers → terug naar
+Plannen → Route plannen. Nu: **Rondje → 250 → Route plannen.**
+
+**En het vinkje is weg.** Er stond een vakje voor de lengte van je rondje met
+een vinkje ernaast dat bepaalde óf dat getal meetelde. Dat is precies de fout
+die we in versie 38 al een keer hebben opgeruimd bij de wegtypes:
+
+> *"Een stand plus een vinkje die elkaar tegenspreken is één ding te veel."*
+
+Nu **is het vakje de schakelaar**: leeg betekent "een lus zo lang als het
+uitkomt", een getal betekent "mik daarop". Met een kruisje maak je het weer
+leeg, hetzelfde kruisje als bij je adresvelden.
+
+Het vakje bestaat bovendien **alleen bij Rondje**. Niet grijs — weg. Bij Heen en
+terug kán het niet: die lengte volgt uit waar je bestemming ligt, en een vakje
+dat een belofte doet die de app niet waar kan maken is erger dan geen vakje.
+
+Per saldo staan er **drie knoppen bij en vier dingen minder**: het vinkje, de
+uitleg onder dat vinkje, de tip *"Weer thuis eindigen? Kies … bij ⚙"* (die
+bestond alleen omdat de knoppen ergens anders stonden), en het geloop tussen
+tabbladen.
+
+*Let op bij het overnemen van oude instellingen:* in telefoons die de app al
+gebruikten staat vaak `loopKm: 300` met `loopOn: false` — een getal dat niets
+deed. Dat wordt niet teruggezet, anders zou iedereen ineens een rondje van 300
+km krijgen. Alleen als het getal destijds écht meetelde komt het terug.
+
+**Een kaartje als je klaar bent met rijden.** Je drukte op Stoppen en het was
+voorbij. Nu komt er over de kaart te staan wat je gereden hebt: afstand,
+rijtijd, bochtigheid en je gemiddelde. Met een knop **Spoor bewaren**.
+
+- De afstand komt uit je eigen gps-spoor, niet uit de geplande route. Haak je
+  halverwege af of rijd je een stuk om, dan telt wat je écht gereden hebt
+- De bochtigheid komt van de route als je er een reed. Reed je vrij, dan wordt
+  het uit je spoor gemeten — eerst uitgedund, want gps die vijf meter heen en
+  weer wiebelt zou anders als bochten meetellen. Blijft er na het uitdunnen
+  bijna niets over, dan reed je kaarsrecht: dat is bochtigheid nul en niet
+  "onbekend"
+- **Spoor bewaren** zet je rit in dezelfde routebibliotheek als je GPX-bestanden,
+  bij Ritten. Daar kun je hem terugzien, opnieuw rijden en als GPX uitvoeren.
+  Zonder die knop wordt je spoor bij de volgende rit overschreven
+- Onder de 400 meter komt er geen kaartje: uitrollen op de parkeerplaats is
+  geen rit
+
+**Onderweg zegt nu wat er ontbreekt.** Zonder route stond je daar naar vakken te
+kijken die nergens over gingen. Er staat nu bovenaan één regel dat er nog geen
+route is, en het blok *Tanken, eten en koffie* — het enige dat een route nodig
+heeft — staat grijs. De instellingen erboven (vertrektijd, tank, wat je onderweg
+wil zien, zuinig met data) blijven gewoon te gebruiken: die zet je juist vóór je
+plant. Weer en hoogteprofiel waren al verborgen zonder route.
 
 ## Versie 53: hoe hard mag ik hier, en waar rijd ik eigenlijk
 

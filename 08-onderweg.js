@@ -63,18 +63,6 @@ el('depTime').addEventListener('change',()=>{
   const v=state.variants?.[state.shown];
   if(v) el('sumEta').textContent=aankomst(state.fast.sec+v.sec,v.imported);
 });
-/* saveSettings() staat in 10-uitvoer.js, dus bij het inladen bestaat de naam
-   hier nog niet. Daarom in een pijlfunctie: dan wordt hij pas opgezocht als
-   je er echt op klikt, en dat is altijd na het inladen. */
-function loopVeld(){
-  const aan=el('loopOn').checked;
-  el('loopKm').disabled=!aan;
-  el('loopHint').textContent = aan
-    ? 'Hij past de lus net zo lang aan tot hij ongeveer op die afstand uitkomt.'
-    : 'Zonder vinkje maakt hij gewoon een mooie lus naar dat gebied en terug, zo lang als het uitkomt.';
-}
-el('loopOn').addEventListener('change',()=>{ loopVeld(); saveSettings(); });
-loopVeld();
 
 
 /* ================= afslagen tonen ================= */
@@ -197,11 +185,11 @@ function applyShared(b64){
     document.querySelectorAll('#levels button').forEach(b=>b.classList.toggle('on',+b.dataset.v===level));
     el('levelHint').textContent=LEVELS[level].hint;
     tripMode=j.m||'one';
-    document.querySelectorAll('#tripMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===tripMode));
-    el('loopRow').hidden=tripMode!=='loop';
-    el('terugHint').hidden=tripMode!=='one';
     if(j.t) el('depTime').value=j.t;
     if(j.k) el('loopKm').value=j.k;
+    /* Pas hierna bijwerken, anders klopt het kruisje bij het kilometervakje
+       niet met wat er in staat. */
+    if(typeof soortRitBij==='function') soortRitBij();
     if(j.dt!=null){ el('dirt').value=j.dt; el('dirtVal').textContent=j.dt; }
     if(j.sp!=null) el('sprintKm').value=j.sp;
     const o=j.o||{};

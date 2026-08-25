@@ -2,7 +2,7 @@
    Houdt de app zelf en de kaartonderdelen vast, zodat hij ook zonder
    bereik opstart. Kaarttegels worden bewaard van de gebieden waar je
    al hebt gekeken. */
-const APP = 'roadbook-app-v53';
+const APP = 'roadbook-app-v54';
 const TILES = 'roadbook-tiles-v1';
 /* Wat de gebruiker zelf heeft binnengehaald. Deze kast wordt nooit
    opgeruimd — daar heeft hij bewust op gewacht. */
@@ -16,7 +16,7 @@ const MAX_TILES = 1200;
    of een oud .js-bestand teruggeven bij een nieuwe index.html — en dan heb je
    een halve nieuwe en een halve oude app. Dat is de naarste soort fout: alles
    staat er, maar het werkt niet samen. */
-const V = '53';
+const V = '54';
 const BESTANDEN = [
   './', './index.html',
   './stijl.css?v=' + V,

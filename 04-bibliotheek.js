@@ -5,20 +5,41 @@
 /* ================= soort rit ================= */
 let tripMode='one';
 const MODE_HINT={
-  one:'Van A naar B.',
-  back:'Heen naar je bestemming, en over andere wegen weer terug naar huis.',
-  loop:'Een rondje vanaf je deur in de richting van het gebied dat je invult — heen langs de ene kant, terug langs de andere.'
+  one:'Van A naar B — je stopt bij je bestemming.',
+  back:'Naar je bestemming en over andere wegen weer thuis.',
+  loop:'Een lus vanaf je deur in die richting, en weer thuis. Vul een afstand in als je die wil.'
 };
+/* Alles wat er verandert als je een ander soort rit kiest, op één plek. Wordt
+   ook aangeroepen bij het opstarten en bij een gedeelde route, zodat het scherm
+   nooit iets anders laat zien dan wat er is ingesteld. */
+function soortRitBij(){
+  document.querySelectorAll('#tripMode button')
+    .forEach(x=>x.classList.toggle('on',x.dataset.m===tripMode));
+  el('modeHint').textContent=MODE_HINT[tripMode]||'';
+  /* Het kilometervakje hoort bij Rondje en bestaat alleen dan. Wat je niet kunt
+     gebruiken hoort er niet te staan — ook niet grijs. */
+  el('loopRow').hidden = tripMode!=='loop';
+  el('loopWis').hidden = !el('loopKm').value;
+  if(typeof updateDestLabel==='function') updateDestLabel();
+}
 document.querySelectorAll('#tripMode button').forEach(b=>{
   b.addEventListener('click',()=>{
     tripMode=b.dataset.m;
-    document.querySelectorAll('#tripMode button').forEach(x=>x.classList.toggle('on',x===b));
-    el('modeHint').textContent=MODE_HINT[tripMode];
-    el('loopRow').hidden = tripMode!=='loop';
-    updateDestLabel();
-    el('terugHint').hidden = tripMode!=='one';
+    soortRitBij();
     saveSettings();
   });
+});
+/* Het vakje ís de schakelaar: leeg betekent "zo lang als het uitkomt", een
+   getal betekent "mik daarop". Er was een vinkje voor dat alleen maar zei of
+   het vakje meetelde — dat is één ding te veel, precies zoals het losse vinkje
+   bij de wegtypes in versie 38. */
+el('loopKm').addEventListener('input',()=>{
+  el('loopWis').hidden=!el('loopKm').value;
+  saveSettings();
+});
+el('loopWis').addEventListener('click',()=>{
+  el('loopKm').value=''; el('loopWis').hidden=true;
+  el('loopKm').focus(); saveSettings();
 });
 
 

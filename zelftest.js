@@ -1140,5 +1140,60 @@ console.log('=== 7. vrij rijden, zonder bestemming ===');
 
 
 console.log('');
+console.log('=== 8. soort rit en het kaartje na de rit ===');
+(function soortEnEind(){
+  const stap = (naam, fn) => {
+    try { fn(); return true; }
+    catch (e) { console.log('FOUT ' + naam + ': ' + e.message); fouten++; return false; }
+  };
+  /* Het kilometervakje hoort bij Rondje en bestaat alleen dan. Geen vinkje meer:
+     leeg is "zo lang als het uitkomt", een getal is een doel. */
+  tripMode = 'one';  stap('soortRitBij enkele reis', () => soortRitBij());
+  check('geen kilometervakje bij enkele reis', el('loopRow').hidden, true);
+  check('en de uitleg past erbij', /A naar B/.test(el('modeHint').textContent), true);
+  tripMode = 'back'; stap('soortRitBij heen en terug', () => soortRitBij());
+  check('ook niet bij heen en terug', el('loopRow').hidden, true);
+  tripMode = 'loop'; el('loopKm').value = ''; stap('soortRitBij rondje', () => soortRitBij());
+  check('wel bij rondje', el('loopRow').hidden, false);
+  check('leeg vakje: geen kruisje', el('loopWis').hidden, true);
+  el('loopKm').value = '250'; stap('opnieuw', () => soortRitBij());
+  check('met een getal komt het kruisje', el('loopWis').hidden, false);
+  /* Zo leest plan() het vakje: leeg betekent geen doel. */
+  const doelUit = v => { el('loopKm').value = v; const d = +el('loopKm').value || 0;
+                         return { doel:d, vast:d > 0 }; };
+  check('een getal is een doel', doelUit('250').doel, 250);
+  check('en dan mikt hij daarop', doelUit('250').vast, true);
+  check('leeg is geen doel', doelUit('').doel, 0);
+  check('en dan is de eerste goede lus goed', doelUit('').vast, false);
+  check('onzin telt ook niet', doelUit('abc').vast, false);
+
+  /* Het kaartje na de rit. Een rechte weg van 5 km in een half uur. */
+  const spoor = [];
+  for (let i = 0; i < 60; i++) spoor.push([6.0, 51.0 + i * 0.00075]);
+  stap('ritKlaarTonen', () => ritKlaarTonen(5.0, 1800, spoor, null));
+  check('het kaartje staat er', el('ritKlaar').hidden, false);
+  check('de afstand klopt', el('rkKm').textContent, '5.0 km');
+  check('de rijtijd klopt', el('rkTijd').textContent, fmtTime(1800));
+  check('een rechte weg is niet bochtig', el('rkBocht').textContent, '0');
+  /* En een kronkelweg wél. Zo weet je dat het meten echt gebeurt en niet
+     toevallig altijd nul teruggeeft. */
+  const kronkel = [];
+  for (let i = 0; i < 120; i++)
+    kronkel.push([6.0 + (i % 4 < 2 ? 0.0004 : -0.0004), 51.0 + i * 0.0004]);
+  ritKlaarTonen(5.0, 1800, kronkel, null);
+  check('een kronkelweg wel', +el('rkBocht').textContent > 20, true);
+  check('en het gemiddelde staat erbij', /10 km\/u/.test(el('rkHint').textContent), true);
+  check('je spoor kun je bewaren', el('rkBewaar').hidden, false);
+  /* Twintig meter uitrollen op de parkeerplaats is geen rit. */
+  el('ritKlaar').hidden = true;
+  stap('een paar meter', () => ritKlaarTonen(0.02, 30, spoor, null));
+  check('daar krijg je geen kaartje van', el('ritKlaar').hidden, true);
+  /* Reed je een route, dan komt de bochtigheid daarvan. */
+  stap('met route', () => ritKlaarTonen(12, 900, spoor, { prof:{ score:64 } }));
+  check('bochtigheid van de route', el('rkBocht').textContent, '64');
+})();
+
+
+console.log('');
 console.log(fouten ? `\n${fouten} FOUT(EN) — eerst oplossen.` : '\nAlles goed.');
 process.exit(fouten ? 1 : 0);

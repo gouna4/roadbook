@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=53">
+<link rel="stylesheet" href="stijl.css?v=54">
 </head>
 <body>
 
@@ -41,7 +41,7 @@
     <button data-tab="plan" class="on">Plannen</button>
     <button data-tab="weg">Onderweg</button>
     <button data-tab="rit">Ritten</button>
-    <span class="ver" id="verNr">v53</span>
+    <span class="ver" id="verNr">v54</span>
     <button data-tab="set" class="sliders" aria-label="Instellingen" title="Instellingen">⚙</button>
   </nav>
 
@@ -68,10 +68,29 @@
       <div class="plekrij">
         <button class="text-btn" id="addVia">+ Tussenstop</button>
       </div>
-      <p class="hint" id="terugHint">
-        Weer thuis eindigen? Kies <b>Heen en terug</b> of <b>Rondje</b> bij ⚙.
-      </p>
       <p class="hint" id="destLabel" hidden>Bestemming</p>
+    </div>
+
+    <!-- Waar eindigt je rit? Dat is het tweede wat je bedenkt, meteen na waar je
+         heen wil — dus staat het hier en niet achter het tandwiel. Het
+         kilometervakje hoort bij Rondje en bestaat alleen dan: leeg betekent
+         "zo lang als het uitkomt", een getal betekent "mik daarop". Geen vinkje
+         ernaast; het vakje zegt het zelf. -->
+    <div class="block soortrit">
+      <div class="chips" id="tripMode">
+        <button data-m="one" class="on">Enkele reis</button>
+        <button data-m="back">Heen en terug</button>
+        <button data-m="loop">Rondje</button>
+      </div>
+      <p class="hint" id="modeHint">Van A naar B — je stopt bij je bestemming.</p>
+      <p class="inline lusrij" id="loopRow" hidden>
+        Ongeveer
+        <input type="number" id="loopKm" min="80" max="900" step="25"
+               placeholder="—" inputmode="numeric" aria-label="Lengte van het rondje">
+        km
+        <button class="veldknop wis" id="loopWis" hidden
+                aria-label="Geen voorkeur" title="Leegmaken: zo lang als het uitkomt">✕</button>
+      </p>
     </div>
 
     <div class="soorten" id="levels">
@@ -144,6 +163,13 @@
 
   <!-- ============ Onderweg ============ -->
   <section class="tab" data-tab="weg">
+    <!-- Zonder route is de helft hier zinloos. Dat zeggen we, in plaats van je
+         naar lege vakken te laten kijken. -->
+    <p class="hint leeghint" id="wegLeeg">
+      Er ligt nog geen route. Hieronder stel je vast in wat je onderweg wil zien;
+      het weer, het hoogteprofiel en wat er onderweg ligt komen erbij zodra je
+      een route hebt gepland.
+    </p>
     <div class="block">
       <p class="inline">
         Vertrek om <input type="time" id="depTime" value="09:00" style="width:96px">
@@ -176,7 +202,7 @@
       </p>
     </div>
 
-    <div class="block">
+    <div class="block" id="alongBlock">
       <div class="eyebrow">Tanken, eten en koffie</div>
       <div class="chips">
         <button id="alongAll">Wat is er onderweg?</button>
@@ -227,26 +253,6 @@
 
   <!-- ============ Instellingen ============ -->
   <section class="tab" data-tab="set">
-    <div class="block">
-      <div class="eyebrow">Soort rit</div>
-      <div class="chips" id="tripMode">
-        <button data-m="one" class="on">Enkele reis</button>
-        <button data-m="back">Heen en terug</button>
-        <button data-m="loop">Rondje</button>
-      </div>
-      <p class="hint" id="modeHint">Van A naar B.</p>
-      <div id="loopRow" hidden>
-        <label class="check">
-          <input type="checkbox" id="loopOn"> Rondje op een vaste afstand
-        </label>
-        <p class="inline">
-          Ongeveer <input type="number" id="loopKm" min="80" max="900" step="25" value="300" disabled> km
-        </p>
-        <p class="hint" id="loopHint">
-          Zonder vinkje maakt hij een mooie lus naar dat gebied en terug, zo lang als het uitkomt.
-        </p>
-      </div>
-    </div>
 
     <div class="block">
       <div class="eyebrow">Vermijden</div>
@@ -404,6 +410,22 @@
   <!-- De ingang van de app: waar wil je heen. Tikken opent Plannen. -->
   <!-- Waar naartoe, boven op de kaart. Je typt er rechtstreeks in en drukt op
        Enter; je hoeft niet eerst naar het paneel. -->
+  <!-- Na het rijden: wat je gereden hebt, en de kans om je spoor te bewaren.
+       Anders drukt je op Stoppen en is het voorbij zonder dat je iets ziet. -->
+  <div class="ritklaar" id="ritKlaar" hidden>
+    <div class="rkkop">Rit gereden</div>
+    <div class="cijfers rkcijfers">
+      <div><span>Afstand</span><strong id="rkKm">—</strong></div>
+      <div><span>Rijtijd</span><strong id="rkTijd">—</strong></div>
+      <div class="acc"><span>Bochtig</span><strong id="rkBocht">—</strong></div>
+    </div>
+    <p class="hint" id="rkHint"></p>
+    <div class="rkknoppen">
+      <button class="doe" id="rkBewaar">Spoor bewaren</button>
+      <button class="text-btn" id="rkSluit">Sluiten</button>
+    </div>
+  </div>
+
   <div class="zoekbalk">
     <input id="zoekVeld" placeholder="Waar naartoe?" autocomplete="off"
            enterkeyhint="go" aria-label="Waar naartoe">
@@ -430,17 +452,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=53"></script>
-<script src="02-invoer.js?v=53"></script>
-<script src="03-route.js?v=53"></script>
-<script src="04-bibliotheek.js?v=53"></script>
-<script src="05-weergave.js?v=53"></script>
-<script src="06-plannen.js?v=53"></script>
-<script src="07-interface.js?v=53"></script>
-<script src="08-onderweg.js?v=53"></script>
-<script src="09-rijden.js?v=53"></script>
-<script src="10-uitvoer.js?v=53"></script>
-<script src="11-offline.js?v=53"></script>
-<script src="12-opstarten.js?v=53"></script>
+<script src="01-basis.js?v=54"></script>
+<script src="02-invoer.js?v=54"></script>
+<script src="03-route.js?v=54"></script>
+<script src="04-bibliotheek.js?v=54"></script>
+<script src="05-weergave.js?v=54"></script>
+<script src="06-plannen.js?v=54"></script>
+<script src="07-interface.js?v=54"></script>
+<script src="08-onderweg.js?v=54"></script>
+<script src="09-rijden.js?v=54"></script>
+<script src="10-uitvoer.js?v=54"></script>
+<script src="11-offline.js?v=54"></script>
+<script src="12-opstarten.js?v=54"></script>
 </body>
 </html>

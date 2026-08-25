@@ -935,7 +935,7 @@ async function startDrive(){
     drive.wegen=null; drive.wegIdx=0;
     /* Wat er de vorige rit al omgeroepen is mag weg, anders blijft dat hangen. */
     drive.gezegd.clear(); drive.km=null; drive.idx=0;
-    drive.vrijKm=0; drive.vrijStart=Date.now();
+    drive.vrijKm=0;
     document.body.classList.add('vrij');
     el('dLeftLbl').textContent='Gereden';
     el('dEtaLbl').textContent='Onderweg';
@@ -958,6 +958,11 @@ async function startDrive(){
   /* De lus die de kaart beweegt. En laat de gps zich niet met een oud antwoord
      afmaken: op 100 km/u is twee seconden oud al 55 meter mis. */
   if(!drive.beeld) drive.beeld=requestAnimationFrame(naviBeeld);
+
+  /* Hoeveel je rijdt en hoe lang je onderweg bent, wordt altijd bijgehouden —
+     ook met een route. Aan het eind laten we dat zien. */
+  drive.vrijKm=0; drive.vrijStart=Date.now();
+  el('ritKlaar').hidden=true;
 
   document.body.classList.add('rijden');
   el('drive').hidden=false;
@@ -987,6 +992,7 @@ async function startDrive(){
 }
 
 function stopDrive(){
+  const vrijeRit=drive.vrij;
   drive.on=false; drive.vrij=false;
   document.body.classList.remove('vrij');
   if(drive.beeld){ cancelAnimationFrame(drive.beeld); drive.beeld=0; }
@@ -1006,6 +1012,11 @@ function stopDrive(){
   /* Nu je stilstaat mag het schrijven wel: het spoor is te kostbaar om te
      verliezen als je onderweg terug wil. */
   if(drive.spoor.length>1) store.set('rb.spoor',drive.spoor);
+
+  /* En laten zien wat je gereden hebt. */
+  const duur=Math.max(0,Math.round((Date.now()-(drive.vrijStart||Date.now()))/1000));
+  ritKlaarTonen(drive.vrijKm||0, duur, drive.spoor,
+                vrijeRit?null:state.variants?.[state.shown]);
 }
 
 el('sheetDrive').addEventListener('click',startDrive);
@@ -1088,3 +1099,55 @@ document.addEventListener('visibilitychange',async()=>{
 });
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&drive.on) stopDrive(); });
+
+/* ================= wat je gereden hebt =================
+   Je drukt op Stoppen en het is voorbij — dat is een raar einde. Nu komt er een
+   kaartje over de kaart met wat je gereden hebt, en de kans om je spoor te
+   bewaren voordat het bij de volgende rit wordt overschreven.
+
+   De afstand is gemeten uit je eigen gps-spoor (`drive.vrijKm`), niet uit de
+   geplande route: als je halverwege afhaakt of een stuk omrijdt, telt wat je
+   écht gereden hebt. De bochtigheid komt van de route als je er een reed, en
+   anders uit je spoor — dat laatste wordt eerst uitgedund, want gps-ruis van
+   vijf meter heen en weer meet anders als bochten. */
+function ritKlaarTonen(km,sec,spoor,route){
+  if(km<0.4) return;                  /* een paar meter is geen rit */
+  el('rkKm').textContent=km.toFixed(km<10?1:0)+' km';
+  el('rkTijd').textContent=fmtTime(sec);
+  let score=null;
+  if(route?.prof?.score!=null) score=route.prof.score;
+  else if(spoor&&spoor.length>8){
+    /* Eerst uitdunnen: je gps wiebelt vijf meter heen en weer en dat zou als
+       bochten meetellen. Blijft er na het uitdunnen bijna niets over, dan reed
+       je kaarsrecht — dat is bochtigheid nul, niet "onbekend". */
+    const glad=simplify(spoor,0.02);
+    score = glad.length>=3 ? curveProfile(glad).score : 0;
+  }
+  el('rkBocht').textContent = score==null?'—':String(score);
+  const uur = sec>60 ? (km/(sec/3600)) : 0;
+  el('rkHint').textContent = uur>1 ? `Gemiddeld ${Math.round(uur)} km/u.` : '';
+  ritEind.spoor = (spoor||[]).slice();
+  ritEind.km = km;
+  el('rkBewaar').hidden = !(ritEind.spoor.length>8);
+  el('ritKlaar').hidden=false;
+}
+/* Wat er te bewaren valt van de rit die net klaar is. */
+const ritEind={ spoor:[], km:0 };
+
+el('rkSluit').addEventListener('click',()=>{ el('ritKlaar').hidden=true; });
+
+/* Je spoor bewaren zet het in dezelfde bibliotheek als je GPX-bestanden. Daar
+   kun je het terugzien, opnieuw rijden en als GPX uitvoeren — dus je rit is
+   niet weg als je de volgende keer wegrijdt. */
+el('rkBewaar').addEventListener('click',()=>{
+  const pts=simplify(ritEind.spoor,0.015);
+  if(pts.length<4){ setStatus('Er is te weinig spoor om te bewaren.',true); return; }
+  const d=new Date();
+  const naam=`Gereden ${d.getDate()}-${d.getMonth()+1} · ${Math.round(ritEind.km)} km`;
+  const lijst=libAll();
+  lijst.push({ id:Date.now(), name:naam, pts, named:false });
+  if(!libSave(lijst)){ setStatus('Bewaren lukte niet — de opslag zit vol.',true); return; }
+  renderLib();
+  el('rkBewaar').hidden=true;
+  setStatus(`"${naam}" staat nu in je routebibliotheek bij Ritten.`);
+});

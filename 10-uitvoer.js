@@ -61,7 +61,7 @@ function settings(){
     noToll:el('noToll').checked, noFerry:el('noFerry').checked,
     findPois:el('findPois').checked, findStays:el('findStays').checked,
     tankKm:el('tankKm').value, tripMode, loopKm:el('loopKm').value,
-    depTime:el('depTime').value, loopOn:el('loopOn').checked,
+    depTime:el('depTime').value,
     findCurvy:el('findCurvy').checked, zuinig:el('zuinig').checked,
     offRadius:el('offRadius').value, offWhere:el('offWhere').value };
 }
@@ -73,18 +73,18 @@ function applySettings(s){
   if(s.dirt!=null){ el('dirt').value=s.dirt; el('dirtVal').textContent=s.dirt; }
   if(s.sprint!=null) el('sprintKm').value=s.sprint;
   if(s.tankKm!=null) el('tankKm').value=s.tankKm;
-  if(s.loopKm!=null) el('loopKm').value=s.loopKm;
-  if(s.loopOn!=null){ el('loopOn').checked=!!s.loopOn; if(typeof loopVeld==='function') loopVeld(); }
+  /* Het kilometervakje. Tot versie 53 stond er een vinkje naast dat bepaalde of
+     dit getal meetelde; stond dat vinkje uit, dan was het getal er wel maar deed
+     het niets. Zulke opslag staat nog in telefoons die de app al gebruikten, en
+     die moeten we niet ineens een rondje van 300 km opdringen. Dus: alleen
+     terugzetten als het getal destijds ook echt meetelde. */
+  if(s.loopKm!=null && s.loopOn!==false) el('loopKm').value=s.loopKm;
   if(s.offRadius!=null) el('offRadius').value=s.offRadius;
   if(s.offWhere!=null) el('offWhere').value=s.offWhere;
-  if(s.tripMode){
-    tripMode=s.tripMode;
-    document.querySelectorAll('#tripMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===tripMode));
-    el('modeHint').textContent=MODE_HINT[tripMode];
-    el('loopRow').hidden = tripMode!=='loop';
-    updateDestLabel();
-    el('terugHint').hidden = tripMode!=='one';
-  }
+  if(s.tripMode) tripMode=s.tripMode;
+  /* Altijd bijwerken, ook zonder bewaarde stand: dan klopt in elk geval het
+     kruisje bij het kilometervakje met wat er in staat. */
+  if(typeof soortRitBij==='function') soortRitBij();
   ['avoidTowns','noRepeat','noToll','noFerry','findPois','findStays','findCurvy','zuinig']
     .forEach(k=>{ if(s[k]!=null) el(k).checked=!!s[k]; });
 }

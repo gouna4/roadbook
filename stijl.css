@@ -400,6 +400,33 @@
   .cijfers .acc strong{color:var(--brass)}
   .cijfers > div[hidden]{display:none}
 
+  /* ---------- soort rit: drie knoppen en één vakje ----------
+     Het kilometervakje hoort bij Rondje en verschijnt daarmee. Geen vinkje
+     ernaast: leeg is "zo lang als het uitkomt", een getal is een doel. */
+  .soortrit .chips{margin-bottom:2px}
+  .lusrij{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .lusrij input{width:92px}
+
+  /* Een blok dat nog niets kan doen omdat er geen route ligt. Grijs, maar niet
+     weg: dan zie je wel dat het bestaat. */
+  .leeghint{border-left:2px solid var(--brass);padding-left:10px;margin-bottom:12px}
+  .leeghint[hidden]{display:none}
+
+  /* ---------- na de rit ----------
+     Over de kaart, want daar kijk je naar als je net gestopt bent. */
+  .ritklaar{position:absolute;left:12px;right:12px;
+    top:calc(70px + env(safe-area-inset-top));z-index:8;
+    background:var(--panel);border:1px solid var(--hair);border-radius:16px;
+    padding:14px 16px 12px;box-shadow:0 10px 30px var(--schaduw);max-width:520px;
+    margin:0 auto}
+  .ritklaar[hidden]{display:none}
+  .rkkop{font-family:var(--display);text-transform:uppercase;letter-spacing:.12em;
+    font-size:11px;color:var(--brass);margin-bottom:2px}
+  .rkcijfers{padding:4px 0 0}
+  .rkknoppen{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .rkknoppen .doe{flex:1;width:auto;margin:0;padding:13px}
+  .rkknoppen .text-btn{flex:none}
+
   /* Zuinig met data staat los van de vinkjes erboven, dus met een streepje
      ertussen. */
   .check.zuinig{margin-top:10px;padding-top:10px;border-top:1px solid var(--hair)}

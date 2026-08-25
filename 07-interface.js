@@ -228,7 +228,6 @@ function doUndo(){
   tripMode=s.mode;
   document.querySelectorAll('#tripMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===tripMode));
   el('loopRow').hidden=tripMode!=='loop';
-  el('terugHint').hidden=tripMode!=='one';
   renderVias(); saveSettings();
   el('btnUndo').disabled=!undoStack.length;
   setStatus('Teruggedraaid. Plan de route opnieuw.');
@@ -419,6 +418,13 @@ function klaarBij(){
      paneel, zodat er nooit twee verschillende getallen kunnen staan. */
   el('gripKaart').hidden=false;
   el('gripCijfers').hidden=!erIsEr;
+
+  /* Onderweg zonder route: het weer, het hoogteprofiel en "wat is er onderweg"
+     hebben dan niets om over te gaan. Dat zeggen we, en het blok dat een route
+     nodig heeft gaat grijs. De instellingen erboven blijven gewoon te
+     gebruiken — die zet je juist vóór je plant. */
+  el('wegLeeg').hidden=erIsEr;
+  el('alongBlock').classList.toggle('kleed',!erIsEr);
   if(erIsEr){
     el('gKm').textContent=el('sumKm').textContent;
     el('gTijd').textContent=el('sumTime').textContent;

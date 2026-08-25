@@ -105,11 +105,11 @@ async function plan(){
 
     if(tripMode==='loop'){
       /* Rondje: heen langs de ene kant van de lijn, terug langs de andere. */
-      const doel=+el('loopKm').value||300;
-      /* Heb je "rondje op een vaste afstand" aangevinkt, dan proberen we die
-         lengte echt te halen. Staat het uit, dan kijken we alleen of je niet
-         te veel dubbel rijdt en is de eerste route die goed is meteen goed. */
-      const vast=el('loopOn').checked;
+      /* Staat er een getal bij Rondje, dan proberen we die lengte echt te
+         halen. Is het vakje leeg, dan kijken we alleen of je niet te veel
+         dubbel rijdt en is de eerste route die goed is meteen goed. */
+      const doel=+el('loopKm').value||0;
+      const vast=doel>0;
       const pogingen=3;
       let off=Math.max(12,luchtlijn0*0.30);
       const eigen=manualOrder?viaPts:order(viaPts);

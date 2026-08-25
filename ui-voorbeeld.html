@@ -1,0 +1,838 @@
+<title>Roadbook Plannen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
+
+<style>
+/* ============================================================
+   Deze pagina is geen app — het is een voorbeeld om naar te kijken.
+   De telefoonschermen hieronder gebruiken exact de kleuren en letters
+   die in stijl.css van Roadbook staan. Er is niets bij verzonnen.
+   ============================================================ */
+
+/* De pagina zelf: een rustige achtergrond zodat de twee telefoons het
+   werk doen. Volgt het thema van je browser. */
+:root{
+  --vel:#F2F0EB; --vel-2:#FFFFFF; --rand:#DCD7CC;
+  --tekst:#1D2228; --stil:#6A7178; --mark:#8A5D12;
+  --display:'Barlow Condensed',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --vel:#101418; --vel-2:#171C21; --rand:#2A333A;
+    --tekst:#E7E4DC; --stil:#8D9AA4; --mark:#C9973F;
+  }
+}
+:root[data-theme="dark"]{
+  --vel:#101418; --vel-2:#171C21; --rand:#2A333A;
+  --tekst:#E7E4DC; --stil:#8D9AA4; --mark:#C9973F;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--vel);color:var(--tekst);
+  font-family:var(--body);font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:38px 20px 80px}
+
+.eyebrow{font-family:var(--display);text-transform:uppercase;
+  letter-spacing:.16em;font-size:12px;font-weight:600;color:var(--mark);margin:0 0 6px}
+h1{font-family:var(--display);font-size:clamp(30px,6vw,46px);line-height:1.02;
+  font-weight:700;margin:0 0 12px;text-wrap:balance;letter-spacing:-.01em}
+h2{font-family:var(--display);font-size:clamp(20px,4vw,26px);font-weight:600;
+  margin:0 0 4px;letter-spacing:.01em}
+.lead{max-width:62ch;color:var(--stil);margin:0 0 8px}
+.lead b{color:var(--tekst);font-weight:600}
+
+/* ---------- de rij met telefoons ---------- */
+.rij{display:grid;gap:26px;margin-top:34px;
+  grid-template-columns:repeat(auto-fit,minmax(310px,1fr))}
+.kolom{display:flex;flex-direction:column;gap:10px;min-width:0}
+.kolomkop{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.merk{font-family:var(--display);text-transform:uppercase;letter-spacing:.12em;
+  font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;
+  border:1px solid var(--rand);color:var(--stil)}
+.merk.nu{border-color:#B4483A;color:#B4483A}
+.merk.straks{border-color:#2E7D57;color:#2E7D57}
+.kolom > p{margin:0;color:var(--stil);font-size:13.5px;max-width:44ch}
+
+/* De telefoon. Vaste breedte-verhouding zodat het echt aanvoelt. */
+.fon{border-radius:26px;overflow:hidden;border:1px solid var(--rand);
+  box-shadow:0 14px 40px rgba(0,0,0,.16);width:100%;max-width:390px}
+
+/* ============================================================
+   Vanaf hier: de kleuren van Roadbook zelf, uit stijl.css.
+   .donker = het donkere thema, .licht = het lichte.
+   ============================================================ */
+.mock{
+  --ink:#14181C; --panel:#1C2228; --panel-2:#232B32; --hair:#333D45;
+  --paper:#E7E4DC; --muted:#8D9AA4; --zacht:#66727C;
+  --brass:#C9973F; --signal:#FF5A1F; --moss:#6B8F71; --sky:#3FC4F0;
+  --gaan:#1B8A4B; --opknop:#14181C;
+  --weg:#3A464E; --land:#1A2026; --bos:#1D2A22; --water:#16242E;
+  font-family:var(--body);background:var(--panel);color:var(--paper)}
+.mock.licht{
+  --ink:#EDEAE3; --panel:#FBF9F5; --panel-2:#F1EEE7; --hair:#D5CFC3;
+  --paper:#1A1F25; --muted:#5F6871; --zacht:#8A9299;
+  --brass:#8A5D12; --signal:#C93C0B; --moss:#4C6E53; --sky:#15719B;
+  --gaan:#137A3F; --opknop:#FFFFFF;
+  --weg:#FFFFFF; --land:#EDE8DC; --bos:#DDE7D3; --water:#C9DDE8}
+
+/* ---------- het stukje kaart bovenin ---------- */
+.kaart{height:132px;position:relative;background:var(--land);overflow:hidden}
+.kaart svg{position:absolute;inset:0;width:100%;height:100%}
+.zoekbalk{position:absolute;left:10px;right:56px;top:10px;
+  background:rgba(28,34,40,.86);border:1px solid var(--hair);border-radius:24px;
+  padding:9px 16px;font-size:13.5px;color:var(--paper);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.licht .zoekbalk{background:rgba(255,255,255,.92)}
+.rondje{position:absolute;top:10px;right:10px;width:38px;height:38px;
+  border-radius:50%;background:rgba(28,34,40,.86);border:1px solid var(--hair);
+  display:grid;place-items:center;font-size:15px;color:var(--paper)}
+.licht .rondje{background:rgba(255,255,255,.92)}
+
+/* ---------- het paneel ---------- */
+.paneel{background:var(--panel);padding:0 0 16px}
+.tabs{display:flex;align-items:center;gap:2px;padding:6px 8px;
+  border-bottom:1px solid var(--hair)}
+.tabs button{border:1px solid transparent;background:none;border-radius:10px;
+  padding:9px 11px;font-family:var(--display);font-size:14px;font-weight:600;
+  color:var(--muted);cursor:default}
+.tabs .aan{color:var(--brass);border-color:var(--brass);background:var(--panel-2)}
+.ver{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--zacht);
+  padding-right:6px}
+
+.vak{padding:14px 16px}
+.vak + .vak{border-top:1px solid var(--hair)}
+.kopje{font-family:var(--display);text-transform:uppercase;letter-spacing:.13em;
+  font-size:10px;font-weight:600;color:var(--muted);margin:0 0 8px}
+.uitleg{font-size:11.5px;line-height:1.45;color:var(--zacht);margin:8px 0 0}
+
+.plek{display:flex;align-items:center;gap:10px;padding:9px 0;
+  border-bottom:1px solid var(--hair)}
+.plek:last-of-type{border-bottom:0}
+.vlag{font-size:15px;color:var(--signal)}
+.vlag.eind{color:var(--brass)}
+.plek span.naam{flex:1;font-size:15.5px}
+.plek .x{color:var(--zacht);font-size:13px}
+.tussen{font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;
+  font-size:11px;font-weight:600;color:var(--brass);padding-top:8px;display:block}
+
+.wegen{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.wegen div{aspect-ratio:1;border:1px solid var(--hair);border-radius:9px;
+  display:grid;place-items:center;color:var(--muted)}
+.wegen div.aan{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
+.wegen svg{width:26px;height:14px}
+
+.knop{display:block;width:100%;border:0;border-radius:14px;padding:16px;
+  font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;
+  font-size:15.5px;font-weight:700;background:var(--signal);color:var(--opknop);
+  cursor:default;margin-top:12px}
+.knop.groen{background:var(--gaan);color:#FFF}
+
+.cijfers{display:flex;gap:10px;padding:14px 0 0}
+.cijfers > div{flex:1;min-width:0}
+.cijfers span{display:block;font-family:var(--display);text-transform:uppercase;
+  letter-spacing:.1em;font-size:9.5px;color:var(--muted)}
+.cijfers strong{display:block;font-family:var(--mono);font-weight:500;font-size:17px;
+  margin-top:3px;font-variant-numeric:tabular-nums}
+.cijfers .acc strong{color:var(--brass)}
+.status{font-size:11.5px;color:var(--zacht);margin:10px 0 0}
+.mee{display:flex;gap:6px;margin-top:10px}
+.mee button{flex:1;border:1px solid var(--hair);background:none;border-radius:10px;
+  padding:11px 4px;font-family:var(--display);text-transform:uppercase;
+  letter-spacing:.06em;font-size:10px;font-weight:600;color:var(--brass);cursor:default}
+
+/* ============================================================
+   Het voorstel. Alleen andere opmaak — dezelfde kleuren, dezelfde app.
+   ============================================================ */
+.nieuw .tabs{padding:8px 10px;border-bottom:1px solid var(--hair)}
+.nieuw .tabs button{font-size:15px;padding:8px 12px;border-radius:99px}
+.nieuw .tabs .aan{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
+.nieuw .tabs .weg{color:var(--sky)}
+.nieuw .tabs .rit{color:var(--moss)}
+
+.nieuw .vak{padding:16px 16px 4px}
+.nieuw .vak + .vak{border-top:0}
+/* Een dikke kop in gewone letters in plaats van een streepje hoofdletters. */
+.nieuw h3{font-family:var(--display);font-size:19px;font-weight:600;
+  margin:0 0 10px;letter-spacing:.005em}
+.nieuw h3 .ino{float:right;width:19px;height:19px;border-radius:50%;
+  border:1px solid var(--hair);color:var(--muted);font-size:11px;font-weight:400;
+  font-family:var(--body);display:grid;place-items:center;margin-top:3px}
+
+/* De twee plekken als één kaart met echte rangorde. */
+.route{background:var(--panel-2);border-radius:14px;padding:4px 14px}
+.route .plek{border-bottom:1px dashed var(--hair)}
+.route .plek:last-child{border-bottom:0}
+.route .plek span.naam{font-family:var(--display);font-size:21px;font-weight:600;
+  line-height:1.2}
+.route .klein{font-size:11px;color:var(--muted);font-family:var(--body);
+  display:block;letter-spacing:.02em}
+
+/* Soort rit: pillen met een icoon. */
+.pillen{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.pillen button{border:1px solid var(--hair);background:none;border-radius:99px;
+  padding:9px 14px 9px 11px;font-family:var(--display);font-size:13.5px;
+  font-weight:600;color:var(--muted);display:inline-flex;align-items:center;
+  gap:7px;cursor:default}
+.pillen button.aan{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
+.pillen svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.lus{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;
+  color:var(--muted)}
+.lus b{font-family:var(--mono);font-weight:500;font-size:15px;color:var(--paper);
+  border:1px solid var(--brass);border-radius:9px;padding:6px 11px;
+  background:var(--panel-2)}
+
+/* Het resultaat als dashboard. */
+.dash{background:var(--panel-2);border-radius:16px;padding:15px 16px 16px;margin-top:14px}
+.groot{font-family:var(--mono);font-size:40px;font-weight:500;line-height:1;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.groot i{font-family:var(--display);font-style:normal;font-size:17px;
+  color:var(--muted);margin-left:6px}
+.onder{display:flex;gap:16px;margin-top:8px;font-size:13.5px;color:var(--muted)}
+.onder b{font-family:var(--mono);font-weight:500;color:var(--paper)}
+.balkrij{display:flex;align-items:center;gap:10px;margin-top:14px}
+.balklabel{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;
+  font-size:10px;color:var(--muted);flex:none}
+.balk{flex:1;height:9px;border-radius:99px;overflow:hidden;
+  background:linear-gradient(90deg,#6B8F71 0%,#C9973F 45%,#FF5A1F 75%,#E02D00 100%);
+  position:relative}
+.balk::after{content:'';position:absolute;top:-3px;bottom:-3px;
+  left:64%;width:3px;border-radius:2px;background:var(--paper);
+  box-shadow:0 0 0 2px var(--panel-2)}
+.balkgetal{font-family:var(--mono);font-size:16px;font-weight:500;flex:none;
+  color:var(--brass)}
+
+/* Wat je onderweg wil zien: ronde knoppen met een woord eronder. */
+.iconen{display:flex;gap:8px;margin-top:10px}
+.iconen figure{margin:0;flex:1;text-align:center}
+.iconen .bol{width:100%;aspect-ratio:1;max-width:56px;margin:0 auto;
+  border-radius:50%;border:1px solid var(--hair);display:grid;place-items:center;
+  font-size:20px;color:var(--muted)}
+.iconen .bol.aan{background:var(--sky);border-color:var(--sky);color:var(--ink)}
+.iconen figcaption{font-family:var(--display);font-size:11px;color:var(--muted);
+  margin-top:5px;letter-spacing:.03em}
+
+/* ---------- de uitleg onder de telefoons ---------- */
+.punten{margin-top:52px;display:grid;gap:18px;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.punt{background:var(--vel-2);border:1px solid var(--rand);border-radius:14px;
+  padding:16px 17px}
+.punt h3{font-family:var(--display);font-size:17px;font-weight:600;margin:0 0 6px;
+  display:flex;align-items:center;gap:9px}
+.letter{width:23px;height:23px;border-radius:7px;background:var(--mark);
+  color:var(--vel-2);font-size:13px;display:grid;place-items:center;flex:none}
+.punt p{margin:0;font-size:13.5px;color:var(--stil)}
+.punt p + p{margin-top:7px}
+
+.slot{margin-top:44px;border-top:1px solid var(--rand);padding-top:22px;
+  color:var(--stil);font-size:14px;max-width:70ch}
+.slot b{color:var(--tekst)}
+/* ============================================================
+   De rijmodus. Volle vlakken, geen doorzichtige kaartjes: dit moet
+   in de zon door een vizier te lezen zijn.
+   ============================================================ */
+.cabine{background:var(--ink);display:flex;flex-direction:column;min-height:560px}
+.afslag{background:var(--gaan);color:#FFF;display:flex;align-items:center;gap:16px;
+  padding:16px 18px}
+.afslag svg{width:52px;height:52px;flex:none;fill:none;stroke:currentColor;
+  stroke-width:5.5;stroke-linecap:round;stroke-linejoin:round}
+.afslag .ver{font-family:var(--mono);font-size:38px;line-height:1;font-weight:500;
+  margin:0;padding:0;color:#FFF;font-variant-numeric:tabular-nums}
+.afslag .doe{font-family:var(--display);font-size:19px;font-weight:600;
+  opacity:.94;margin-top:4px}
+
+.wegbalk{background:#07090B;display:flex;align-items:center;gap:12px;padding:9px 16px}
+.wegbalk .wegtxt{flex:1;min-width:0}
+.wegbalk .wegnaam{font-family:var(--display);font-weight:700;color:#FFF;
+  font-size:24px;line-height:1.1;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.wegbalk .straks{font-size:13px;color:#9AA6AE;margin-top:2px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+
+/* Het ronde bord, precies zoals het langs de weg staat. */
+.bord{flex:none;width:56px;height:56px;border-radius:50%;background:#FFF;
+  border:5px solid #D42B1A;color:#111;font-family:var(--mono);font-weight:700;
+  font-size:22px;line-height:1;display:grid;place-items:center}
+.bord.vrij{border-color:#8A939A;color:#5A646C;font-family:var(--display);
+  font-size:15px;text-transform:uppercase;letter-spacing:.04em}
+
+.cabkaart{flex:1;position:relative;background:var(--land);min-height:180px;overflow:hidden}
+.cabkaart svg.grond{position:absolute;inset:0;width:100%;height:100%}
+.cabknoppen{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:8px}
+.cabknoppen div{width:44px;height:44px;border-radius:50%;background:rgba(28,34,40,.86);
+  border:1px solid var(--hair);color:var(--paper);display:grid;place-items:center;
+  font-size:15px;font-family:var(--display);font-weight:700;letter-spacing:.03em}
+.licht .cabknoppen div{background:rgba(255,255,255,.9)}
+.cabknoppen div small{font-size:10.5px}
+.mijpijl{position:absolute;left:50%;top:68%;transform:translate(-50%,-50%)}
+.mijpijl svg{width:38px;height:38px}
+
+.cabonder{background:var(--panel);border-top:1px solid var(--hair);padding:12px 14px}
+/* Nu: drie even grote hokjes. */
+.cabcijfers{display:flex;gap:10px}
+.cabcijfers > div{flex:1;min-width:0;text-align:center}
+.cabcijfers span{display:block;font-family:var(--display);text-transform:uppercase;
+  letter-spacing:.1em;font-size:9.5px;color:var(--muted)}
+.cabcijfers strong{display:block;font-family:var(--mono);font-weight:500;
+  font-size:26px;line-height:1.05;margin-top:3px;font-variant-numeric:tabular-nums}
+
+/* Voorstel: snelheid groot, met het bord ernaast. Dat zijn de twee getallen
+   die je met elkaar vergelijkt, dus ze horen naast elkaar. */
+.snelrij{display:flex;align-items:center;gap:14px}
+.snelblok{display:flex;align-items:baseline;gap:7px}
+.snelblok b{font-family:var(--mono);font-size:46px;font-weight:500;line-height:.9;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.snelblok i{font-family:var(--display);font-style:normal;font-size:13px;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.snelrest{margin-left:auto;display:flex;gap:16px;text-align:right}
+.snelrest span{display:block;font-family:var(--display);text-transform:uppercase;
+  letter-spacing:.09em;font-size:9.5px;color:var(--muted)}
+.snelrest strong{display:block;font-family:var(--mono);font-weight:500;font-size:19px;
+  margin-top:2px;font-variant-numeric:tabular-nums}
+
+/* Hoe ver ben je? Eén streep, en je weet het. */
+.voortgang{height:5px;border-radius:99px;background:var(--hair);margin-top:12px;
+  overflow:hidden}
+.voortgang i{display:block;height:100%;width:53%;border-radius:99px;
+  background:var(--brass)}
+.voortlabel{display:flex;justify-content:space-between;margin-top:5px;
+  font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;
+  font-size:9.5px;color:var(--zacht)}
+
+.cabknop{display:flex;gap:8px;margin-top:12px}
+.cabknop button{flex:1;border:1px solid var(--hair);background:none;border-radius:11px;
+  padding:14px 6px;font-family:var(--display);text-transform:uppercase;
+  letter-spacing:.07em;font-size:12.5px;font-weight:600;color:var(--muted);cursor:default}
+.cabknop button.stop{border-color:var(--signal);color:var(--signal)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Voorstel · Roadbook v54</p>
+  <h1>Het Plannen-scherm, opnieuw</h1>
+  <p class="lead">
+    Hieronder staat links het scherm <b>zoals het nu is</b> en rechts <b>hoe het
+    zou kunnen worden</b>. Er is geen enkele nieuwe kleur verzonnen: alles wat je
+    rechts ziet staat al in de app, het wordt alleen anders verdeeld. Nog niets
+    hiervan zit in de echte app.
+  </p>
+
+  <!-- ================= donker naast elkaar ================= -->
+  <div class="rij">
+
+    <div class="kolom">
+      <div class="kolomkop"><h2>Nu</h2><span class="merk nu">zoals het is</span></div>
+      <p>Twaalf omkaderde blokken, tien kopjes in hoofdletters, negentien
+         uitleg-alinea's. Alles even belangrijk.</p>
+
+      <div class="fon mock donker">
+        <div class="kaart">
+          <svg viewBox="0 0 390 132" aria-hidden="true">
+            <rect width="390" height="132" fill="#1A2026"/>
+            <path d="M-10 96 Q80 88 130 66 T250 40 T400 26" stroke="#1D2A22" stroke-width="46" fill="none"/>
+            <path d="M-10 118 H400" stroke="#3A464E" stroke-width="7" fill="none"/>
+            <path d="M40 132 Q70 80 120 70 T210 34 T300 -6" stroke="#3A464E" stroke-width="5" fill="none"/>
+            <path d="M40 132 Q70 80 120 70 T210 34 T300 -6" stroke="#C9973F" stroke-width="2.6" fill="none"/>
+          </svg>
+          <div class="zoekbalk">Winterberg</div>
+          <div class="rondje">◎</div>
+        </div>
+
+        <div class="paneel">
+          <div class="tabs">
+            <button class="aan">Plannen</button>
+            <button>Onderweg</button>
+            <button>Ritten</button>
+            <span class="ver">v54</span>
+            <button>⚙</button>
+          </div>
+
+          <div class="vak">
+            <div class="plek"><span class="vlag">⚑</span><span class="naam">Belfeld</span><span class="x">✕</span></div>
+            <div class="plek"><span class="vlag eind">⚑</span><span class="naam">Winterberg</span><span class="x">✕</span></div>
+            <span class="tussen">+ Tussenstop</span>
+          </div>
+
+          <div class="vak">
+            <p class="kopje">Soort rit</p>
+            <div class="pillen">
+              <button class="aan">Enkele reis</button>
+              <button>Heen en terug</button>
+              <button>Rondje</button>
+            </div>
+            <p class="uitleg">Van A naar B — je stopt bij je bestemming.</p>
+          </div>
+
+          <div class="vak">
+            <div class="wegen">
+              <div><svg viewBox="0 0 40 16"><path d="M2 8C4 1 6 1 8 8s4 7 6 0 4-7 6 0 4 7 6 0 4-7 6 0 4 7 6 0" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div><svg viewBox="0 0 40 16"><path d="M2 8C6 0 10 0 14 8s8 8 12 0 8-8 12 0" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div class="aan"><svg viewBox="0 0 40 16"><path d="M2 10C10 2 16 14 24 7s10-3 14 1" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div><svg viewBox="0 0 40 16"><path d="M2 8h36" fill="none" stroke="currentColor" stroke-width="2.4"/></svg></div>
+              <div><svg viewBox="0 0 40 16"><path d="M2 12h12l4-8h20" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div>⚌</div>
+            </div>
+            <p class="uitleg">Doorgaande landwegen met vloeiende bochten. Dorpen
+               worden zoveel mogelijk gemeden.</p>
+            <button class="knop">Route plannen</button>
+            <div class="cijfers">
+              <div><span>Afstand</span><strong>187 km</strong></div>
+              <div><span>Rijtijd</span><strong>3u 10</strong></div>
+              <div><span>Aankomst</span><strong>16:42</strong></div>
+              <div class="acc"><span>Bochtig</span><strong>64</strong></div>
+            </div>
+            <p class="status">Bochtige wegen zoeken…</p>
+            <p class="kopje" style="margin-top:14px">Meenemen</p>
+            <div class="mee">
+              <button>GPX opslaan</button><button>Delen</button><button>Naar telefoon</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="kolom">
+      <div class="kolomkop"><h2>Voorstel</h2><span class="merk straks">zoals het kan</span></div>
+      <p>Geen kaders meer, geen hoofdletters, uitleg achter een ⓘ. De bestemming
+         is het grootste op het scherm, en de bochtigheid krijgt een balk.</p>
+
+      <div class="fon mock donker nieuw">
+        <div class="kaart">
+          <svg viewBox="0 0 390 132" aria-hidden="true">
+            <rect width="390" height="132" fill="#1A2026"/>
+            <path d="M-10 96 Q80 88 130 66 T250 40 T400 26" stroke="#1D2A22" stroke-width="46" fill="none"/>
+            <path d="M-10 118 H400" stroke="#3A464E" stroke-width="7" fill="none"/>
+            <path d="M40 132 Q70 80 120 70 T210 34 T300 -6" stroke="#3A464E" stroke-width="5" fill="none"/>
+            <path d="M40 132 Q70 80 120 70 T210 34 T300 -6" stroke="#C9973F" stroke-width="2.6" fill="none"/>
+          </svg>
+          <div class="zoekbalk">Winterberg</div>
+          <div class="rondje">◎</div>
+        </div>
+
+        <div class="paneel">
+          <div class="tabs">
+            <button class="aan">Plannen</button>
+            <button class="weg">Onderweg</button>
+            <button class="rit">Ritten</button>
+            <span class="ver">v55</span>
+            <button>⚙</button>
+          </div>
+
+          <div class="vak">
+            <div class="route">
+              <div class="plek">
+                <span class="vlag">⚑</span>
+                <span class="naam">Belfeld<span class="klein">vanaf je gps</span></span>
+              </div>
+              <div class="plek">
+                <span class="vlag eind">⚑</span>
+                <span class="naam">Winterberg<span class="klein">bestemming</span></span>
+              </div>
+            </div>
+
+            <div class="pillen">
+              <button>
+                <svg viewBox="0 0 20 20"><path d="M3 15h9a4 4 0 0 0 0-8H8"/><path d="M14 12l3 3-3 3" transform="translate(0,-11)"/></svg>
+                Enkele reis
+              </button>
+              <button>
+                <svg viewBox="0 0 20 20"><path d="M4 7h9a3.5 3.5 0 0 1 0 7H5"/><path d="M8 4 5 7l3 3"/></svg>
+                Heen en terug
+              </button>
+              <button class="aan">
+                <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6.4"/><path d="M10 3.6l2.4 2.2-2.4 2.2"/></svg>
+                Rondje
+              </button>
+            </div>
+            <div class="lus">Ongeveer <b>250</b> km</div>
+          </div>
+
+          <div class="vak">
+            <h3>Wat voor wegen<span class="ino">ⓘ</span></h3>
+            <div class="wegen">
+              <div><svg viewBox="0 0 40 16"><path d="M2 8C4 1 6 1 8 8s4 7 6 0 4-7 6 0 4 7 6 0 4-7 6 0 4 7 6 0" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div><svg viewBox="0 0 40 16"><path d="M2 8C6 0 10 0 14 8s8 8 12 0 8-8 12 0" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div class="aan"><svg viewBox="0 0 40 16"><path d="M2 10C10 2 16 14 24 7s10-3 14 1" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div><svg viewBox="0 0 40 16"><path d="M2 8h36" fill="none" stroke="currentColor" stroke-width="2.4"/></svg></div>
+              <div><svg viewBox="0 0 40 16"><path d="M2 12h12l4-8h20" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div>⚌</div>
+            </div>
+
+            <button class="knop">Route plannen</button>
+
+            <div class="dash">
+              <div class="groot">187<i>km</i></div>
+              <div class="onder">
+                <span>rijtijd <b>3u 10</b></span>
+                <span>aankomst <b>16:42</b></span>
+              </div>
+              <div class="balkrij">
+                <span class="balklabel">Bochtig</span>
+                <span class="balk"></span>
+                <span class="balkgetal">64</span>
+              </div>
+              <button class="knop groen">▶ Route starten</button>
+            </div>
+          </div>
+
+          <div class="vak">
+            <h3>Onderweg zien<span class="ino">ⓘ</span></h3>
+            <div class="iconen">
+              <figure><div class="bol aan">⛰</div><figcaption>Bochten</figcaption></figure>
+              <figure><div class="bol aan">📷</div><figcaption>Mooi</figcaption></figure>
+              <figure><div class="bol">🛏</div><figcaption>Slapen</figcaption></figure>
+              <figure><div class="bol">⛽</div><figcaption>Tanken</figcaption></figure>
+              <figure><div class="bol">🍽</div><figcaption>Eten</figcaption></figure>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= hetzelfde, maar licht ================= -->
+  <div class="rij" style="margin-top:46px">
+    <div class="kolom">
+      <div class="kolomkop"><h2>En overdag</h2><span class="merk straks">licht thema</span></div>
+      <p>Ditzelfde voorstel in het lichte thema — dat schakelt de app zelf om bij
+         zonsondergang. Grote kans dat jouw app op <b>altijd donker</b> staat: tik
+         op het ☀-knopje in de kop tot het licht wordt.</p>
+
+      <div class="fon mock licht nieuw">
+        <div class="kaart">
+          <svg viewBox="0 0 390 132" aria-hidden="true">
+            <rect width="390" height="132" fill="#EDE8DC"/>
+            <path d="M-10 96 Q80 88 130 66 T250 40 T400 26" stroke="#DDE7D3" stroke-width="46" fill="none"/>
+            <path d="M-10 118 H400" stroke="#FFFFFF" stroke-width="7" fill="none"/>
+            <path d="M40 132 Q70 80 120 70 T210 34 T300 -6" stroke="#FFFFFF" stroke-width="5" fill="none"/>
+            <path d="M40 132 Q70 80 120 70 T210 34 T300 -6" stroke="#C93C0B" stroke-width="2.6" fill="none"/>
+          </svg>
+          <div class="zoekbalk">Winterberg</div>
+          <div class="rondje">◎</div>
+        </div>
+
+        <div class="paneel">
+          <div class="tabs">
+            <button class="aan">Plannen</button>
+            <button class="weg">Onderweg</button>
+            <button class="rit">Ritten</button>
+            <span class="ver">v55</span>
+            <button>⚙</button>
+          </div>
+
+          <div class="vak">
+            <div class="route">
+              <div class="plek">
+                <span class="vlag">⚑</span>
+                <span class="naam">Belfeld<span class="klein">vanaf je gps</span></span>
+              </div>
+              <div class="plek">
+                <span class="vlag eind">⚑</span>
+                <span class="naam">Winterberg<span class="klein">bestemming</span></span>
+              </div>
+            </div>
+            <div class="pillen">
+              <button>Enkele reis</button>
+              <button>Heen en terug</button>
+              <button class="aan">
+                <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6.4"/><path d="M10 3.6l2.4 2.2-2.4 2.2"/></svg>
+                Rondje
+              </button>
+            </div>
+            <div class="lus">Ongeveer <b>250</b> km</div>
+          </div>
+
+          <div class="vak">
+            <h3>Wat voor wegen<span class="ino">ⓘ</span></h3>
+            <div class="wegen">
+              <div><svg viewBox="0 0 40 16"><path d="M2 8C4 1 6 1 8 8s4 7 6 0 4-7 6 0 4 7 6 0 4-7 6 0 4 7 6 0" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div><svg viewBox="0 0 40 16"><path d="M2 8C6 0 10 0 14 8s8 8 12 0 8-8 12 0" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div class="aan"><svg viewBox="0 0 40 16"><path d="M2 10C10 2 16 14 24 7s10-3 14 1" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div><svg viewBox="0 0 40 16"><path d="M2 8h36" fill="none" stroke="currentColor" stroke-width="2.4"/></svg></div>
+              <div><svg viewBox="0 0 40 16"><path d="M2 12h12l4-8h20" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+              <div>⚌</div>
+            </div>
+            <button class="knop">Route plannen</button>
+            <div class="dash">
+              <div class="groot">187<i>km</i></div>
+              <div class="onder">
+                <span>rijtijd <b>3u 10</b></span>
+                <span>aankomst <b>16:42</b></span>
+              </div>
+              <div class="balkrij">
+                <span class="balklabel">Bochtig</span>
+                <span class="balk"></span>
+                <span class="balkgetal">64</span>
+              </div>
+              <button class="knop groen">▶ Route starten</button>
+            </div>
+          </div>
+
+          <div class="vak">
+            <h3>Onderweg zien<span class="ino">ⓘ</span></h3>
+            <div class="iconen">
+              <figure><div class="bol aan">⛰</div><figcaption>Bochten</figcaption></figure>
+              <figure><div class="bol aan">📷</div><figcaption>Mooi</figcaption></figure>
+              <figure><div class="bol">🛏</div><figcaption>Slapen</figcaption></figure>
+              <figure><div class="bol">⛽</div><figcaption>Tanken</figcaption></figure>
+              <figure><div class="bol">🍽</div><figcaption>Eten</figcaption></figure>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="kolom">
+      <h2>Wat er precies verandert</h2>
+      <div class="punten" style="margin-top:12px;grid-template-columns:1fr">
+        <div class="punt">
+          <h3><span class="letter">A</span> Elk tabblad zijn eigen kleur</h3>
+          <p>Plannen messing, Onderweg lichtblauw, Ritten mosgroen. Die kleuren
+             staan al in de app maar worden bijna niet gebruikt: messing doet nu
+             49 van de 65 gekleurde dingen. Je ziet voortaan in één oogopslag
+             waar je bent.</p>
+        </div>
+        <div class="punt">
+          <h3><span class="letter">B</span> Kaders en hoofdletters eruit</h3>
+          <p>Een dikke kop in gewone letters met lucht eromheen, in plaats van een
+             streepje hoofdletters in een kader. Dezelfde inhoud, half zo druk.</p>
+        </div>
+        <div class="punt">
+          <h3><span class="letter">C</span> Uitleg achter een ⓘ</h3>
+          <p>De negentien uitleg-alinea's lees je één keer en daarna zijn het
+             strepen grijs. Ze blijven bestaan, maar achter een klein rondje dat
+             je kunt opentikken.</p>
+        </div>
+        <div class="punt">
+          <h3><span class="letter">D</span> Vinkjes worden ronde knoppen</h3>
+          <p>Acht kleine vinkjes worden vijf ronde knoppen met een woord eronder.
+             Drie keer zo groot, dus met handschoenen aan raak je ze wél. Het
+             woord blijft staan: aan een icoon alleen zie je niet wat "bochten
+             opzoeken" betekent.</p>
+        </div>
+        <div class="punt">
+          <h3><span class="letter">E</span> Het resultaat als dashboard</h3>
+          <p>De afstand groot, rijtijd en aankomst eronder, en de bochtigheid als
+             balk die van groen naar rood loopt met jouw score erin. Dat cijfer is
+             wat deze app anders maakt dan alle andere — dan mag het er ook
+             uitzien alsof het ertoe doet.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ================= de rijmodus ================= -->
+  <h2 style="margin-top:64px;font-size:clamp(24px,5vw,32px)">En zo ziet het rijden eruit</h2>
+  <p class="lead" style="margin-bottom:6px">
+    Dit is het scherm waar je met een helm op naar kijkt, met handschoenen aan,
+    in de zon, op 100 km/u. Daar geldt maar één regel: <b>wat je het vaakst
+    checkt, hoort het grootst te zijn.</b>
+  </p>
+
+  <div class="rij">
+
+    <!-- ---------- nu ---------- -->
+    <div class="kolom">
+      <div class="kolomkop"><h2>Nu</h2><span class="merk nu">zoals het is</span></div>
+      <p>Snelheid, nog te gaan en aankomst zijn drie even grote hokjes. Het bord
+         met de toegestane snelheid staat bovenin, ver van je eigen snelheid.</p>
+
+      <div class="fon mock donker">
+        <div class="cabine">
+          <div class="afslag">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+              <path d="M24 44 V24 Q24 16 32 16 H36"/>
+              <path d="M34 8 L44 16 L34 24 Z" fill="currentColor" stroke="none"/>
+            </svg>
+            <div>
+              <p class="ver">700 m</p>
+              <div class="doe">Rechtsaf</div>
+            </div>
+          </div>
+
+          <div class="wegbalk">
+            <div class="wegtxt">
+              <div class="wegnaam">A 61</div>
+              <div class="straks">daarna links naar de Höfener Straße</div>
+            </div>
+            <div class="bord">100</div>
+          </div>
+
+          <div class="cabkaart">
+            <svg class="grond" viewBox="0 0 390 220" aria-hidden="true">
+              <rect width="390" height="220" fill="#1A2026"/>
+              <path d="M-20 200 Q90 180 150 130 T260 40 T420 -10" stroke="#1D2A22" stroke-width="60" fill="none"/>
+              <path d="M195 240 L195 120 Q195 70 250 44 T400 6" stroke="#3A464E" stroke-width="16" fill="none"/>
+              <path d="M195 240 L195 120 Q195 70 250 44 T400 6" stroke="#C9973F" stroke-width="7" fill="none"/>
+              <path d="M-20 150 H130" stroke="#3A464E" stroke-width="6" fill="none"/>
+            </svg>
+            <div class="mijpijl">
+              <svg viewBox="0 0 40 40" aria-hidden="true">
+                <path d="M20 3 L34 34 L20 26.5 L6 34 Z" fill="#4FC8F5" stroke="#07131A" stroke-width="2.6" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="cabknoppen"><div>◎</div><div>◈</div><div><small>AUTO</small></div></div>
+          </div>
+
+          <div class="cabonder">
+            <div class="cabcijfers">
+              <div><span>Snelheid</span><strong>98</strong></div>
+              <div><span>Nog te gaan</span><strong>87</strong></div>
+              <div><span>Aankomst</span><strong>16:42</strong></div>
+            </div>
+            <div class="cabknop">
+              <button>🔊 Stem</button><button>↩ Spoor</button><button class="stop">Stoppen</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- voorstel ---------- -->
+    <div class="kolom">
+      <div class="kolomkop"><h2>Voorstel</h2><span class="merk straks">zoals het kan</span></div>
+      <p>Je snelheid groot, met het bord er pal naast — dat zijn de twee getallen
+         die je met elkaar vergelijkt. En één streep die zegt hoe ver je bent.</p>
+
+      <div class="fon mock donker">
+        <div class="cabine">
+          <div class="afslag">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+              <path d="M24 44 V24 Q24 16 32 16 H36"/>
+              <path d="M34 8 L44 16 L34 24 Z" fill="currentColor" stroke="none"/>
+            </svg>
+            <div>
+              <p class="ver">700 m</p>
+              <div class="doe">Rechtsaf</div>
+            </div>
+          </div>
+
+          <div class="wegbalk">
+            <div class="wegtxt">
+              <div class="wegnaam">A 61</div>
+              <div class="straks">daarna links naar de Höfener Straße</div>
+            </div>
+          </div>
+
+          <div class="cabkaart">
+            <svg class="grond" viewBox="0 0 390 220" aria-hidden="true">
+              <rect width="390" height="220" fill="#1A2026"/>
+              <path d="M-20 200 Q90 180 150 130 T260 40 T420 -10" stroke="#1D2A22" stroke-width="60" fill="none"/>
+              <path d="M195 240 L195 120 Q195 70 250 44 T400 6" stroke="#3A464E" stroke-width="16" fill="none"/>
+              <path d="M195 240 L195 120 Q195 70 250 44 T400 6" stroke="#C9973F" stroke-width="7" fill="none"/>
+              <path d="M-20 150 H130" stroke="#3A464E" stroke-width="6" fill="none"/>
+            </svg>
+            <div class="mijpijl">
+              <svg viewBox="0 0 40 40" aria-hidden="true">
+                <path d="M20 3 L34 34 L20 26.5 L6 34 Z" fill="#4FC8F5" stroke="#07131A" stroke-width="2.6" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="cabknoppen"><div>◎</div><div>◈</div><div><small>AUTO</small></div></div>
+          </div>
+
+          <div class="cabonder">
+            <div class="snelrij">
+              <div class="snelblok"><b>98</b><i>km/u</i></div>
+              <div class="bord">100</div>
+              <div class="snelrest">
+                <div><span>Te gaan</span><strong>87</strong></div>
+                <div><span>Aankomst</span><strong>16:42</strong></div>
+              </div>
+            </div>
+            <div class="voortgang"><i></i></div>
+            <div class="voortlabel"><span>100 km gereden</span><span>187 km</span></div>
+            <div class="cabknop">
+              <button>🔊 Stem</button><button>↩ Spoor</button><button class="stop">Stoppen</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- vrij rijden ---------- -->
+    <div class="kolom">
+      <div class="kolomkop"><h2>Vrij rijden</h2><span class="merk straks">zonder bestemming</span></div>
+      <p>Geen route, dus geen groen blok en geen aankomsttijd. In het lichte thema,
+         want zo ziet hij er overdag uit. Dit werkt al in versie 53.</p>
+
+      <div class="fon mock licht">
+        <div class="cabine">
+          <div class="wegbalk">
+            <div class="wegtxt">
+              <div class="wegnaam">Kreisstraße 2</div>
+              <div class="straks">vrij rijden — je spoor wordt bijgehouden</div>
+            </div>
+          </div>
+
+          <div class="cabkaart">
+            <svg class="grond" viewBox="0 0 390 300" aria-hidden="true">
+              <rect width="390" height="300" fill="#EDE8DC"/>
+              <path d="M-20 250 Q90 230 150 170 T260 60 T420 0" stroke="#DDE7D3" stroke-width="72" fill="none"/>
+              <path d="M-30 120 Q60 110 120 140 T240 150" stroke="#C9DDE8" stroke-width="14" fill="none"/>
+              <path d="M195 330 L195 170 Q195 110 250 80 T400 30" stroke="#FFFFFF" stroke-width="15" fill="none"/>
+              <path d="M195 330 L195 170 Q195 110 250 80 T400 30" stroke="#D5CFC3" stroke-width="1" fill="none"/>
+              <path d="M120 330 Q160 240 195 205" stroke="#3FC4F0" stroke-width="4" stroke-dasharray="1 7" stroke-linecap="round" fill="none"/>
+            </svg>
+            <div class="mijpijl">
+              <svg viewBox="0 0 40 40" aria-hidden="true">
+                <path d="M20 3 L34 34 L20 26.5 L6 34 Z" fill="#15719B" stroke="#FFFFFF" stroke-width="2.6" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="cabknoppen"><div>◎</div><div>◈</div><div><small>RUIM</small></div></div>
+          </div>
+
+          <div class="cabonder">
+            <div class="snelrij">
+              <div class="snelblok"><b>72</b><i>km/u</i></div>
+              <div class="bord">70</div>
+              <div class="snelrest">
+                <div><span>Gereden</span><strong>43</strong></div>
+                <div><span>Onderweg</span><strong>1u 12</strong></div>
+              </div>
+            </div>
+            <div class="cabknop">
+              <button>🔊 Stem</button><button>↩ Spoor</button><button class="stop">Stoppen</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="punten" style="margin-top:34px">
+    <div class="punt">
+      <h3><span class="letter">F</span> Je snelheid groot, het bord ernaast</h3>
+      <p>Dat zijn de twee getallen die je met elkaar vergelijkt, dus ze horen bij
+         elkaar te staan. Zo doen Garmin, TomTom en Google Maps het ook.</p>
+      <p>Aankomst en nog-te-gaan worden kleiner en schuiven naar rechts. Die kijk
+         je één keer per half uur, niet elke minuut.</p>
+    </div>
+    <div class="punt">
+      <h3><span class="letter">G</span> Eén streep voor hoe ver je bent</h3>
+      <p>Nu weet je alleen hoeveel er nog komt. Met een balk zie je in één blik
+         waar je zit in de rit — dat is precies wat je wil weten als je overweegt
+         om koffie te gaan drinken.</p>
+    </div>
+    <div class="punt">
+      <h3><span class="letter">H</span> Wat ik níét zou doen</h3>
+      <p>Je snelheid rood laten worden als je te hard gaat. De limieten in
+         OpenStreetMap zijn niet overal ingevuld en soms verouderd; een vals
+         alarm op de Autobahn is erger dan geen alarm.</p>
+      <p>Het bord laten zien is genoeg. Jij kijkt, jij beslist.</p>
+    </div>
+  </div>
+
+  <p class="slot">
+    <b>Dit is een plaatje, geen werkende app.</b> De knoppen doen niets. Als dit
+    de goede kant op is, bouw ik eerst alleen het tabblad Plannen om — dan kun je
+    het op je telefoon naast de echte app leggen. Bevalt het niet, dan is er één
+    bestand terug te draaien in plaats van de hele app.
+  </p>
+</div>
