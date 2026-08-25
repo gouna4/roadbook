@@ -113,10 +113,14 @@ function applyVariant(k){
   state.shape=state.fast.shape.length?state.fast.shape.concat(v.shape):v.shape;
   const cum=cumulative(state.shape); state.cum=cum;
   zetBron('route',v.prof.fc);
-  el('sumKm').textContent=(state.fast.km+v.km).toFixed(0)+' km';
+  el('sumKm').textContent=(state.fast.km+v.km).toFixed(0);
   el('sumTime').textContent = v.imported ? '—' : fmtTime(state.fast.sec+v.sec);
   el('sumEta').textContent = aankomst(state.fast.sec+v.sec, v.imported);
   el('sumCurve').textContent=String(v.prof.score);
+  /* De bochtigheid als streepje op een balk die van groen naar rood loopt. Een
+     getal alleen zegt je niets als je niet weet waar 64 op die schaal ligt. */
+  const wijzer=el('curveWijzer');
+  if(wijzer) wijzer.style.left=Math.max(0,Math.min(100,v.prof.score))+'%';
   el('sumStops').textContent=String(state.mids.length);
   el('summary').hidden=false; el('legend').hidden=false; el('exports').hidden=false;
   /* Er ligt een route: dan hoort Route starten binnen handbereik te staan,

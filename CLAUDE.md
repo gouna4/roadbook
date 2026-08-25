@@ -162,7 +162,12 @@ kaartgebieden je hebt binnengehaald (de kaartstukjes zelf zitten in de Cache
 - Geen `localStorage` zonder `try/catch` (werkt niet in afgeschermde vensters).
 - Geen framework, geen build. Gewone DOM-code.
 - Kleuren en lettertypes komen uit de CSS-variabelen bovenin. Niet zomaar
-  nieuwe kleuren verzinnen.
+  nieuwe kleuren verzinnen. Sinds versie 57 heeft **elk tabblad zijn eigen
+  kleur** (Plannen messing, Onderweg `--sky`, Ritten `--moss`); gebruik die van
+  het tabblad waar je bezig bent.
+- **Uitleg hoort achter een i-knopje** (`<button class="ino" data-ino="…">`),
+  niet permanent op het scherm. Eén regel mag blijven staan als hij iets leert
+  dat je niet ziet.
 - Elementen worden opgehaald met `el('id')`.
 - **Lijnen op de kaart zetten gaat via `zetBron(id,data)`**, nooit rechtstreeks
   met `map.getSource(id).setData(...)`. De lagen bestaan pas als de kaartstijl
@@ -379,6 +384,56 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
   ongeveer 2200 stukjes en 46 MB. Een weekend van 600 km ongeveer 105 MB
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
+
+## Versie 57: het voorstel gebouwd, en drie dingen die rammelden
+
+De eigenaar legde het ontwerpvoorstel naast de app en zag dat er een gat tussen
+zat. Terecht — het voorstel was een plaatje en er was nog niets van gebouwd.
+Dat is nu wel zo, plus drie fouten die hij op de foto's aanwees.
+
+### De drie fouten
+
+**1. De hele app stond scheef en half buiten beeld.** Op beide foto's liepen de
+knoppen rechts van het scherm af. Dat is geen uitlijnfout maar **paginazoom**:
+door op de kaart te knijpen zoomde Safari de hele pagina in plaats van de kaart,
+en daar kom je alleen met een dubbele tik weer uit. Nu worden de gebaar-meldingen
+van de browser tegengehouden (`gesturestart`), staat er `maximum-scale=1` in de
+kop en `touch-action:manipulation` op de body. MapLibre werkt met gewone
+aanraak-meldingen, dus **de kaart houdt zijn eigen knijpen** — precies zoals het
+hoort: knijpen op de kaart zoomt de kaart, knijpen ernaast doet niets.
+
+**2. De kompasnaald stond scheef in zijn rondje.** `.dround` had geen
+`display:grid; place-items:center`, dus hing de naald aan de tekstregel. Nu
+staat de inhoud van alle drie de ronde knoppen precies in het midden.
+
+**3. Twee keer "Route starten" op één scherm.** Sinds versie 54 staat het
+resultaat op de greep van het bodemblad én in het paneel. Schoof je het paneel
+open, dan zag je dezelfde groene knop twee keer. Het kaartje op de greep is nu
+alleen te zien als het blad **dichtgeschoven** is; staat het open, dan zie je de
+knop in het paneel. `zelftest.js` controleert dat het altijd precies één van de
+twee is.
+
+### En het voorstel zelf
+
+- **Elk tabblad zijn eigen kleur** — Plannen messing, Onderweg lichtblauw, Ritten
+  mosgroen. Die kleuren stonden al in de app maar deden bijna niets
+- **Vertrek en bestemming als één kaart**, de naam groot in de kopletter met het
+  woordje ("vertrek", "bestemming") klein eronder. Geen kopje meer nodig
+- **Soort rit met een teken in de pillen**
+- **Koppen in gewone letters** in plaats van streepjes hoofdletters
+- **Uitleg achter een i** — je leest zoiets één keer, daarna staat het in de weg.
+  Tikken opent, nog eens tikken sluit
+- **Het resultaat als dashboard**: de afstand groot, rijtijd en aankomst eronder,
+  en de bochtigheid als **balk die van groen naar rood loopt** met jouw score als
+  streepje erin. Dat cijfer is wat deze app anders maakt dan alle andere
+- **De drie vinkjes zijn ronde knoppen geworden** — Bochten, Mooi, Slapen — met
+  de knop Onderweg (tanken, eten, koffie) ernaast. Ze staan nu in Plannen, waar
+  je ze nodig hebt, in plaats van op het tabblad Onderweg waar je ze niet kon
+  vinden. Het vinkje zit nog ín de knop: dat is wat de rest van de app uitleest,
+  en Zuinig met data kan ze nog steeds dempen
+
+**Wat er niet is veranderd, op verzoek:** het bord met de toegestane snelheid
+blijft bovenaan bij de wegnaam staan.
 
 ## Versie 56: de velden beginnen leeg
 

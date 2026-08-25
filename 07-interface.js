@@ -91,6 +91,7 @@ function zetStand(st,bewaren){
   /* Het paneel scrolt niet meer zelf; dat doet het middenstuk. */
   if(st!=='full'){ const w=document.querySelector('.stepwrap'); if(w) w.scrollTop=0; }
   if(bewaren!==false) store.set('rb.sheet',st);
+  if(typeof gripKaartBij==='function') gripKaartBij();
   metenDicht();
 }
 
@@ -349,6 +350,18 @@ el('zoekWis').addEventListener('click',()=>{
   el('zoekVeld').value=''; el('zoekWis').hidden=true; el('zoekVeld').focus();
 });
 
+/* De uitleg staat achter een klein rondje met een i. Je leest zoiets één keer,
+   en daarna is het een streep grijs die elke keer weer in de weg staat. Tikken
+   zet hem open, nog eens tikken weer dicht. */
+document.querySelectorAll('.ino').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const p=el(b.dataset.ino);
+    if(!p) return;
+    p.hidden=!p.hidden;
+    b.classList.toggle('open',!p.hidden);
+  });
+});
+
 /* Zuinig met data: één schakelaar in plaats van drie vinkjes waar je over moet
    nadenken. De vinkjes blijven staan zoals jij ze had, maar ze doen even niets
    en je ziet dat ook. */
@@ -405,9 +418,12 @@ function klaarBij(){
      route rijd je gewoon. In beide gevallen gaat de kaart met je mee en wordt
      je spoor bijgehouden. Eén knop, en het woord erop zegt wat er gebeurt. */
   const gaan = erIsEr ? '▶ Route starten' : '▶ Vrij rijden';
-  el('sheetDrive').hidden=false;
   el('sheetDrive').textContent=gaan;
   el('gripStart').textContent=gaan;
+  /* Twee keer dezelfde groene knop op één scherm is verwarrend. Het kaartje op
+     de greep is er alleen als het blad dichtgeschoven is; staat het open, dan
+     zie je de knop in het paneel zelf. */
+  gripKaartBij(erIsEr);
   const naar=(el('dest').value||'').trim();
   /* Niet overschrijven terwijl je erin aan het typen bent. */
   if(document.activeElement!==el('zoekVeld')) el('zoekVeld').value=naar;
@@ -416,17 +432,14 @@ function klaarBij(){
   /* Hetzelfde resultaat nog een keer, maar dan op de greep — daar zie je het
      ook als het blad dichtgeschoven is. De cijfers worden overgenomen van het
      paneel, zodat er nooit twee verschillende getallen kunnen staan. */
-  el('gripKaart').hidden=false;
-  el('gripCijfers').hidden=!erIsEr;
 
   /* Onderweg zonder route: het weer, het hoogteprofiel en "wat is er onderweg"
      hebben dan niets om over te gaan. Dat zeggen we, en het blok dat een route
      nodig heeft gaat grijs. De instellingen erboven blijven gewoon te
      gebruiken — die zet je juist vóór je plant. */
   el('wegLeeg').hidden=erIsEr;
-  el('alongBlock').classList.toggle('kleed',!erIsEr);
   if(erIsEr){
-    el('gKm').textContent=el('sumKm').textContent;
+    el('gKm').textContent=el('sumKm').textContent+' km';
     el('gTijd').textContent=el('sumTime').textContent;
     el('gEta').textContent=el('sumEta').textContent;
     el('gCurve').textContent=el('sumCurve').textContent;
@@ -437,6 +450,17 @@ function klaarBij(){
 /* Hoeveel er van het blad blijft staan als het dichtgeschoven is: de greep plus
    de tabbalk. Niet schatten maar meten — met het resultaatkaartje erbij is dat
    ruim twee keer zo hoog, en een vast getal zou de startknop half afsnijden. */
+/* Het kaartje op de greep: alleen als het blad dichtgeschoven is. Anders staat
+   dezelfde groene knop twee keer op je scherm. */
+function gripKaartBij(erIsEr){
+  if(erIsEr===undefined) erIsEr=!!state.variants?.[state.shown]?.shape?.length;
+  const dicht = mobiel() && !liggend() && sheet.stand==='peek';
+  el('gripKaart').hidden=!dicht;
+  el('gripCijfers').hidden=!erIsEr;
+  el('sheetDrive').hidden=dicht;
+  metenDicht();
+}
+
 function metenDicht(){
   const wortel=document.documentElement;
   if(!mobiel()||liggend()){ wortel.style.removeProperty('--dicht'); return; }

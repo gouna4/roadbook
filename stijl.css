@@ -45,6 +45,10 @@
   html,body{height:100%}
   body{
     background:var(--ink);color:var(--paper);font-family:var(--body);font-size:14px;
+    /* Geen dubbeltik-zoom van de browser: dat zet de hele app scheef en je komt
+       er alleen met een dubbele tik weer uit. De kaart zet zijn eigen
+       touch-action en houdt dus gewoon zijn eigen knijpen. */
+    touch-action:manipulation;
     display:grid;grid-template-columns:400px 1fr;height:100dvh;overflow:hidden;
   }
   button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
@@ -337,8 +341,15 @@
     font-weight:600;text-transform:none;font-size:15px;color:var(--muted);
     border:1px solid transparent;border-radius:10px}
   .tabs button:hover{color:var(--paper)}
+  /* Elk tabblad zijn eigen kleur. De kleuren stonden al in de app maar deden
+     bijna niets: messing deed 49 van de 65 gekleurde dingen. Nu zie je in één
+     oogopslag waar je bent. */
+  .tabs button[data-tab="weg"]{color:var(--sky)}
+  .tabs button[data-tab="rit"]{color:var(--moss)}
   .tabs button.on{color:var(--brass);border-color:var(--brass);
     background:var(--panel-2)}
+  .tabs button[data-tab="weg"].on{color:var(--sky);border-color:var(--sky)}
+  .tabs button[data-tab="rit"].on{color:var(--moss);border-color:var(--moss)}
   /* Het versienummer staat in de tabbalk, dus altijd in beeld. Daaraan zie je
      of je telefoon de nieuwe app heeft. */
   .tabs .ver{margin-left:auto;align-self:center;font-family:var(--mono);
@@ -525,8 +536,12 @@
   /* De ronde knoppen rechtsboven. Alleen deze vangen aanrakingen; de kaart
      eronder blijft te slepen. */
   .dside{display:flex;flex-direction:column;gap:10px;pointer-events:auto}
+  /* display:grid + place-items zet de inhoud precies in het midden. Zonder dat
+     hangt een teken aan de tekstregel en staat het scheef in het rondje — dat
+     zag je aan de kompasnaald. */
   .dround{width:52px;height:52px;border-radius:50%;background:var(--glas-diep);
     border:1px solid var(--hair);color:var(--paper);font-size:19px;line-height:1;
+    display:grid;place-items:center;padding:0;
     box-shadow:0 3px 12px var(--schaduw)}
   .dround[hidden]{display:none}
   .dround.on{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
@@ -564,6 +579,103 @@
   .dbtns button:hover{color:var(--paper);border-color:var(--paper)}
   .dbtns button.on{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
   .dbtns button.stop{border-color:var(--signal);color:var(--signal)}
+
+  /* ============================================================
+     De nieuwe opmaak van het paneel, versie 57.
+
+     Drie regels, en die verklaren alles hieronder:
+     1. wat je het vaakst nodig hebt is het grootst
+     2. geen kaders en geen hoofdletters waar witruimte hetzelfde doet
+     3. uitleg staat achter een i, niet permanent op je scherm
+     ============================================================ */
+
+  /* Een kop boven een blok: dik, in gewone letters, met het uitleg-knopje
+     rechts. Dit vervangt de streepjes hoofdletters (.eyebrow). */
+  .blokkop{font-family:var(--display);font-size:19px;font-weight:600;
+    margin:18px 16px 9px;display:flex;align-items:center;gap:9px;
+    letter-spacing:.005em;color:var(--paper)}
+  .ino{width:20px;height:20px;flex:none;border-radius:50%;
+    border:1px solid var(--hair);color:var(--muted);
+    font-family:var(--body);font-size:11.5px;font-weight:600;line-height:1;
+    display:grid;place-items:center;margin-left:auto}
+  .ino:hover{color:var(--brass);border-color:var(--brass)}
+  .ino.open{background:var(--brass);border-color:var(--brass);color:var(--opknop)}
+
+  /* Waar begin je en waar ga je heen: één kaart. De naam groot, het woordje
+     eronder klein — dan hoeft er geen kopje boven. */
+  .routekaart{background:var(--panel-2);border:1px solid var(--hair);
+    border-radius:14px;margin:14px 16px 0;padding:2px 12px;border-bottom-width:1px}
+  /* De streep onder het oude blok hoort niet meer bij een kaart met een rand. */
+  .plekken.routekaart{border-bottom:1px solid var(--hair)}
+  .routekaart .plek{border-bottom:1px dashed var(--hair)}
+  .routekaart .plek:last-of-type{border-bottom:0}
+  .plekcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:0}
+  .plekcol input{width:100%;border:0;background:none;padding:0;
+    font-family:var(--display);font-size:21px;font-weight:600;line-height:1.25;
+    color:var(--paper)}
+  .plekcol input::placeholder{color:var(--muted);font-weight:500}
+  .plekbij{font-family:var(--body);font-size:11px;color:var(--muted);
+    letter-spacing:.02em}
+  .routekaart .plekrij{padding:2px 0 8px}
+
+  /* Soort rit: pillen met een teken erin. */
+  .soortrit{border:0;padding:14px 16px 0;margin:0}
+  .soortrit .chips button{padding:9px 13px 9px 10px;font-size:13.5px;
+    border-radius:99px}
+  .soortrit .chips svg{width:17px;height:17px}
+
+  /* Het resultaat als dashboard. */
+  .dash{background:var(--panel-2);border:1px solid var(--hair);border-radius:16px;
+    margin:14px 16px 0;padding:14px 16px 16px}
+  .dash[hidden]{display:none}
+  .dashkm{margin:0;display:flex;align-items:baseline;gap:7px}
+  .dashkm strong{font-family:var(--mono);font-size:40px;font-weight:500;
+    line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .dashkm i{font-family:var(--display);font-style:normal;font-size:17px;
+    color:var(--muted)}
+  .dashrij{margin:8px 0 0;display:flex;gap:16px;flex-wrap:wrap;
+    font-size:13.5px;color:var(--muted)}
+  .dashrij b{font-family:var(--mono);font-weight:500;color:var(--paper);
+    font-variant-numeric:tabular-nums}
+  .dashrij span[hidden]{display:none}
+
+  /* De bochtigheid als balk. Van rustig groen naar rood: zo zie je meteen waar
+     jouw route op die schaal ligt, en dat zegt een kaal getal niet. */
+  .balkrij{margin:13px 0 0;display:flex;align-items:center;gap:10px}
+  .balklabel{font-family:var(--display);text-transform:uppercase;
+    letter-spacing:.1em;font-size:9.5px;color:var(--muted);flex:none}
+  .balk{flex:1;height:9px;border-radius:99px;position:relative;
+    background:linear-gradient(90deg,var(--moss) 0%,var(--brass) 45%,
+      var(--signal) 75%,#E02D00 100%)}
+  .balk i{position:absolute;top:-3px;bottom:-3px;width:3px;border-radius:2px;
+    background:var(--paper);box-shadow:0 0 0 2px var(--panel-2);
+    left:0;transform:translateX(-1.5px);transition:left .3s ease}
+  .balkgetal{font-family:var(--mono);font-size:16px;font-weight:500;flex:none;
+    color:var(--brass);font-variant-numeric:tabular-nums}
+  @media (prefers-reduced-motion:reduce){ .balk i{transition:none} }
+
+  .dash .doe{width:100%;margin:14px 0 0}
+
+  /* Wat je onderweg wil zien: ronde knoppen met een woord eronder. Het vinkje
+     zit er nog in — dat leest de rest van de app uit — maar je ziet de bol. */
+  .ikonen{display:flex;gap:8px;margin:0 16px}
+  .ikoon{flex:1 1 0;min-width:0;display:flex;flex-direction:column;
+    align-items:center;gap:5px;cursor:pointer;background:none;border:0;padding:0}
+  .ikoon input{position:absolute;opacity:0;width:0;height:0}
+  .ikoon .bol{width:100%;max-width:58px;aspect-ratio:1;border-radius:50%;
+    border:1px solid var(--hair);display:grid;place-items:center;
+    font-size:22px;line-height:1;color:var(--muted);
+    transition:background .15s ease,border-color .15s ease,color .15s ease}
+  .ikoon b{font-family:var(--display);font-size:11.5px;font-weight:600;
+    color:var(--muted);letter-spacing:.03em}
+  .ikoon input:checked ~ .bol{background:var(--brass);border-color:var(--brass);
+    color:var(--opknop)}
+  .ikoon input:checked ~ b{color:var(--paper)}
+  .ikoon:hover .bol{border-color:var(--brass);color:var(--brass)}
+  .ikoon.knopikoon .bol{font-size:19px}
+  .ikoon.kleed{opacity:.45}
+  .ikoon input:focus-visible ~ .bol{outline:2px solid var(--brass);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){ .ikoon .bol{transition:none} }
 
   /* ---------- telefoon staand: kaart vult het scherm, paneel is een blad ---------- */
   /* ---------- telefoon staand: kaart vult het scherm, paneel is een blad ---------- */

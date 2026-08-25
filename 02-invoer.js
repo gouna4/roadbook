@@ -138,7 +138,7 @@ function renderVias(){
 /* De bestemming krijgt het nummer dat er na jouw laatste punt komt. */
 function updateDestLabel(){
   const n=state.vias.filter(v=>String(v).trim()).length;
-  el('destLabel').textContent = tripMode==='loop'?'Richting welk gebied':'Bestemming';
+  el('destLabel').textContent = tripMode==='loop'?'welke kant op':'bestemming';
 }
 
 function addVia(text=''){ if(typeof pushUndo==='function') pushUndo();

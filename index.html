@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Roadbook — motortour planner</title>
 <meta name="theme-color" content="#14181C">
 <link rel="manifest" href="manifest.webmanifest">
@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="stijl.css?v=56">
+<link rel="stylesheet" href="stijl.css?v=57">
 </head>
 <body>
 
@@ -41,7 +41,7 @@
     <button data-tab="plan" class="on">Plannen</button>
     <button data-tab="weg">Onderweg</button>
     <button data-tab="rit">Ritten</button>
-    <span class="ver" id="verNr">v56</span>
+    <span class="ver" id="verNr">v57</span>
     <button data-tab="set" class="sliders" aria-label="Instellingen" title="Instellingen">⚙</button>
   </nav>
 
@@ -49,10 +49,16 @@
 
   <!-- ============ Plannen ============ -->
   <section class="tab on" data-tab="plan">
-    <div class="plekken">
+    <!-- Waar begin je en waar ga je heen: één kaart, want het hoort bij elkaar.
+         De naam groot, het woordje eronder klein — zo zie je in één blik wat
+         waar staat zonder dat er kopjes boven hoeven. -->
+    <div class="plekken routekaart">
       <div class="plek">
         <span class="vlag start">⚑</span>
-        <input id="start" placeholder="Vanaf waar?">
+        <span class="plekcol">
+          <input id="start" placeholder="Vanaf waar?">
+          <small class="plekbij">vertrek</small>
+        </span>
         <button class="veldknop" id="hereBtn" aria-label="Mijn locatie gebruiken"
                 title="Vertrek vanaf waar ik nu ben">◎</button>
         <button class="veldknop wis" id="startWis" hidden aria-label="Leegmaken"
@@ -61,14 +67,16 @@
       <div id="vias"></div>
       <div class="plek">
         <span class="vlag eind">⚑</span>
-        <input id="dest" placeholder="Waar naartoe?">
+        <span class="plekcol">
+          <input id="dest" placeholder="Waar naartoe?">
+          <small class="plekbij" id="destLabel">bestemming</small>
+        </span>
         <button class="veldknop wis" id="destWis" hidden aria-label="Leegmaken"
                 title="Dit veld leegmaken">✕</button>
       </div>
       <div class="plekrij">
         <button class="text-btn" id="addVia">+ Tussenstop</button>
       </div>
-      <p class="hint" id="destLabel" hidden>Bestemming</p>
     </div>
 
     <!-- Waar eindigt je rit? Dat is het tweede wat je bedenkt, meteen na waar je
@@ -78,9 +86,18 @@
          ernaast; het vakje zegt het zelf. -->
     <div class="block soortrit">
       <div class="chips" id="tripMode">
-        <button data-m="one" class="on">Enkele reis</button>
-        <button data-m="back">Heen en terug</button>
-        <button data-m="loop">Rondje</button>
+        <button data-m="one" class="on">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 15h9a4 4 0 0 0 0-8H8"/><path d="M11 4l3 3-3 3"/></svg>
+          Enkele reis
+        </button>
+        <button data-m="back">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 7h9a3.5 3.5 0 0 1 0 7H5"/><path d="M8 4L5 7l3 3"/></svg>
+          Heen en terug
+        </button>
+        <button data-m="loop">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.4"/><path d="M10 3.6l2.4 2.2-2.4 2.2"/></svg>
+          Rondje
+        </button>
       </div>
       <p class="hint" id="modeHint">Van A naar B — je stopt bij je bestemming.</p>
       <p class="inline lusrij" id="loopRow" hidden>
@@ -93,6 +110,9 @@
       </p>
     </div>
 
+    <h3 class="blokkop">Wat voor wegen
+      <button class="ino" data-ino="levelHint" aria-label="Uitleg">i</button>
+    </h3>
     <div class="soorten" id="levels">
       <button data-v="1" title="Kronkel — maximaal bochten, ook door dorpjes">
         <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M2 8C4 1 6 1 8 8s4 7 6 0 4-7 6 0 4 7 6 0 4-7 6 0 4 7 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -111,20 +131,59 @@
       </button>
       <button class="meer" id="wegMeer" aria-label="Meer over de wegen" title="Vermijden, onverhard, snelwegaanloop">⚌</button>
     </div>
-    <p class="hint" id="levelHint">
+    <p class="hint" id="levelHint" hidden>
       Doorgaande landwegen met vloeiende bochten. Dorpen worden zoveel mogelijk gemeden.
     </p>
 
-    <button class="doe start" id="sheetDrive" hidden>▶ Route starten</button>
     <button class="doe" id="go">Route plannen</button>
 
-    <div class="cijfers" id="summary" hidden>
-      <div><span>Afstand</span><strong id="sumKm">—</strong></div>
-      <div><span>Rijtijd</span><strong id="sumTime">—</strong></div>
-      <div><span>Aankomst</span><strong id="sumEta">—</strong></div>
-      <div class="acc"><span>Bochtig</span><strong id="sumCurve">—</strong></div>
-      <div hidden><span>Stops</span><strong id="sumStops">—</strong></div>
+    <!-- Het resultaat als dashboard: de afstand groot, en de bochtigheid als
+         balk. Dat cijfer is wat deze app anders maakt dan alle andere. -->
+    <div class="dash" id="summary" hidden>
+      <p class="dashkm"><strong id="sumKm">—</strong><i>km</i></p>
+      <p class="dashrij">
+        <span>rijtijd <b id="sumTime">—</b></span>
+        <span>aankomst <b id="sumEta">—</b></span>
+        <span hidden>stops <b id="sumStops">—</b></span>
+      </p>
+      <p class="balkrij">
+        <span class="balklabel">Bochtig</span>
+        <span class="balk"><i id="curveWijzer"></i></span>
+        <b class="balkgetal" id="sumCurve">—</b>
+      </p>
+      <button class="doe start" id="sheetDrive">▶ Route starten</button>
     </div>
+    <!-- Wat je onderweg wil zien. Dit stonden drie vinkjes op een ander tabblad;
+         als ronde knoppen zijn ze drie keer zo groot en zie je ze meteen. Het
+         vinkje zit er nog in — dat is wat de rest van de app uitleest — maar je
+         ziet alleen de knop. -->
+    <h3 class="blokkop">Onderweg zien
+      <button class="ino" data-ino="zienHint" aria-label="Uitleg">i</button>
+    </h3>
+    <div class="ikonen">
+      <label class="ikoon">
+        <input type="checkbox" id="findCurvy" checked>
+        <span class="bol">∿</span><b>Bochten</b>
+      </label>
+      <label class="ikoon">
+        <input type="checkbox" id="findPois" checked>
+        <span class="bol">◎</span><b>Mooi</b>
+      </label>
+      <label class="ikoon">
+        <input type="checkbox" id="findStays">
+        <span class="bol">☾</span><b>Slapen</b>
+      </label>
+      <button class="ikoon knopikoon" id="alongAll">
+        <span class="bol">⛽</span><b>Onderweg</b>
+      </button>
+    </div>
+    <p class="hint" id="zienHint" hidden>
+      Bochten opzoeken kijkt waar je route saai wordt, meet de wegen in de buurt
+      door en stuurt je langs de bochtigste; bergpassen gaan voor. Onderweg zoekt
+      tankstations, eten en koffie langs je route. Met Zuinig met data aan bij
+      Onderweg liggen die twee stil.
+    </p>
+    <div class="rows" id="alongList"></div>
     <p class="status" id="status"></p>
 
     <div class="legend" id="legend" hidden>
@@ -181,12 +240,6 @@
     </div>
 
     <div class="block">
-      <div class="eyebrow">Wat wil je onderweg zien</div>
-      <div class="checks">
-        <label class="check"><input type="checkbox" id="findCurvy" checked> <b>Bochten opzoeken</b></label>
-        <label class="check"><input type="checkbox" id="findPois" checked> Bezienswaardigheden</label>
-        <label class="check"><input type="checkbox" id="findStays"> Overnachting bij de bestemming</label>
-      </div>
       <label class="check zuinig">
         <input type="checkbox" id="zuinig"> <b>Zuinig met data</b>
       </label>
@@ -202,13 +255,6 @@
       </p>
     </div>
 
-    <div class="block" id="alongBlock">
-      <div class="eyebrow">Tanken, eten en koffie</div>
-      <div class="chips">
-        <button id="alongAll">Wat is er onderweg?</button>
-      </div>
-      <div class="rows" id="alongList"></div>
-    </div>
 
     <div class="wx" id="wx" hidden></div>
     <div id="elevBox" hidden class="elevbox">
@@ -461,17 +507,17 @@
   </div>
 </div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="01-basis.js?v=56"></script>
-<script src="02-invoer.js?v=56"></script>
-<script src="03-route.js?v=56"></script>
-<script src="04-bibliotheek.js?v=56"></script>
-<script src="05-weergave.js?v=56"></script>
-<script src="06-plannen.js?v=56"></script>
-<script src="07-interface.js?v=56"></script>
-<script src="08-onderweg.js?v=56"></script>
-<script src="09-rijden.js?v=56"></script>
-<script src="10-uitvoer.js?v=56"></script>
-<script src="11-offline.js?v=56"></script>
-<script src="12-opstarten.js?v=56"></script>
+<script src="01-basis.js?v=57"></script>
+<script src="02-invoer.js?v=57"></script>
+<script src="03-route.js?v=57"></script>
+<script src="04-bibliotheek.js?v=57"></script>
+<script src="05-weergave.js?v=57"></script>
+<script src="06-plannen.js?v=57"></script>
+<script src="07-interface.js?v=57"></script>
+<script src="08-onderweg.js?v=57"></script>
+<script src="09-rijden.js?v=57"></script>
+<script src="10-uitvoer.js?v=57"></script>
+<script src="11-offline.js?v=57"></script>
+<script src="12-opstarten.js?v=57"></script>
 </body>
 </html>

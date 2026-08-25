@@ -899,9 +899,12 @@ console.log('=== 4. klopt de interface met de code? ===');
   const jsAlles = BESTANDEN.map(f => fs.readFileSync(f, 'utf8')).join('\n');
   /* Een naam kan op drie manieren gebruikt worden: als el('naam'), binnen een
      langere selector als '#naam button', of in de opmaak als #naam. */
+  /* Een id telt als gebruikt zodra de code hem noemt — of zodra de interface
+     zelf ernaar wijst, zoals `data-ino="levelHint"` bij de uitleg-knopjes. */
   const noemt = naam => jsAlles.indexOf("'" + naam + "'") >= 0
                      || jsAlles.indexOf('"' + naam + '"') >= 0
-                     || jsAlles.indexOf('#' + naam) >= 0;
+                     || jsAlles.indexOf('#' + naam) >= 0
+                     || html.indexOf('="' + naam + '"') >= 0;
   const dood = [], naamloos = [];
   for (const k of html.matchAll(/<button([^>]*)>/g)) {
     const attr = k[1];
@@ -1211,6 +1214,59 @@ console.log('=== 8. soort rit en het kaartje na de rit ===');
   /* Reed je een route, dan komt de bochtigheid daarvan. */
   stap('met route', () => ritKlaarTonen(12, 900, spoor, { prof:{ score:64 } }));
   check('bochtigheid van de route', el('rkBocht').textContent, '64');
+})();
+
+
+console.log('');
+console.log('=== 9. de nieuwe opmaak van het paneel ===');
+(function nieuweOpmaak(){
+  /* Blok 4 leest index.html in een eigen functie; hier hebben we hem opnieuw
+     nodig om te kijken of de interface klopt met wat de code verwacht. */
+  const html = fs.readFileSync('index.html', 'utf8');
+  const stap = (naam, fn) => {
+    try { fn(); return true; }
+    catch (e) { console.log('FOUT ' + naam + ': ' + e.message); fouten++; return false; }
+  };
+  /* De uitleg-knopjes: tikken opent de alinea, nog eens tikken sluit hem. */
+  const inos = [...html.matchAll(/data-ino="([^"]+)"/g)].map(m => m[1]);
+  check('er zijn uitleg-knopjes', inos.length > 0, true);
+  check('en ze wijzen naar een alinea die bestaat',
+        inos.every(id => html.indexOf('id="' + id + '"') >= 0), true);
+  check('die alinea begint dicht',
+        inos.every(id => new RegExp('id="' + id + '"[^>]*hidden').test(html)), true);
+
+  /* De bochtigheidsbalk krijgt zijn streepje van applyVariant. */
+  const v = { shape:[[6,51],[6.01,51.01]], km:187, sec:11400,
+              prof:{ score:64, spans:[], fc:{type:'FeatureCollection',features:[]} } };
+  state.fast = { shape:[], km:0, sec:0 };
+  state.variants = { base:v }; state.shown = 'base';
+  state.mids = []; state.points = []; state.pois = []; state.stays = [];
+  stap('applyVariant', () => applyVariant('base'));
+  check('de afstand staat er zonder eenheid', el('sumKm').textContent, '187');
+  check('de eenheid staat apart in de interface',
+        /id="sumKm"[^>]*>[^<]*<\/strong><i>km<\/i>/.test(html), true);
+  check('de bochtigheid staat er', el('sumCurve').textContent, '64');
+  check('en het streepje staat op 64%', el('curveWijzer').style.left, '64%');
+  check('op de greep staat het mét eenheid', el('gKm').textContent, '187 km');
+
+  /* Twee keer dezelfde groene knop op één scherm is verwarrend. */
+  check('start staat in het paneel of op de greep, nooit allebei',
+        el('sheetDrive').hidden === !el('gripKaart').hidden, true);
+
+  /* De vinkjes zitten nog in de ronde knoppen — daar leest de rest van de app
+     ze uit, dus ze mogen niet zomaar verdwijnen. */
+  const plat = html.replace(/\s+/g, ' ');
+  ['findCurvy','findPois','findStays'].forEach(id =>
+    check(id + ' zit in een ronde knop',
+          plat.indexOf('<label class="ikoon"> <input type="checkbox" id="' + id + '"') >= 0, true));
+
+  /* Zuinig met data moet die knoppen nog steeds kunnen dempen. */
+  el('zuinig').checked = true;
+  stap('zuinigBij aan', () => zuinigBij());
+  check('bochten opzoeken ligt stil', el('findCurvy').disabled, true);
+  el('zuinig').checked = false;
+  stap('zuinigBij uit', () => zuinigBij());
+  check('en doet het daarna weer', el('findCurvy').disabled, false);
 })();
 
 

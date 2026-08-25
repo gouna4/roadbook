@@ -65,6 +65,14 @@ if(navigator.serviceWorker)
     });
   }).catch(()=>{});
 
+/* De pagina zelf mag niet inzoomen. Knijp je op de kaart, dan hoort de kaart te
+   zoomen; knijp je ernaast, dan hoort er niets te gebeuren. Zonder dit zoomde
+   Safari de hele app: alles stond scheef en half buiten beeld, en de knoppen
+   rechts vielen van het scherm. MapLibre gebruikt gewone aanraak-meldingen en
+   geen gebaar-meldingen, dus zijn eigen knijpen blijft gewoon werken. */
+['gesturestart','gesturechange','gestureend'].forEach(naam=>
+  document.addEventListener(naam,e=>e.preventDefault(),{passive:false}));
+
 const gedeeld=(location.hash.match(/^#r=(.+)$/)||[])[1];
 if(gedeeld) applyShared(gedeeld);
 
