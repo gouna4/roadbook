@@ -348,7 +348,11 @@ function tekenLijnTonen(){
 function kaartKnoppenBij(){
   const tek=teken.punten.length>1;
   const pun=(typeof pinPunten==='function') && pinPunten().length>0;
-  el('drawClear').hidden=!(tek||pun);
+  /* De ✕ op de kaart is er zodra er íets weg te halen is: een tekening,
+     aangewezen punten, óf een route. Anders moet je helemaal naar de onderkant
+     van het paneel scrollen om te wissen, en dat is precies wat niet werkt als
+     je net iets getekend hebt. */
+  el('drawClear').hidden=!(tek||pun||!!state.variants?.[state.shown]?.shape?.length);
   el('drawUndo').hidden=!(tek||pun||teken.oud.length);
 }
 
@@ -417,7 +421,11 @@ el('drawClear').addEventListener('click',()=>{
     setStatus(`${pun} aangewezen punten weggehaald.`);
     return;
   }
+  /* Geen punten en geen tekening? Dan is de route zelf aan de beurt. Zo doet
+     deze knop altijd wat je op dat moment verwacht. */
+  const hadTekening=!!teken.pad?.length;
   tekenWis();
+  if(!hadTekening && typeof alsWissen==='function'){ alsWissen(); return; }
   if(teken.aan) tekenZeg('Tekening weg. Trek een nieuwe vorm.');
   else setStatus('Tekening weg.');
 });

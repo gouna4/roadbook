@@ -438,6 +438,8 @@ function klaarBij(){
      nodig heeft gaat grijs. De instellingen erboven blijven gewoon te
      gebruiken — die zet je juist vóór je plant. */
   el('wegLeeg').hidden=erIsEr;
+  /* De ✕ op de kaart hoort er te staan zodra er een route ligt. */
+  if(typeof pinLijnTonen==='function') pinLijnTonen();
   if(erIsEr){
     el('gKm').textContent=el('sumKm').textContent+' km';
     el('gTijd').textContent=el('sumTime').textContent;
@@ -494,6 +496,9 @@ el('gripStart').addEventListener('click',()=>startDrive());
 /* Op de cijfers tikken opent het paneel weer. Tikken is minder werk dan
    slepen, zeker met handschoenen aan. */
 el('gripCijfers').addEventListener('click',()=>zetStand('half'));
+/* Wissen zit nu op drie plekken: bij het resultaat, onderaan het paneel, en als
+   ✕ op de kaart. Alle drie doen hetzelfde. */
+el('dashWis').addEventListener('click',()=>alsWissen());
 
 zetTab(store.get('rb.tab','plan'));
 klaarBij();

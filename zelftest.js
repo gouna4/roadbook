@@ -860,9 +860,25 @@ console.log('=== 4. klopt de interface met de code? ===');
   /* Een selector die per ongeluk twee keer hetzelfde stukje bevat
      (body.rijden body.rijden .knop) raakt niets. Zo bleven de plus- en minknop
      van de kaart in de rijmodus over de afslag heen staan. */
-  const dubbel = [...css.matchAll(/(\.[\w-]+|#[\w-]+)((?:\s+)+)[\s,{]/g)];
+  /* We knippen elke selector in stukjes op de spaties en kijken of er twee
+     dezelfde stukjes naast elkaar staan. Zo vind je zowel
+     `body.rijden body.rijden .penbtn` als `.legend  .legend .dash`.
+
+     De vorige versie van deze controle werkte met een terugverwijzing () die
+     onderweg in een stuurteken was veranderd — daardoor sloeg hij nooit aan en
+     stond `.legend  .legend .dash` er jarenlang in zonder dat iemand het zag.
+     Vandaar nu gewoon vergelijken, zonder slimme regex. */
+  const dubbel = [];
+  for (const m of css.matchAll(/([^{}@]+)\{/g)) {
+    for (const sel of m[1].split(',')) {
+      const deel = sel.trim().split(/\s+/).filter(Boolean);
+      for (let i = 1; i < deel.length; i++)
+        if (deel[i] === deel[i - 1] && /^[.#a-zA-Z]/.test(deel[i]))
+          dubbel.push(sel.trim());
+    }
+  }
   if (dubbel.length) {
-    for (const d of dubbel) console.log('FOUT selector bevat twee keer "' + d[1] + '"');
+    for (const d of dubbel) console.log('FOUT selector bevat twee keer hetzelfde: ' + d);
     fouten += dubbel.length;
   } else console.log('OK   geen selector die zichzelf herhaalt');
 

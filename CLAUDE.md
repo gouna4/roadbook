@@ -192,6 +192,9 @@ kaartgebieden je hebt binnengehaald (de kaartstukjes zelf zitten in de Cache
   zette `.dmid{pointer-events:none}` opzij, waardoor de kaart in de rijmodus niet
   meer te verschuiven was. Schrijf geen regels over *alle* kinderen van een id;
   noem de onderdelen bij naam. `zelftest.js` controleert dit.
+- **Wat boven het bodemblad moet blijven hangt aan `--dicht`.** Die waarde wordt
+  gemeten (`metenDicht()`) en verandert zodra het resultaatkaartje erbij komt.
+  Een vast getal loopt daar vroeg of laat achteraan — zo verdween de pen eronder.
 - **Op de telefoon is de onderste 86 pixels niet aan te raken**: daar ligt het
   bodemblad over de kaart. Knoppen op de kaart staan in portret dus op
   `bottom:104px` of hoger. Dit ging eerder mis: het ▤-menu zat achter het blad,
@@ -384,6 +387,58 @@ gewone tegelkast (`MAX_TILES`) weg waar de gebruiker op heeft staan wachten.
   ongeveer 2200 stukjes en 46 MB. Een weekend van 600 km ongeveer 105 MB
 - Weggooien laat stukjes staan die ook bij een ander bewaard gebied horen
 - Er is een **Opnieuw**-knop per gebied, want iPhones ruimen soms zelf op
+
+## Versie 58: wissen binnen bereik, en twee dode selectors
+
+Uit de foto's van de eigenaar: *"als ik iets getekend heb kan ik het niet wissen,
+de pen verdwijnt onder het schuifmenu, en waar recht/bochtig/snelweg staat lijkt
+helemaal verkeerd."* Alle drie waren echte fouten.
+
+**1. De pen en de ✕ verdwenen onder het bodemblad.** `.mapleft` stond op
+`bottom:142px`, en sinds het resultaatkaartje op de greep staat is het blad
+ongeveer 175 px hoog. De onderste twee kaartknoppen — de ✕ en de pen, precies de
+twee die je nodig hebt — vielen er dus achter. De kolom hangt nu aan
+`calc(var(--dicht) + 14px)`: die waarde wordt gemeten, dus dit kan niet meer uit
+elkaar lopen.
+
+**Les:** hang wat boven het bodemblad moet blijven aan `--dicht`, niet aan een
+getal dat je vandaag toevallig opmeet.
+
+**2. Wissen zat alleen onderaan een lange bladzijde.** Nu op drie plekken, alle
+drie hetzelfde:
+
+- **✕ op de kaart** — die staat er voortaan zodra er íets weg te halen is: een
+  tekening, aangewezen punten, óf een route. Hij ruimt op in de orde waarin je
+  gewerkt hebt: eerst je aangewezen punten, dan je tekening, dan de route
+- **✕ Wissen in het resultaatkaartje**, vlak onder Route starten
+- **✕ Wissen onderaan het paneel**, zoals het was
+
+**3. `recht — bochtig — snelweg` was stuk.** Daar hoort een kleurbalkje tussen te
+staan dat uitlegt wat de kleuren van de lijn op de kaart betekenen. Er stond:
+
+```css
+.legend  .legend .dash{ ... }   /* een legenda binnen een legenda: raakt niets */
+```
+
+en voor `.bar` stond helemaal geen regel. Je zag dus drie losse woorden met een
+blob ertussen — precies wat de eigenaar beschreef. Nu een echte
+kleurverloop-balk van grijs naar rood, met een streepje voor de snelwegaanloop.
+
+### En de controle die dit had moeten vinden
+
+Sinds versie 39 zit er een controle op selectors die zichzelf herhalen. Die heeft
+**nooit gewerkt**: in de regex stond een terugverwijzing `` die onderweg in een
+onzichtbaar stuurteken was veranderd, waardoor het patroon nooit ergens op paste.
+
+De controle knipt nu elke selector op de spaties en kijkt of er twee dezelfde
+stukjes naast elkaar staan — geen slimme regex meer. Nagerekend door de fout er
+weer in te zetten, en hij vond meteen **nog een dode regel** die er sinds versie
+33 in zat: `.slider  .slider .name`, waardoor het woord "Onverhard" boven de
+schuif nooit opmaak had gekregen. Ook dat is hersteld.
+
+**Les:** een controle die nooit aanslaat is niet hetzelfde als een controle die
+niets vindt. Reken elke nieuwe controle na door de fout er met de hand in te
+zetten — dan weet je dat hij kan afgaan.
 
 ## Versie 57: het voorstel gebouwd, en drie dingen die rammelden
 

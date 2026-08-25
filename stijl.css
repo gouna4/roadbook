@@ -136,8 +136,15 @@
   .levels button:hover{border-color:var(--muted);color:var(--paper)}
   .levels button.on{background:var(--brass);border-color:var(--brass);color:var(--ink)}
 
+  /* De schuif voor Onverhard. `.slider  .slider .name` zocht een schuif binnen
+     een schuif en raakte dus niets: het woord "Onverhard" stond in de gewone
+     letter zonder opmaak. Gevonden nadat de controle op zulke selectors
+     gerepareerd was — hij stond hier al sinds versie 33. */
   .slider{margin-bottom:16px}
-  .slider  .slider .name{font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;font-size:12px}
+  .slider .top{display:flex;align-items:baseline;justify-content:space-between;
+    gap:10px;margin-bottom:7px}
+  .slider .name{font-family:var(--display);text-transform:uppercase;
+    letter-spacing:.09em;font-size:12px;font-weight:600;color:var(--paper)}
   .slider .val{font-family:var(--mono);font-size:12px;color:var(--brass)}
   input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;
     background:var(--hair);border-radius:2px}
@@ -185,10 +192,19 @@
     letter-spacing:.1em;font-size:10.5px;color:var(--muted)}
   .summary div strong{font-family:var(--mono);font-weight:500;font-size:19px;color:var(--paper)}
 
-  .legend{display:flex;align-items:center;gap:8px;padding:0 16px 12px}
-  .legend  .legend .dash{width:24px;height:0;border-top:3px dashed var(--sky);flex:0 0 auto;margin-left:4px}
+  /* De legenda onder het resultaat: wat betekenen de kleuren van de lijn op de
+     kaart. Hier stond `.legend  .legend .dash` — een selector die een legenda
+     binnen een legenda zoekt en dus niets raakt. Daardoor was de balk onzichtbaar
+     en zag je alleen drie losse woorden met een blob ertussen. En voor `.bar`
+     stond helemaal geen regel. */
+  .legend{display:flex;align-items:center;gap:8px;padding:2px 16px 14px}
+  .legend .bar{flex:1;min-width:40px;height:6px;border-radius:99px;
+    background:linear-gradient(90deg,#8FA0AC 0%,var(--brass) 45%,
+      var(--signal) 78%,#E02D00 100%)}
+  .legend .dash{width:26px;height:0;flex:none;margin-left:2px;
+    border-top:3px dashed var(--sky)}
   .legend span.t{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;
-    font-size:10px;color:var(--muted)}
+    font-size:10px;color:var(--muted);flex:none}
 
   .roadbook{padding:13px 16px 20px;position:relative}
   .roadbook::before{content:"";position:absolute;left:52px;top:26px;bottom:36px;width:1px;
@@ -238,8 +254,12 @@
   #map{width:100%;height:100%}
   /* Ronde icoonknoppen op de kaart, rechts onder elkaar — zoals elke
      motornavigatie het doet. 54 pixels: te bedienen met handschoenen aan. */
-  .mapleft{position:absolute;right:12px;bottom:142px;z-index:4;display:flex;
-    flex-direction:column;align-items:flex-end;gap:10px}
+  /* De kolom met kaartknoppen. De onderkant hangt aan --dicht: dat is precies
+     hoeveel bodemblad er blijft staan als het dichtgeschoven is. Stond dit op
+     een vast getal, dan verdween de pen eronder zodra het blad hoger werd —
+     en dat is precies wat er gebeurde toen het resultaatkaartje erbij kwam. */
+  .mapleft{position:absolute;right:12px;bottom:calc(var(--dicht) + 14px);
+    z-index:4;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
   .addmode{width:54px;height:54px;border-radius:50%;background:var(--glas);
     border:1px solid var(--hair);color:var(--paper);font-size:20px;line-height:1;
     display:grid;place-items:center;box-shadow:0 3px 12px var(--schaduw)}
@@ -655,6 +675,13 @@
   @media (prefers-reduced-motion:reduce){ .balk i{transition:none} }
 
   .dash .doe{width:100%;margin:14px 0 0}
+  /* Wissen hoort binnen bereik, niet onderaan een lange bladzijde. Dus ook hier,
+     vlak onder de startknop. */
+  .dashwis{display:flex;justify-content:center;margin-top:8px}
+  .dashwis button{font-family:var(--display);text-transform:uppercase;
+    letter-spacing:.08em;font-size:11.5px;font-weight:600;color:var(--muted);
+    padding:8px 14px;border-radius:9px;border:1px solid transparent}
+  .dashwis button:hover{color:var(--signal);border-color:var(--signal)}
 
   /* Wat je onderweg wil zien: ronde knoppen met een woord eronder. Het vinkje
      zit er nog in — dat leest de rest van de app uit — maar je ziet de bol. */
